@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-paper: #f7f4ef;
+  --color-surface: #ffffff;
+  --color-sunken: #efe9e1;
+  --color-ink: #1c1917;
+  --color-muted: #6b635c;
+  --color-line: #e4ddd4;
+  --color-accent: #c2410c;
+  --color-accent-strong: #9a3412;
+  --color-on-accent: #ffffff;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  /* System CJK fonts first (Android ships Noto Sans CJK), so text renders offline. */
+  --font-cjk: 'Noto Sans CJK TC', 'Noto Sans TC', 'Source Han Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+
+  --animate-reveal: reveal 180ms ease-out;
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #15120f;
+    --color-surface: #1f1b17;
+    --color-sunken: #2a241f;
+    --color-ink: #f3efe9;
+    --color-muted: #a39a90;
+    --color-line: #3a332c;
+    --color-accent: #f97316;
+    --color-accent-strong: #fb923c;
+    --color-on-accent: #1c1008;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+html {
+  color-scheme: light dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-paper text-ink font-sans antialiased;
+  overscroll-behavior-y: none;
+}
+
+:lang(zh-Hant) {
+  font-family: var(--font-cjk);
+}
