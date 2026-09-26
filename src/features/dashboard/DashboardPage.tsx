@@ -10,6 +10,8 @@ import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
+import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
+import { Link } from 'react-router'
 
 const EXTRA_NEW = 5
 
@@ -52,7 +54,17 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Today" subtitle={longDate(today)} />
+      <PageHeader
+        title="Today"
+        subtitle={
+          <>
+            {longDate(today)} · {REVIEW_MODE_INFO[settings.reviewMode].label}{' '}
+            <Link to="/settings" className="text-accent underline">
+              change
+            </Link>
+          </>
+        }
+      />
 
       <section className="rounded-3xl border border-line bg-surface p-5 shadow-sm">
         {toStudy > 0 ? (

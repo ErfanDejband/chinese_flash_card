@@ -33,4 +33,21 @@ describe('review repository', () => {
     expect(entry!.state).toMatchObject({ box: 0, dueOn: null, introducedOn: null, reviewCount: 0 })
     expect(await db.reviewLog.count()).toBe(0)
   })
+
+  it('keeps separate progress per practice direction', async () => {
+    const card = await createCard({ hanzi: '學生', pinyin: 'xuéshēng' })
+    await recordAnswer(card.id, 'knew', DEFAULT_LEITNER, day(25)) // picture → Chinese
+    await recordAnswer(card.id, 'knew', DEFAULT_LEITNER, day(27))
+
+    // Chinese → meaning has never been practised: the card is new there.
+    const [reading] = await loadDeck('hanzi_to_meaning')
+    expect(reading!.state).toMatchObject({ mode: 'hanzi_to_meaning', box: 0 })
+
+    await recordAnswer(card.id, 'forgot', DEFAULT_LEITNER, new Date(2026, 8, 27, 18, 0), 'hanzi_to_meaning')
+    const [picture] = await loadDeck('image_to_word')
+    const [readingAfter] = await loadDeck('hanzi_to_meaning')
+    expect(picture!.state.box).toBe(3)
+    expect(readingAfter!.state).toMatchObject({ box: 1, dueOn: '2026-09-28' })
+    expect((await listReviewLog(card.id)).map((l) => l.mode)).toEqual(['image_to_word', 'image_to_word', 'hanzi_to_meaning'])
+  })
 })

@@ -1,4 +1,4 @@
-import { defaultSettings, validateLeitnerConfig } from '@/domain/leitner/config'
+import { defaultSettings, REVIEW_MODES, validateLeitnerConfig } from '@/domain/leitner/config'
 import type { AppSettings } from '@/domain/types'
 import { db } from '../db'
 
@@ -16,6 +16,7 @@ export function validateSettings(s: SettingsInput): string[] {
   if (!Number.isInteger(s.newPerDay) || s.newPerDay < 0 || s.newPerDay > 500) {
     errors.push('New cards per day must be a whole number between 0 and 500.')
   }
+  if (!REVIEW_MODES.includes(s.reviewMode)) errors.push('Unknown practice direction.')
   return errors
 }
 

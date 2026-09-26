@@ -14,19 +14,25 @@ describe('backup', () => {
   it('round-trips everything with replace', async () => {
     const card = await createCard({ hanzi: '老師', pinyin: 'lǎoshī', meaning: 'teacher', image })
     await recordAnswer(card.id, 'knew', DEFAULT_LEITNER)
+    await recordAnswer(card.id, 'forgot', DEFAULT_LEITNER, new Date(), 'hanzi_to_meaning')
     const zip = await exportBackup()
 
     await wipe()
     await createCard({ hanzi: '臨時', pinyin: 'línshí' }) // replaced away
     const result = await restoreBackup(zip, 'replace')
 
-    expect(result).toEqual({ cards: 1, media: 1, reviews: 1 })
+    expect(result).toEqual({ cards: 1, media: 1, reviews: 2 })
     const cards = await db.cards.toArray()
     expect(cards).toEqual([card])
     const media = await db.media.get(card.imageId!)
     expect(media).toMatchObject({ mime: 'image/png', width: 4, height: 3 })
     expect(await media!.blob.text()).toBe('png-bytes')
-    expect((await db.reviewStates.toArray())[0]).toMatchObject({ cardId: card.id, box: 2 })
+    // Both practice directions keep their own progress.
+    const states = (await db.reviewStates.toArray()).map((s) => [s.mode, s.box]).sort()
+    expect(states).toEqual([
+      ['hanzi_to_meaning', 1],
+      ['image_to_word', 2],
+    ])
   })
 
   it('merge keeps the newer version of each row and unions logs', async () => {

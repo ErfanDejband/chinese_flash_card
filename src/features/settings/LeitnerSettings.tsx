@@ -18,6 +18,7 @@ export function LeitnerSettings({ settings }: { settings: AppSettings }) {
     leitner: { boxes: intervals.map((v) => ({ intervalDays: Number(v) })), onFail },
     newPerDay: Number(newPerDay),
     ttsVoiceURI: settings.ttsVoiceURI,
+    reviewMode: settings.reviewMode,
   }
   const errors = validateSettings(input)
   const dirty =

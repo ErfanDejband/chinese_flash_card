@@ -51,7 +51,8 @@ function ReviewLoader({ query }: { query: string }) {
   const [loaded, setLoaded] = useState<Loaded>()
   useEffect(() => {
     let active = true
-    void Promise.all([loadDeck(), getSettings()]).then(([entries, settings]) => {
+    void getSettings().then(async (settings) => {
+      const entries = await loadDeck(settings.reviewMode)
       if (!active) return
       const request = parseRequest(query)
       const plan = planSession(entries, request, {
@@ -115,7 +116,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
     setBusy(true)
     setError(undefined)
     try {
-      const undoToken = isFirstAnswer(state, cardId) ? await recordAnswer(cardId, result, settings.leitner) : undefined
+      const undoToken = isFirstAnswer(state, cardId) ? await recordAnswer(cardId, result, settings.leitner, new Date(), settings.reviewMode) : undefined
       dispatch({ type: 'answer', result, undoToken })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the answer')
@@ -224,6 +225,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
           isRepeat={!isFirstAnswer(state, entry.card.id)}
           revealed={state.revealed}
           voiceURI={settings.ttsVoiceURI}
+          mode={settings.reviewMode}
         />
       )}
 

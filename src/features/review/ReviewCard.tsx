@@ -1,14 +1,18 @@
-import type { Card } from '@/domain/types'
+import type { Card, ReviewMode } from '@/domain/types'
 import { speak, speechSupported } from '@/lib/speech'
 import { boxLabel } from '@/ui/boxTones'
 import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { MediaImage } from '@/ui/MediaImage'
 
-/** What the card shows before the answer: its image, else the meaning, else the characters. */
+/**
+ * What the card shows before the answer. Picture → Chinese: the picture, else the meaning, else
+ * the characters. Chinese → meaning: always the characters.
+ */
 type PromptKind = 'image' | 'meaning' | 'hanzi'
 
-function promptKind(card: Card): PromptKind {
+function promptKind(card: Card, mode: ReviewMode): PromptKind {
+  if (mode === 'hanzi_to_meaning') return 'hanzi'
   if (card.imageId) return 'image'
   if (card.meaning) return 'meaning'
   return 'hanzi'
@@ -17,7 +21,7 @@ function promptKind(card: Card): PromptKind {
 const QUESTION: Record<PromptKind, string> = {
   image: 'What is this?',
   meaning: 'How do you say this in Chinese?',
-  hanzi: 'How do you read this?',
+  hanzi: 'How is it read, and what does it mean?',
 }
 
 interface Props {
@@ -25,6 +29,7 @@ interface Props {
   box: number
   isRepeat: boolean
   revealed: boolean
+  mode: ReviewMode
   voiceURI?: string
 }
 
@@ -32,8 +37,8 @@ function Chip({ children, className = 'bg-sunken text-muted' }: { children: stri
   return <span className={`rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ${className}`}>{children}</span>
 }
 
-export function ReviewCard({ card, box, isRepeat, revealed, voiceURI }: Props) {
-  const kind = promptKind(card)
+export function ReviewCard({ card, box, isRepeat, revealed, mode, voiceURI }: Props) {
+  const kind = promptKind(card, mode)
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-5 py-4 text-center">
       <div className="flex gap-2">
@@ -70,6 +75,9 @@ export function ReviewCard({ card, box, isRepeat, revealed, voiceURI }: Props) {
             )}
           </div>
           {kind !== 'meaning' && card.meaning && <p className="text-lg text-muted">{card.meaning}</p>}
+          {kind === 'hanzi' && card.imageId && (
+            <MediaImage id={card.imageId} alt="" className="mt-2 max-h-[24dvh] w-full max-w-xs rounded-2xl bg-white object-contain p-2 shadow-sm" />
+          )}
           {card.notes && <p className="mt-2 max-w-md text-sm whitespace-pre-line text-muted">{card.notes}</p>}
         </div>
       )}

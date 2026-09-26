@@ -1,8 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
-import { DEFAULT_MODE, deleteCard, getCard } from '@/data/repositories/cards'
+import { deleteCard, getCard } from '@/data/repositories/cards'
 import { getReviewState } from '@/data/repositories/review'
+import { getSettings } from '@/data/repositories/settings'
 import type { Card, ReviewState } from '@/domain/types'
 import { useToday } from '@/hooks/useToday'
 import { boxLabel } from '@/ui/boxTones'
@@ -12,14 +13,18 @@ import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
+import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
+import { useSettings } from '@/hooks/useDeck'
 import { CardForm } from './CardForm'
 
 function Progress({ card, state }: { card: Card; state?: ReviewState }) {
   const today = useToday()
+  const settings = useSettings()
   const source =
     card.source.type === 'pdf' ? `Imported from ${card.source.fileName}, page ${card.source.page}` : 'Added manually'
   return (
     <div className="mb-6 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
+      {settings && <p className="mb-1 text-xs font-semibold tracking-wide uppercase">{REVIEW_MODE_INFO[settings.reviewMode].label}</p>}
       {state && state.box > 0 ? (
         <p>
           <span className="font-semibold text-ink">{boxLabel(state.box)}</span>
@@ -48,7 +53,8 @@ export function CardEditPage() {
 
   // undefined = loading, null = not found
   const card = useLiveQuery(async () => (id ? ((await getCard(id)) ?? null) : null), [id])
-  const state = useLiveQuery(() => (id ? getReviewState(id, DEFAULT_MODE) : undefined), [id])
+  // Progress in the practice direction currently chosen in Settings.
+  const state = useLiveQuery(async () => (id ? getReviewState(id, (await getSettings()).reviewMode) : undefined), [id])
 
   const goBack = () => (location.key !== 'default' ? navigate(-1) : navigate('/cards', { replace: true }))
 

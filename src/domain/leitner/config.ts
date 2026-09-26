@@ -1,4 +1,6 @@
-import type { AppSettings, LeitnerConfig } from '../types'
+import type { AppSettings, LeitnerConfig, ReviewMode } from '../types'
+
+export const REVIEW_MODES: readonly ReviewMode[] = ['image_to_word', 'hanzi_to_meaning']
 
 export const DEFAULT_LEITNER: LeitnerConfig = {
   boxes: [1, 2, 4, 7, 14].map((intervalDays) => ({ intervalDays })),
@@ -11,7 +13,7 @@ export const MIN_BOXES = 3
 export const MAX_BOXES = 10
 
 export function defaultSettings(now: number): AppSettings {
-  return { leitner: DEFAULT_LEITNER, newPerDay: DEFAULT_NEW_PER_DAY, updatedAt: now }
+  return { leitner: DEFAULT_LEITNER, newPerDay: DEFAULT_NEW_PER_DAY, reviewMode: 'image_to_word', updatedAt: now }
 }
 
 /** Returns a list of problems; empty when the config is valid. */

@@ -12,6 +12,7 @@ import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { AiSettings } from './AiSettings'
 import { BackupSettings } from './BackupSettings'
+import { DirectionSettings } from './DirectionSettings'
 import { LeitnerSettings } from './LeitnerSettings'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -98,6 +99,9 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" />
+      <Section title="Practice direction">
+        <DirectionSettings settings={settings} />
+      </Section>
       <Section title="Leitner boxes">
         <LeitnerSettings key={JSON.stringify([settings.leitner, settings.newPerDay])} settings={settings} />
       </Section>

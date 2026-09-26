@@ -8,7 +8,9 @@ provider you configure.
 ## Features
 
 - **Cards**: characters, pinyin (type `lao3shi1` → `lǎoshī`, or auto-fill from the characters), meaning, image, notes
-- **Review**: image → word (fallback: meaning → word), Knew / Forgot, undo, keyboard shortcuts, text-to-speech
+- **Review**: two practice directions, each with its own boxes (Settings → Practice direction):
+  picture → Chinese (fallback: meaning → Chinese) or Chinese → pinyin + meaning + picture.
+  Knew / Forgot, undo, keyboard shortcuts, text-to-speech
 - **Leitner boxes**: configurable boxes and intervals, daily new-card limit, visual box shelf, per-box review
 - **Backup**: zip export / import (merge or replace) — also how to move a deck between devices for now
 - **PWA**: installable on Android, works offline

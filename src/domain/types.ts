@@ -12,7 +12,7 @@ export type Timestamp = number
  * A review mode is one "direction" of practice. Each (card, mode) pair has its own Leitner state,
  * so new modes (hanzi → pinyin, listening, ...) can be added without migrating existing progress.
  */
-export type ReviewMode = 'image_to_word'
+export type ReviewMode = 'image_to_word' | 'hanzi_to_meaning'
 
 export type ReviewResult = 'knew' | 'forgot'
 
@@ -91,6 +91,8 @@ export interface AppSettings {
   leitner: LeitnerConfig
   /** Max new cards introduced per day. */
   newPerDay: number
+  /** Direction being practised; each direction has its own boxes. */
+  reviewMode: ReviewMode
   /** Preferred speech-synthesis voice (voiceURI), if the user picked one. */
   ttsVoiceURI?: string
   updatedAt: Timestamp
