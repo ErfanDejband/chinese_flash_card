@@ -1,6 +1,6 @@
 # ADR 0003: PDF extraction as a two-stage, pluggable pipeline
 
-**Status:** accepted (2026-09-25), implementation pending sample PDFs
+**Status:** superseded by [ADR 0005](0005-ai-pdf-extraction.md) (2026-09-26). The two-stage, pluggable pipeline idea remains; the rule-based extractor was never built because the sample PDFs keep most vocabulary inside images.
 
 ## Context
 
@@ -26,4 +26,4 @@ An eval harness (hand-labelled expected cards for sample pages → precision/rec
 ## Consequences
 
 - Free, offline, deterministic extraction for known layouts; new layouts mean new rules or the AI extractor.
-- Sample PDFs stay out of git (copyright); the eval test is skipped when they are absent.
+- Sample PDFs stay out of git (copyright): they live in the gitignored `pdf_template/` folder.

@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { AppSettings, Card, Id, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
+import type { AppSettings, BBox, Card, Id, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
+import type { DraftFields } from '@/import/types'
 
 /** Binary media (card images, later audio), stored as Blobs next to the cards. */
 export interface MediaRecord {
@@ -15,13 +16,51 @@ export interface MediaRecord {
 export interface ImportRecord {
   id: Id
   fileName: string
-  /** SHA-256 of the PDF, used to warn when the same file is imported again. */
+  /** SHA-256 of the PDF, used to warn when the same file is imported again ('' if unavailable). */
   fileHash: string
   pageCount: number
   status: 'draft' | 'committed' | 'discarded'
   acceptedCount: number
   rejectedCount: number
+  /** AI provider and model used for extraction. */
+  provider?: string
+  model?: string
   createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+/** One PDF page queued for / processed by AI extraction. Transient: deleted when the import is committed or discarded. */
+export interface ImportPageRecord {
+  /** `${importId}:${page}` */
+  id: string
+  importId: Id
+  page: number
+  status: 'pending' | 'running' | 'done' | 'error'
+  /** Rendered page (~1920 px JPEG), kept for re-cropping pictures. */
+  image?: Blob
+  width?: number
+  height?: number
+  pointWidth?: number
+  pointHeight?: number
+  textHint?: string
+  error?: string
+  model?: string
+  promptVersion?: number
+  /** Raw model reply, for debugging extraction problems. */
+  raw?: string
+  updatedAt: Timestamp
+}
+
+/** A candidate card awaiting review. Transient like ImportPageRecord. */
+export interface ImportDraftRecord extends DraftFields {
+  id: Id
+  importId: Id
+  page: number
+  /** Reading order within the page. */
+  order: number
+  crop?: { blob: Blob; mime: string; width: number; height: number }
+  /** Picture position in PDF points, stored on the card as provenance. */
+  sourceBox?: BBox
   updatedAt: Timestamp
 }
 
@@ -42,6 +81,8 @@ export class AppDB extends Dexie {
   media!: EntityTable<MediaRecord, 'id'>
   imports!: EntityTable<ImportRecord, 'id'>
   settings!: EntityTable<SettingsRecord, 'id'>
+  importPages!: EntityTable<ImportPageRecord, 'id'>
+  importDrafts!: EntityTable<ImportDraftRecord, 'id'>
 
   constructor(name = DB_NAME) {
     super(name)
@@ -53,9 +94,23 @@ export class AppDB extends Dexie {
       imports: 'id, fileHash, createdAt',
       settings: 'id',
     })
+    // v2: AI-assisted PDF import work tables (new tables only, no data migration).
+    this.version(2).stores({
+      importPages: 'id, importId',
+      importDrafts: 'id, importId, [importId+page]',
+    })
   }
 }
 
 export const db = new AppDB()
 
-export const ALL_TABLES = () => [db.cards, db.reviewStates, db.reviewLog, db.media, db.imports, db.settings]
+export const ALL_TABLES = () => [
+  db.cards,
+  db.reviewStates,
+  db.reviewLog,
+  db.media,
+  db.imports,
+  db.settings,
+  db.importPages,
+  db.importDrafts,
+]

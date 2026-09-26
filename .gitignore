@@ -9,5 +9,7 @@ coverage
 .idea
 
 # Course PDFs are copyrighted material: keep them out of the (public) repo.
-samples/*
-!samples/README.md
+pdf_template/
+
+# Working plans (kept locally for reference, not published)
+plans/

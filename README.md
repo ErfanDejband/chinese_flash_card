@@ -2,16 +2,19 @@
 
 A personal, mobile-first PWA for learning Mandarin vocabulary (Traditional characters + pinyin) with the
 [Leitner box system](https://en.wikipedia.org/wiki/Leitner_system). Offline-first: your cards live in your
-browser (IndexedDB); nothing is sent to a server.
+browser (IndexedDB). The only thing that leaves the device is a PDF page you choose to import, sent to the AI
+provider you configure.
 
-## Features (MVP)
+## Features
 
 - **Cards**: characters, pinyin (type `lao3shi1` → `lǎoshī`, or auto-fill from the characters), meaning, image, notes
 - **Review**: image → word (fallback: meaning → word), Knew / Forgot, undo, keyboard shortcuts, text-to-speech
 - **Leitner boxes**: configurable boxes and intervals, daily new-card limit, visual box shelf, per-box review
 - **Backup**: zip export / import (merge or replace) — also how to move a deck between devices for now
 - **PWA**: installable on Android, works offline
-- **PDF import**: *next* — see [ADR 0003](docs/adr/0003-pdf-extraction-pipeline.md)
+- **AI PDF import**: pick pages → a vision model finds the vocabulary (and infers characters shown only as
+  pinyin + picture) → review, edit and re-crop every card → add them in document order.
+  See [ADR 0005](docs/adr/0005-ai-pdf-extraction.md)
 
 ## Development
 
@@ -29,6 +32,19 @@ npm run build        # type-check + production build into dist/
 Testing on a phone over the LAN uses plain http, so the service worker (offline/install) is not active
 there; everything else works. Use the deployed HTTPS site to test installation.
 
+## PDF import setup
+
+1. Get an API key, e.g. a free Google Gemini key at <https://aistudio.google.com/apikey>
+   (or an OpenRouter / Groq / OpenAI key, or a local LM Studio / Ollama server).
+2. In the app: **Settings → AI for PDF import**, paste the key, press **Load models** (this also tests the key).
+   For Gemini the newest Flash model is picked automatically.
+3. **Import → Choose a PDF**, select the vocabulary pages, **Extract**, review, **Add cards**.
+
+The key is stored only in this browser (never in backups). Free tiers have per-minute/day limits: the importer
+waits and retries on rate limits, and an interrupted import can be continued later.
+
+Sample course PDFs for development go in `pdf_template/` (gitignored: copyrighted material).
+
 ## Deployment
 
 `.github/workflows/deploy.yml` tests, builds, and deploys to GitHub Pages on every push to `main`
@@ -43,7 +59,8 @@ src/
   domain/    Pure TypeScript: types, Leitner scheduler, session planning/reducer, pinyin, search.
              No React, no persistence (enforced by ESLint).
   data/      Dexie schema, repositories (cards, review, media, settings), backup/restore.
-  import/    PDF extraction pipeline (UI-free; coming next).
+  import/    PDF → AI → draft cards pipeline (UI-free): pdf.js rendering, provider adapters, prompt,
+             validation/post-processing, extraction runner.
   features/  Screens: dashboard, review, boxes, cards, import, settings.
   ui/        Shared presentational components.
   hooks/     React hooks over data and browser APIs.
@@ -55,11 +72,12 @@ Key decisions are recorded in [docs/adr](docs/adr):
 
 1. [Local-first storage, sync later](docs/adr/0001-local-first-storage.md)
 2. [Card content separate from Leitner state (per review mode)](docs/adr/0002-card-content-vs-review-state.md)
-3. [Two-stage, pluggable PDF extraction](docs/adr/0003-pdf-extraction-pipeline.md)
+3. [Two-stage, pluggable PDF extraction](docs/adr/0003-pdf-extraction-pipeline.md) (superseded by 0005)
 4. [Scheduling rules](docs/adr/0004-scheduling-rules.md)
+5. [AI-assisted PDF extraction with your own API key](docs/adr/0005-ai-pdf-extraction.md)
 
 ## Roadmap
 
-1. PDF import (layout reader → rule-based extractor + eval harness → Import Review screen)
-2. Cloud sync (Supabase), recorded audio, animated/3D boxes
-3. More review modes (hanzi → pinyin, listening), stats & streaks, tags/decks UI, AI-assisted extraction
+1. Cloud sync (Supabase), recorded audio, animated/3D boxes
+2. More review modes (hanzi → pinyin, listening), stats & streaks, tags/decks UI
+3. AI extras: example sentences and exercises for existing cards

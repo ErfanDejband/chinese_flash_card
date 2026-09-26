@@ -23,6 +23,8 @@ const pwa = VitePWA({
   },
   workbox: {
     globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+    // pdf.js and the full OpenCC converter are large and only needed for (online) AI import.
+    globIgnores: ['**/pdf.worker*', '**/pdf-*.js', '**/cn2t-*.js'],
   },
 })
 

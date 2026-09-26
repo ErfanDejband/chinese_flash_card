@@ -10,6 +10,7 @@ import { Button } from '@/ui/Button'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
+import { AiSettings } from './AiSettings'
 import { BackupSettings } from './BackupSettings'
 import { LeitnerSettings } from './LeitnerSettings'
 
@@ -102,6 +103,9 @@ export function SettingsPage() {
       </Section>
       <Section title="Pronunciation">
         <VoiceSettings settings={settings} />
+      </Section>
+      <Section title="AI for PDF import">
+        <AiSettings />
       </Section>
       <Section title="Backup">
         <BackupSettings />

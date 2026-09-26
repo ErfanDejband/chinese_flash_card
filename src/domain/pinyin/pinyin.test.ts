@@ -92,6 +92,11 @@ describe('checkPinyin', () => {
     ['老師', 'láoshī', 'tone-differs'],
     ['老師', 'xuéshēng', 'mismatch'],
     ['老師', '', 'unknown'],
+    ['我是老師。', 'Wǒ shì lǎoshī.', 'match'],
+    ['鴨子', 'yā zi', 'match'], // neutral-tone suffix vs dictionary zǐ
+    ['鴨子', 'yá zi', 'tone-differs'],
+    ['女', 'nǚ', 'match'],
+    ['女', 'nǔ', 'tone-differs'], // loose: search keys fold ü into u
   ])('%s vs %s → %s', (hanzi, given, expected) => {
     expect(checkPinyin(hanzi, given)).toBe(expected)
   })
