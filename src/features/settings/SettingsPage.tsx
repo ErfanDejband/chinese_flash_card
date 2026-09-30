@@ -14,6 +14,7 @@ import { AiSettings } from './AiSettings'
 import { BackupSettings } from './BackupSettings'
 import { DirectionSettings } from './DirectionSettings'
 import { LeitnerSettings } from './LeitnerSettings'
+import { UsagePanel } from './UsagePanel'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -110,6 +111,9 @@ export function SettingsPage() {
       </Section>
       <Section title="AI for PDF import">
         <AiSettings />
+      </Section>
+      <Section title="AI usage on this device">
+        <UsagePanel />
       </Section>
       <Section title="Backup">
         <BackupSettings />

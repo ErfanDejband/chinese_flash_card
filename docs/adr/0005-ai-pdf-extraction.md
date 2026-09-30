@@ -17,10 +17,19 @@ language understanding plus vision.
 - **One vision-LLM request per selected page.** The page is rendered to a JPEG (~1536 px) and sent with the page's text layer as a hint.
   The hint is exact when present, and costs nothing to include.
 - **The user supplies the key**, and the key is stored in `localStorage` on the device only. It is never exported in backups, and it is sent
-  in a request header to the chosen provider only. Two adapters sit behind the `VisionProvider` interface (`src/import/ai/`):
+  in a request header to the chosen provider only. Three adapters sit behind the `VisionProvider` interface (`src/import/ai/`):
   - **Gemini** `generateContent` with `responseSchema` (JSON mode). Gemini is the default because of its free tier and its native 0–1000
     bounding boxes, which we need to crop each picture out of a slide.
   - **OpenAI-compatible** `chat/completions` with `response_format: json_object` (OpenRouter free models, Groq, OpenAI, LM Studio/Ollama).
+  - **Claude** (added 2026-09-30) through the official `@anthropic-ai/sdk`, loaded on demand, with `dangerouslyAllowBrowser`,
+    structured outputs (`output_config.format` JSON Schema) and server-side refusal fallbacks (`fallbacks: "default"`) on
+    Opus 5 / Fable 5 models. Default model `claude-opus-5`; paid API, separate from Claude.ai / Claude Code subscriptions.
+- **Key detection by format only** (`detectKey.ts`: `sk-ant-`, `sk-or-`, `gsk_`, `AIza`, `sk-`); an unknown format asks the
+  user to pick the service. Keys are never tried against other services.
+- **Model picker**: the model list is fetched with the key, filtered to models that accept images (Claude: also structured
+  outputs), and the recommended model is preselected.
+- **Usage tracking** (`src/lib/aiUsage.ts`, device-local): tokens per request, per model and per import. Cost is shown only
+  when reported by the provider (e.g. OpenRouter `usage.cost`) or estimated for Claude from list prices (`pricing.ts`).
 - **The prompt** (`src/import/ai/prompt.ts`, versioned) asks for items of kind `word` or `sentence`. Each item has:
   - Traditional (Taiwan) hanzi, pinyin and an English meaning;
   - whether each of those was *printed or inferred*;

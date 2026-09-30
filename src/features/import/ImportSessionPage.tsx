@@ -18,6 +18,8 @@ import type { NormBox } from '@/import/types'
 import { useAiSettings } from '@/hooks/useBrowser'
 import { activeProviderConfig } from '@/lib/aiConfig'
 import { sha256Hex } from '@/lib/hash'
+import { getUsage, subscribeUsage } from '@/lib/aiUsage'
+import { usageLine } from '@/ui/usageText'
 import { Button } from '@/ui/Button'
 import { plural } from '@/ui/format'
 import { Loading } from '@/ui/Loading'
@@ -45,6 +47,8 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
   const [error, setError] = useState<string>()
   const running = isRunning(importId)
   const seconds = useCountdown(running && run.phase === 'waiting' ? run.waitingUntil : undefined)
+  const usage = useSyncExternalStore(subscribeUsage, getUsage)
+  const runUsage = usage.lastRun?.importId === importId ? usage.lastRun : undefined
 
   const done = pages.filter((p) => p.status === 'done').length
   const failed = pages.filter((p) => p.status === 'error')
@@ -84,6 +88,7 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
       <div className="mb-3 h-2 overflow-hidden rounded-full bg-sunken">
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
       </div>
+      {runUsage && runUsage.requests > 0 && <p className="-mt-1 mb-3 text-xs text-muted">AI usage: {usageLine(runUsage)}</p>}
 
       {running ? (
         <>

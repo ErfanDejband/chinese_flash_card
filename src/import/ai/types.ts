@@ -1,4 +1,4 @@
-export type ProviderKind = 'gemini' | 'openai-compatible'
+export type ProviderKind = 'gemini' | 'anthropic' | 'openai-compatible'
 
 /** Per-device AI settings. Stored in localStorage only (never in backups). */
 export interface ProviderConfig {
@@ -7,6 +7,14 @@ export interface ProviderConfig {
   model: string
   /** OpenAI-compatible endpoint root, e.g. https://openrouter.ai/api/v1 */
   baseUrl: string
+}
+
+/** Tokens of one request, and its cost when the provider reports it or it can be estimated. */
+export interface RequestUsage {
+  inputTokens: number
+  outputTokens: number
+  costUsd?: number
+  costSource?: 'reported' | 'estimated'
 }
 
 export interface ModelInfo {
@@ -29,6 +37,7 @@ export interface PageResponse {
   /** Raw model text (expected to be JSON). */
   text: string
   model: string
+  usage?: RequestUsage
 }
 
 export interface VisionProvider {

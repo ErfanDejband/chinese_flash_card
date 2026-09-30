@@ -1,11 +1,17 @@
+import { createAnthropicProvider } from './anthropic'
 import { createGeminiProvider } from './gemini'
 import { createOpenAICompatibleProvider } from './openaiCompatible'
 import type { FetchLike, ProviderConfig, VisionProvider } from './types'
 
 export function createProvider(config: ProviderConfig, fetchImpl?: FetchLike): VisionProvider {
-  return config.provider === 'gemini'
-    ? createGeminiProvider({ apiKey: config.apiKey, model: config.model, fetchImpl })
-    : createOpenAICompatibleProvider({ baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model, fetchImpl })
+  switch (config.provider) {
+    case 'gemini':
+      return createGeminiProvider({ apiKey: config.apiKey, model: config.model, fetchImpl })
+    case 'anthropic':
+      return createAnthropicProvider({ apiKey: config.apiKey, model: config.model, fetchImpl })
+    case 'openai-compatible':
+      return createOpenAICompatibleProvider({ baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model, fetchImpl })
+  }
 }
 
 /** Missing pieces that prevent an import from starting. */

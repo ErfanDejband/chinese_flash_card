@@ -1,6 +1,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { listActiveCards } from '@/data/repositories/cards'
 import {
+  getImport,
   listDrafts,
   listImportPages,
   markPageError,
@@ -10,11 +11,12 @@ import {
 } from '@/data/repositories/imports'
 import { createProvider } from '@/import/ai/createProvider'
 import { bytesToBase64 } from '@/import/ai/http'
-import type { ProviderConfig } from '@/import/ai/types'
+import type { ProviderConfig, VisionProvider } from '@/import/ai/types'
 import { FatalExtractionError, runExtraction } from '@/import/extract/runExtraction'
 import { loadSimplifiedDetector } from '@/import/extract/traditional'
 import { cropFromImage } from '@/import/pdf/crop'
 import { renderPage } from '@/import/pdf/pdf'
+import { finishRun, recordUsage, startRun as startUsageRun } from '@/lib/aiUsage'
 
 /**
  * The extraction run lives outside React so it keeps going while the user navigates around
@@ -72,6 +74,8 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
 
   try {
     await requeueInterrupted(importId)
+    const record = await getImport(importId)
+    startUsageRun({ importId, fileName: record?.fileName ?? '', provider: config.provider, model: config.model })
     const [pages, cards, drafts, isSimplified] = await Promise.all([
       listImportPages(importId),
       listActiveCards(),
@@ -80,7 +84,7 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
     ])
     const pending = pages.filter((p) => p.status === 'pending').map((p) => p.page)
     await runExtraction(pending, {
-      provider: createProvider(config),
+      provider: withUsageTracking(createProvider(config), config),
       render: (page) => renderPage(doc, page),
       crop: (rendered, box) => cropFromImage(rendered.image, box),
       toBase64: async (blob) => bytesToBase64(new Uint8Array(await blob.arrayBuffer())),
@@ -107,8 +111,21 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
       set({ fatal: e instanceof FatalExtractionError || e instanceof Error ? e.message : String(e) })
     }
   } finally {
+    finishRun()
     controller = undefined
     set({ phase: 'idle', page: undefined, waitingUntil: undefined })
+  }
+}
+
+/** Count every successful model response (retries are billed too). */
+function withUsageTracking(provider: VisionProvider, config: ProviderConfig): VisionProvider {
+  return {
+    ...provider,
+    async extractPage(request) {
+      const response = await provider.extractPage(request)
+      recordUsage(config.provider, response.model || config.model, response.usage)
+      return response
+    },
   }
 }
 

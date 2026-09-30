@@ -36,14 +36,17 @@ there; everything else works. Use the deployed HTTPS site to test installation.
 
 ## PDF import setup
 
-1. Get an API key, e.g. a free Google Gemini key at <https://aistudio.google.com/apikey>
-   (or an OpenRouter / Groq / OpenAI key, or a local LM Studio / Ollama server).
-2. In the app: **Settings → AI for PDF import**, paste the key, press **Load models** (this also tests the key).
-   For Gemini the newest Flash model is picked automatically.
+1. Get an API key: a free Google Gemini key at <https://aistudio.google.com/apikey>, a Claude API key from the
+   Claude Console (paid; separate from Claude.ai / Claude Code subscriptions), or an OpenRouter / Groq / OpenAI key,
+   or use a local LM Studio / Ollama server.
+2. In the app: **Settings → AI for PDF import**, paste the key. The app recognises the service from the key's format,
+   loads the models that can read images and preselects a recommended one (Gemini: newest Flash; Claude: Opus 5).
 3. **Import → Choose a PDF**, select the vocabulary pages, **Extract**, review, **Add cards**.
 
 The key is stored only in this browser (never in backups). Free tiers have per-minute/day limits: the importer
 waits and retries on rate limits, and an interrupted import can be continued later.
+**Settings → AI usage** shows the tokens used by the last import and in total on this device, with the cost where it
+is known (reported by OpenRouter, or estimated for Claude from list prices).
 
 Sample course PDFs for development go in `pdf_template/` (gitignored: copyrighted material).
 

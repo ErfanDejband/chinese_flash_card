@@ -1,19 +1,6 @@
 import { requestJson } from './http'
 import { JSON_SHAPE, SYSTEM_PROMPT, userPrompt } from './prompt'
-import { ProviderError, type FetchLike, type PageRequest, type PageResponse, type VisionProvider } from './types'
-
-export interface OpenAIPreset {
-  id: string
-  label: string
-  baseUrl: string
-}
-
-export const OPENAI_PRESETS: OpenAIPreset[] = [
-  { id: 'openrouter', label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1' },
-  { id: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1' },
-  { id: 'openai', label: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
-  { id: 'custom', label: 'Custom (LM Studio, Ollama, …)', baseUrl: '' },
-]
+import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type VisionProvider } from './types'
 
 interface ListedModel {
   id?: string
@@ -25,6 +12,8 @@ interface ListedModel {
 interface ChatResponse {
   choices?: { message?: { content?: string | { type?: string; text?: string }[] | null }; finish_reason?: string }[]
   model?: string
+  /** `cost` is reported by some services (e.g. OpenRouter, in USD credits). */
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number }
 }
 
 function messageText(content: string | { type?: string; text?: string }[] | null | undefined): string {
@@ -74,7 +63,7 @@ export function createOpenAICompatibleProvider(opts: {
 
     async listModels(signal) {
       const body = (await requestJson(fetchImpl, `${base}/models`, { headers, signal })) as { data?: ListedModel[] }
-      return (body.data ?? [])
+      const models = (body.data ?? [])
         .filter((m): m is ListedModel & { id: string } => typeof m.id === 'string')
         .map((m) => ({
           id: m.id,
@@ -82,6 +71,9 @@ export function createOpenAICompatibleProvider(opts: {
           vision: m.architecture?.input_modalities ? m.architecture.input_modalities.includes('image') : undefined,
           free: m.id.endsWith(':free') || (m.pricing?.prompt === '0' && m.pricing?.completion === '0'),
         }))
+      // Free models that accept images first, then other image models, then the rest.
+      const rank = (m: ModelInfo) => (m.vision === false ? 2 : m.free ? 0 : 1)
+      return models.sort((a, b) => rank(a) - rank(b))
     },
 
     async extractPage(req: PageRequest): Promise<PageResponse> {
@@ -98,7 +90,16 @@ export function createOpenAICompatibleProvider(opts: {
       }
       const text = messageText(res.choices?.[0]?.message?.content)
       if (!text) throw new ProviderError('bad-response', 'The model returned no text.')
-      return { text, model: res.model ?? opts.model }
+      const u = res.usage
+      return {
+        text,
+        model: res.model ?? opts.model,
+        usage: u && {
+          inputTokens: u.prompt_tokens ?? 0,
+          outputTokens: u.completion_tokens ?? 0,
+          ...(typeof u.cost === 'number' ? { costUsd: u.cost, costSource: 'reported' as const } : {}),
+        },
+      }
     },
   }
 }

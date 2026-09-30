@@ -80,3 +80,49 @@ export const GEMINI_RESPONSE_SCHEMA = {
   },
   required: ['items'],
 } as const
+
+/**
+ * The same item schema as standard JSON Schema, for Claude's structured outputs
+ * (`output_config.format`): every object needs `additionalProperties: false`, and numeric
+ * constraints are not supported (ranges are enforced by validation instead).
+ */
+export const JSON_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['word', 'sentence'] },
+          hanzi: { type: 'string' },
+          pinyin: { type: 'string' },
+          meaning: { type: 'string' },
+          partOfSpeech: { type: 'string' },
+          notes: { type: 'string' },
+          hanziSource: { type: 'string', enum: ['printed', 'inferred'] },
+          pinyinSource: { type: 'string', enum: ['printed', 'inferred'] },
+          meaningSource: { type: 'string', enum: ['printed', 'inferred'] },
+          imageBox: { anyOf: [{ type: 'array', items: { type: 'integer' } }, { type: 'null' }] },
+          confidence: { type: 'number' },
+        },
+        required: [
+          'kind',
+          'hanzi',
+          'pinyin',
+          'meaning',
+          'partOfSpeech',
+          'notes',
+          'hanziSource',
+          'pinyinSource',
+          'meaningSource',
+          'imageBox',
+          'confidence',
+        ],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['items'],
+  additionalProperties: false,
+}

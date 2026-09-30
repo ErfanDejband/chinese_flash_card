@@ -14,7 +14,11 @@ interface GeminiResponse {
   candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[]
   promptFeedback?: { blockReason?: string }
   modelVersion?: string
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }
 }
+
+/** Models that cannot read a page image and return text (speech, embeddings, image/video generation, live audio). */
+const NOT_FOR_EXTRACTION = /(tts|embedding|aqa|imagen|veo|live|audio|image-generation|-image\b|robotics)/i
 
 const BLOCKING_FINISH = new Set(['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII', 'IMAGE_SAFETY'])
 
@@ -38,6 +42,7 @@ export function createGeminiProvider(opts: { apiKey: string; model: string; fetc
         for (const m of body.models ?? []) {
           if (!m.name || !m.supportedGenerationMethods?.includes('generateContent')) continue
           const id = m.name.replace(/^models\//, '')
+          if (NOT_FOR_EXTRACTION.test(id)) continue
           models.push({ id, label: m.displayName ? `${m.displayName} (${id})` : id })
         }
         pageToken = body.nextPageToken ?? ''
@@ -83,7 +88,16 @@ export function createGeminiProvider(opts: { apiKey: string; model: string; fetc
         const reason = candidate?.finishReason ? ` (${candidate.finishReason})` : ''
         throw new ProviderError('bad-response', `Gemini returned no text${reason}.`)
       }
-      return { text, model: res.modelVersion ?? opts.model }
+      const usage = res.usageMetadata
+      return {
+        text,
+        model: res.modelVersion ?? opts.model,
+        usage: usage && {
+          inputTokens: usage.promptTokenCount ?? 0,
+          // Thinking tokens are billed as output.
+          outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
+        },
+      }
     },
   }
 }

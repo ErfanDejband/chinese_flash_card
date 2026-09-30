@@ -43,6 +43,17 @@ describe('Gemini provider', () => {
     expect(body.generationConfig.responseSchema.properties.items.type).toBe('ARRAY')
   })
 
+  it('returns token usage, counting thinking tokens as output', async () => {
+    const { fetchImpl } = mockFetch(
+      json({
+        candidates: [{ content: { parts: [{ text: '{"items":[]}' }] }, finishReason: 'STOP' }],
+        usageMetadata: { promptTokenCount: 1800, candidatesTokenCount: 120, thoughtsTokenCount: 300 },
+      }),
+    )
+    const res = await createGeminiProvider({ apiKey: KEY, model: 'm', fetchImpl }).extractPage(request)
+    expect(res.usage).toEqual({ inputTokens: 1800, outputTokens: 420 })
+  })
+
   it('maps 429 with RetryInfo to a rate-limit error', async () => {
     const { fetchImpl } = mockFetch(
       json({ error: { code: 429, message: 'Quota exceeded', details: [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '31s' }] } }, 429),
@@ -65,6 +76,8 @@ describe('Gemini provider', () => {
         models: [
           { name: 'models/gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', supportedGenerationMethods: ['generateContent'] },
           { name: 'models/text-embedding', supportedGenerationMethods: ['embedContent'] },
+          { name: 'models/gemini-3.8-flash-preview-tts', supportedGenerationMethods: ['generateContent'] },
+          { name: 'models/gemini-3.5-flash-image', supportedGenerationMethods: ['generateContent'] },
         ],
         nextPageToken: 'next',
       }),
@@ -128,11 +141,20 @@ describe('OpenAI-compatible provider', () => {
       }),
     )
     const models = await createOpenAICompatibleProvider({ baseUrl: base, apiKey: KEY, model: '', fetchImpl }).listModels()
+    // Free image models first, then unknown/paid, text-only last.
     expect(models).toEqual([
       { id: 'a/vision:free', label: 'Vision (a/vision:free)', vision: true, free: true },
-      { id: 'b/text', label: 'b/text', vision: false, free: false },
       { id: 'c/local', label: 'c/local', vision: undefined, free: false },
+      { id: 'b/text', label: 'b/text', vision: false, free: false },
     ])
+  })
+
+  it('returns token usage and a reported cost', async () => {
+    const { fetchImpl } = mockFetch(
+      json({ choices: [{ message: { content: '{"items":[]}' } }], usage: { prompt_tokens: 1500, completion_tokens: 80, cost: 0.0012 } }),
+    )
+    const res = await createOpenAICompatibleProvider({ baseUrl: base, apiKey: KEY, model: 'm', fetchImpl }).extractPage(request)
+    expect(res.usage).toEqual({ inputTokens: 1500, outputTokens: 80, costUsd: 0.0012, costSource: 'reported' })
   })
 
   it('reports network failures as ProviderError', async () => {
