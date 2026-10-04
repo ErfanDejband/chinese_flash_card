@@ -27,6 +27,8 @@ export interface BBox {
 export type CardSource =
   | { type: 'manual' }
   | { type: 'pdf'; importId: Id; fileName: string; page: number; bbox?: BBox }
+  /** A photo or screenshot; bbox in the image's pixels. */
+  | { type: 'image'; importId: Id; fileName: string; bbox?: BBox }
 
 /** A vocabulary item: content only. Scheduling lives in {@link ReviewState}. */
 export interface Card {

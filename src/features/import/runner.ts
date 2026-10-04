@@ -1,4 +1,3 @@
-import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { listActiveCards } from '@/data/repositories/cards'
 import {
   getImport,
@@ -15,7 +14,7 @@ import type { ProviderConfig, VisionProvider } from '@/import/ai/types'
 import { FatalExtractionError, runExtraction } from '@/import/extract/runExtraction'
 import { loadSimplifiedDetector } from '@/import/extract/traditional'
 import { cropFromImage } from '@/import/pdf/crop'
-import { renderPage } from '@/import/pdf/pdf'
+import type { ImportSource } from '@/import/source/types'
 import { finishRun, recordUsage, startRun as startUsageRun } from '@/lib/aiUsage'
 
 /**
@@ -35,8 +34,8 @@ export interface RunState {
 let state: RunState = { phase: 'idle' }
 let controller: AbortController | undefined
 const listeners = new Set<() => void>()
-/** Open PDFs by import id; lost on reload (the user re-selects the file to continue). */
-const pdfs = new Map<string, PDFDocumentProxy>()
+/** Open sources (PDF or images) by import id; lost on reload (the user re-selects the files to continue). */
+const sources = new Map<string, ImportSource>()
 
 function set(next: Partial<RunState>) {
   state = { ...state, ...next }
@@ -51,12 +50,13 @@ export const runStore = {
   },
 }
 
-export function attachPdf(importId: string, doc: PDFDocumentProxy): void {
-  pdfs.set(importId, doc)
+export function attachSource(importId: string, source: ImportSource): void {
+  sources.get(importId)?.destroy()
+  sources.set(importId, source)
 }
 
-export function hasPdf(importId: string): boolean {
-  return pdfs.has(importId)
+export function hasSource(importId: string): boolean {
+  return sources.has(importId)
 }
 
 export function isRunning(importId?: string): boolean {
@@ -65,8 +65,8 @@ export function isRunning(importId?: string): boolean {
 
 /** Extract all pending pages of an import. Resolves when the run ends (done, stopped or failed). */
 export async function startRun(importId: string, config: ProviderConfig): Promise<void> {
-  const doc = pdfs.get(importId)
-  if (!doc) throw new Error('Select the PDF again to continue.')
+  const source = sources.get(importId)
+  if (!source) throw new Error('Select the file(s) again to continue.')
   if (state.phase !== 'idle') return
   controller = new AbortController()
   const signal = controller.signal
@@ -83,9 +83,10 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
       loadSimplifiedDetector(),
     ])
     const pending = pages.filter((p) => p.status === 'pending').map((p) => p.page)
+    const rotation = new Map(pages.map((p) => [p.page, p.rotation ?? 0]))
     await runExtraction(pending, {
       provider: withUsageTracking(createProvider(config), config),
-      render: (page) => renderPage(doc, page),
+      render: (page) => source.renderPage(page, rotation.get(page) ?? 0),
       crop: (rendered, box) => cropFromImage(rendered.image, box),
       toBase64: async (blob) => bytesToBase64(new Uint8Array(await blob.arrayBuffer())),
       store: {

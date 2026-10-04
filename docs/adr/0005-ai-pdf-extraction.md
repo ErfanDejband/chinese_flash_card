@@ -47,6 +47,12 @@ language understanding plus vision.
 - **Commit** creates cards in page and reading order, so they enter the new-card pool in document order. Each card keeps its PDF provenance
   (file, page, picture box) and the work tables are deleted.
 
+**Images (2026-10-04).** Import also accepts one or more photos/screenshots through an `ImportSource` abstraction
+(`src/import/source/`: `pdfSource`, `imageSource`). Everything after rendering is unchanged. Images have no text hint,
+so extraction relies on vision alone. Each page can be rotated in the picker (stored per page for resume). Images taller
+than 3:1 are split into overlapping tiles, and duplicates in the overlaps are flagged. Cards get `source.type = 'image'`
+with the photo's file name. Prompt v2 mentions photos and screenshots.
+
 ## Consequences
 
 - Handles any layout the model can read, including characters that exist only implicitly.

@@ -11,5 +11,6 @@ coverage
 # Course PDFs are copyrighted material: keep them out of the (public) repo.
 pdf_template/
 
-# Working plans (kept locally for reference, not published)
+# Working plans and Claude Code project memory (kept locally, not published)
 plans/
+CLAUDE.md

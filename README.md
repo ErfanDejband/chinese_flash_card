@@ -14,7 +14,8 @@ provider you configure.
 - **Leitner boxes**: configurable boxes and intervals, daily new-card limit, visual box shelf, per-box review
 - **Backup**: zip export / import (merge or replace) — also how to move a deck between devices for now
 - **PWA**: installable on Android, works offline
-- **AI PDF import**: pick pages → a vision model finds the vocabulary (and infers characters shown only as
+- **AI import from PDFs, photos or screenshots** (several images at once; rotate sideways pages; long screenshots
+  are split automatically): pick pages → a vision model finds the vocabulary (and infers characters shown only as
   pinyin + picture) → review, edit and re-crop every card → add them in document order.
   See [ADR 0005](docs/adr/0005-ai-pdf-extraction.md)
 
@@ -41,7 +42,7 @@ there; everything else works. Use the deployed HTTPS site to test installation.
    or use a local LM Studio / Ollama server.
 2. In the app: **Settings → AI for PDF import**, paste the key. The app recognises the service from the key's format,
    loads the models that can read images and preselects a recommended one (Gemini: newest Flash; Claude: Opus 5).
-3. **Import → Choose a PDF**, select the vocabulary pages, **Extract**, review, **Add cards**.
+3. **Import → Choose a PDF or images**, select (and rotate) the pages, **Extract**, review, **Add cards**.
 
 The key is stored only in this browser (never in backups). Free tiers have per-minute/day limits: the importer
 waits and retries on rate limits, and an interrupted import can be continued later.

@@ -13,11 +13,10 @@ import {
   setDraftsSelected,
 } from '@/data/repositories/imports'
 import { configProblems } from '@/import/ai/createProvider'
-import { openPdf } from '@/import/pdf/pdf'
+import { openSource, SourceError } from '@/import/source/openSource'
 import type { NormBox } from '@/import/types'
 import { useAiSettings } from '@/hooks/useBrowser'
 import { activeProviderConfig } from '@/lib/aiConfig'
-import { sha256Hex } from '@/lib/hash'
 import { getUsage, subscribeUsage } from '@/lib/aiUsage'
 import { usageLine } from '@/ui/usageText'
 import { Button } from '@/ui/Button'
@@ -27,7 +26,9 @@ import { PageHeader } from '@/ui/PageHeader'
 import { CropEditor } from './CropEditor'
 import { DraftCard } from './DraftCard'
 import { formatPageRanges } from './pageRanges'
-import { attachPdf, hasPdf, isRunning, runStore, startRun, stopRun } from './runner'
+import { attachSource, hasSource, isRunning, runStore, startRun, stopRun } from './runner'
+
+const pageLabel = (p: ImportPageRecord) => p.label ?? `Page ${p.page}`
 
 function useCountdown(until: number | undefined): number {
   const [now, setNow] = useState(() => Date.now())
@@ -58,23 +59,28 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
   async function resume(retryFailed: boolean) {
     setError(undefined)
     if (retryFailed) await queuePages(importId, failed.map((p) => p.page))
-    if (!hasPdf(importId)) {
+    if (!hasSource(importId)) {
       fileInput.current?.click()
       return
     }
     void startRun(importId, config)
   }
 
-  async function reattach(file: File | undefined) {
-    if (!file) return
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    const hash = await sha256Hex(bytes)
-    if (fileHash && hash && hash !== fileHash) {
-      setError('That is a different file. Choose the PDF this import started with.')
-      return
+  async function reattach(files: File[]) {
+    if (!files.length) return
+    setError(undefined)
+    try {
+      const source = await openSource(files)
+      if (fileHash && source.hash && source.hash !== fileHash) {
+        source.destroy()
+        setError('Those are different files. Choose the same PDF or images this import started with.')
+        return
+      }
+      attachSource(importId, source)
+      void startRun(importId, config)
+    } catch (e) {
+      setError(e instanceof SourceError ? e.message : 'Could not open the files.')
     }
-    attachPdf(importId, await openPdf(bytes.slice()))
-    void startRun(importId, config)
   }
 
   return (
@@ -122,12 +128,12 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
             )}
             {failed.length > 0 && (
               <Button size="sm" variant="secondary" onClick={() => void resume(true)} disabled={problems.length > 0}>
-                Retry failed pages ({formatPageRanges(failed.map((p) => p.page))})
+                Retry failed pages ({failed.length})
               </Button>
             )}
           </div>
-          {!hasPdf(importId) && (remaining > 0 || failed.length > 0) && (
-            <p className="text-xs text-muted">You will be asked to choose the PDF again to continue.</p>
+          {!hasSource(importId) && (remaining > 0 || failed.length > 0) && (
+            <p className="text-xs text-muted">You will be asked to choose the PDF or images again to continue.</p>
           )}
         </div>
       )}
@@ -137,7 +143,7 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
           <ul className="mt-1 list-disc pl-5">
             {failed.map((p) => (
               <li key={p.id}>
-                Page {p.page}: {p.error}
+                {pageLabel(p)}: {p.error}
               </li>
             ))}
           </ul>
@@ -147,10 +153,11 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
       <input
         ref={fileInput}
         type="file"
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,image/*"
+        multiple
         hidden
         onChange={(e) => {
-          void reattach(e.target.files?.[0])
+          void reattach([...(e.target.files ?? [])])
           e.target.value = ''
         }}
       />
@@ -158,13 +165,13 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
   )
 }
 
-function PageGroup({ page, drafts, onEditImage }: { page: number; drafts: ImportDraftRecord[]; onEditImage(d: ImportDraftRecord): void }) {
+function PageGroup({ label, drafts, onEditImage }: { label: string; drafts: ImportDraftRecord[]; onEditImage(d: ImportDraftRecord): void }) {
   const allOn = drafts.every((d) => d.selected)
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-semibold">
-          Page {page} <span className="text-sm font-normal text-muted">· {plural(drafts.length, 'item')}</span>
+          {label} <span className="text-sm font-normal text-muted">· {plural(drafts.length, 'item')}</span>
         </h3>
         <button
           type="button"
@@ -205,7 +212,10 @@ export function ImportSessionPage() {
 
   const byPage = new Map<number, ImportDraftRecord[]>()
   for (const d of drafts) byPage.set(d.page, [...(byPage.get(d.page) ?? []), d])
-  const emptyPages = pages.filter((p) => p.status === 'done' && !byPage.has(p.page)).map((p) => p.page)
+  const empty = pages.filter((p) => p.status === 'done' && !byPage.has(p.page))
+  const emptyText =
+    record.sourceKind === 'images' ? empty.map(pageLabel).join(', ') : `page ${formatPageRanges(empty.map((p) => p.page))}`
+  const labelOf = new Map(pages.map((p) => [p.page, pageLabel(p)]))
   const importable = drafts.filter(isImportable).length
   const editingPage = editing && pages.find((p) => p.page === editing.page)
 
@@ -227,9 +237,11 @@ export function ImportSessionPage() {
       {drafts.length === 0 ? (
         <p className="py-8 text-center text-muted">{running ? 'Cards appear here as pages are read.' : 'No vocabulary found yet.'}</p>
       ) : (
-        [...byPage.entries()].map(([page, list]) => <PageGroup key={page} page={page} drafts={list} onEditImage={setEditing} />)
+        [...byPage.entries()].map(([page, list]) => (
+          <PageGroup key={page} label={labelOf.get(page) ?? `Page ${page}`} drafts={list} onEditImage={setEditing} />
+        ))
       )}
-      {emptyPages.length > 0 && <p className="mb-6 text-sm text-muted">Nothing to learn on page {formatPageRanges(emptyPages)}.</p>}
+      {empty.length > 0 && <p className="mb-6 text-sm text-muted">Nothing to learn on {emptyText}.</p>}
 
       <div className="pb-safe sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] -mx-4 border-t border-line bg-paper/95 px-4 py-3 backdrop-blur md:bottom-0">
         {running && <p className="mb-2 text-xs text-muted">You can review while pages are being read; pause to import.</p>}

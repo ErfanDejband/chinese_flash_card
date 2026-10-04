@@ -1,6 +1,7 @@
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 import type { TextItem } from 'pdfjs-dist/types/src/display/api'
 import type { RenderedPage } from '../extract/runExtraction'
+import { canvasToBlob, downscale, type Rotation } from '../render'
 
 type PdfJs = typeof import('pdfjs-dist')
 
@@ -23,33 +24,19 @@ export async function openPdf(data: Uint8Array): Promise<PDFDocumentProxy> {
   return lib.getDocument({ data }).promise
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not encode the page image'))), type, quality),
-  )
-}
+/** The page's own rotation plus the user's extra clockwise rotation. */
+const viewportRotation = (page: PDFPageProxy, rotation: Rotation) => (page.rotate + rotation) % 360
 
-async function drawPage(page: PDFPageProxy, longSide: number): Promise<HTMLCanvasElement> {
-  const base = page.getViewport({ scale: 1 })
-  const viewport = page.getViewport({ scale: longSide / Math.max(base.width, base.height) })
+async function drawPage(page: PDFPageProxy, longSide: number, rotation: Rotation): Promise<HTMLCanvasElement> {
+  const rot = viewportRotation(page, rotation)
+  const base = page.getViewport({ scale: 1, rotation: rot })
+  const viewport = page.getViewport({ scale: longSide / Math.max(base.width, base.height), rotation: rot })
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(viewport.width)
   canvas.height = Math.round(viewport.height)
   // 'print' intent: pdf.js then doesn't wait on requestAnimationFrame, which never fires in a
   // background tab. Extraction keeps going when the user switches tabs.
   await page.render({ canvas, viewport, background: '#ffffff', intent: 'print' }).promise
-  return canvas
-}
-
-function downscale(source: HTMLCanvasElement, longSide: number): HTMLCanvasElement {
-  const scale = Math.min(1, longSide / Math.max(source.width, source.height))
-  if (scale === 1) return source
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(source.width * scale)
-  canvas.height = Math.round(source.height * scale)
-  const ctx = canvas.getContext('2d')!
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
   return canvas
 }
 
@@ -73,11 +60,11 @@ async function textHint(page: PDFPageProxy): Promise<string> {
 }
 
 /** Render one page for extraction: ~1920 px image for crops, ~1536 px JPEG for the model, plus the text hint. */
-export async function renderPage(doc: PDFDocumentProxy, pageNumber: number): Promise<RenderedPage> {
+export async function renderPage(doc: PDFDocumentProxy, pageNumber: number, rotation: Rotation = 0): Promise<RenderedPage> {
   const page = await doc.getPage(pageNumber)
   try {
-    const base = page.getViewport({ scale: 1 })
-    const full = await drawPage(page, 1920)
+    const base = page.getViewport({ scale: 1, rotation: viewportRotation(page, rotation) })
+    const full = await drawPage(page, 1920, rotation)
     const ai = downscale(full, 1536)
     const [image, aiImage, hint] = await Promise.all([
       canvasToBlob(full, 'image/jpeg', 0.9),
@@ -100,10 +87,10 @@ export async function renderPage(doc: PDFDocumentProxy, pageNumber: number): Pro
 }
 
 /** Small preview of a page for the page picker. */
-export async function renderThumbnail(doc: PDFDocumentProxy, pageNumber: number, longSide = 320): Promise<Blob> {
+export async function renderThumbnail(doc: PDFDocumentProxy, pageNumber: number, rotation: Rotation = 0, longSide = 320): Promise<Blob> {
   const page = await doc.getPage(pageNumber)
   try {
-    return await canvasToBlob(await drawPage(page, longSide), 'image/jpeg', 0.75)
+    return await canvasToBlob(await drawPage(page, longSide, rotation), 'image/jpeg', 0.75)
   } finally {
     page.cleanup()
   }

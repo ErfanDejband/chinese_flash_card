@@ -17,6 +17,7 @@ import {
   updateDraft,
 } from './imports'
 import { unzipSync } from 'fflate'
+import { PROMPT_VERSION } from '@/import/ai/prompt'
 
 beforeEach(async () => {
   await Promise.all(ALL_TABLES().map((t) => t.clear()))
@@ -55,7 +56,8 @@ const result = (page: number, drafts: PageDraft[]): PageResult => ({
 })
 
 async function setupImport() {
-  return createImport({ fileName: 'book3.pdf', fileHash: 'abc', pageCount: 47, pages: [20, 13], provider: 'gemini', model: 'm' }, 1000)
+  const pages = [20, 13].map((page) => ({ page, label: `Page ${page}`, rotation: 0 as const }))
+  return createImport({ fileName: 'book3.pdf', fileHash: 'abc', sourceKind: 'pdf', pageCount: 47, pages, provider: 'gemini', model: 'm' }, 1000)
 }
 
 describe('imports repository', () => {
@@ -77,7 +79,8 @@ describe('imports repository', () => {
       ['學生', 1],
     ])
     const page = (await listImportPages(id)).find((p) => p.page === 20)!
-    expect(page).toMatchObject({ status: 'done', model: 'm', promptVersion: 1, pointWidth: 960 })
+    // The label set when queuing survives the result being saved.
+    expect(page).toMatchObject({ status: 'done', model: 'm', promptVersion: PROMPT_VERSION, pointWidth: 960, label: 'Page 20', rotation: 0 })
   })
 
   it('re-queues interrupted and failed pages but not finished ones', async () => {
@@ -117,6 +120,33 @@ describe('imports repository', () => {
     expect(await db.importDrafts.count()).toBe(0)
     expect(await db.importPages.count()).toBe(0)
     await expect(commitImport(id)).rejects.toThrow('no longer open')
+  })
+
+  it('commits image imports with the photo as provenance', async () => {
+    const { id } = await createImport({
+      fileName: 'IMG_1.jpg + 1 more',
+      fileHash: 'h',
+      sourceKind: 'images',
+      pageCount: 3,
+      pages: [
+        { page: 1, label: 'IMG_1.jpg', sourceFile: 'IMG_1.jpg', rotation: 90 },
+        { page: 3, label: 'scroll.png (part 2/2)', sourceFile: 'scroll.png', rotation: 0 },
+      ],
+      provider: 'gemini',
+      model: 'm',
+    })
+    await savePageResult(id, result(1, [draft('貓')]))
+    await savePageResult(id, result(3, [draft('狗')]))
+    expect((await listImportPages(id)).map((p) => [p.label, p.rotation])).toEqual([
+      ['IMG_1.jpg', 90],
+      ['scroll.png (part 2/2)', 0],
+    ])
+    await commitImport(id)
+    const sources = (await loadDeck()).map((e) => e.card.source).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    expect(sources).toEqual([
+      { type: 'image', importId: id, fileName: 'IMG_1.jpg', bbox: undefined },
+      { type: 'image', importId: id, fileName: 'scroll.png', bbox: undefined },
+    ])
   })
 
   it('discards an import and its work tables', async () => {

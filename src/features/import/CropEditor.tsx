@@ -113,7 +113,7 @@ export function CropEditor({ draft, page, otherBoxes, onClose }: Props) {
             <Hanzi className="text-xl font-semibold">{draft.hanzi || '—'}</Hanzi>{' '}
             <span className="text-white/70">{draft.pinyin}</span>
           </div>
-          <span className="text-sm text-white/60">Page {page.page}</span>
+          <span className="text-sm text-white/60">{page.label ?? `Page ${page.page}`}</span>
         </div>
         <p className="text-sm text-white/70">Drag the box or its corners, or drag on the page to draw a new one.</p>
 
@@ -130,7 +130,7 @@ export function CropEditor({ draft, page, otherBoxes, onClose }: Props) {
           onPointerUp={end}
           onPointerCancel={end}
         >
-          {url && <img src={url} alt={`Page ${page.page}`} className="pointer-events-none absolute inset-0 size-full" draggable={false} />}
+          {url && <img src={url} alt={page.label ?? `Page ${page.page}`} className="pointer-events-none absolute inset-0 size-full" draggable={false} />}
           {otherBoxes.map((b, i) => (
             <div key={i} className="pointer-events-none absolute border-2 border-dashed border-sky-500/70" style={pct(b)} />
           ))}

@@ -2,9 +2,9 @@
  * Instructions for extracting study items from one page image. Bump PROMPT_VERSION whenever the
  * wording or schema changes, so stored page results can be traced to the prompt that produced them.
  */
-export const PROMPT_VERSION = 1
+export const PROMPT_VERSION = 2
 
-export const SYSTEM_PROMPT = `You extract study material from ONE page image of a Mandarin Chinese course for an English-speaking learner in Taiwan. Reply with JSON only.
+export const SYSTEM_PROMPT = `You extract study material from ONE page image of a Mandarin Chinese course for an English-speaking learner in Taiwan. The image may be a scan, a screenshot or a phone photo of a printed page; photos can be tilted, curved or shadowed, so read characters and tone marks carefully. Reply with JSON only.
 
 Find every item a learner should memorise:
 1. A picture with a pinyin label (the Chinese characters may be missing).

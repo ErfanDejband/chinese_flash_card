@@ -22,6 +22,8 @@ export interface ImportRecord {
   status: 'draft' | 'committed' | 'discarded'
   acceptedCount: number
   rejectedCount: number
+  /** Missing on imports made before image support: PDF. */
+  sourceKind?: 'pdf' | 'images'
   /** AI provider and model used for extraction. */
   provider?: string
   model?: string
@@ -35,6 +37,12 @@ export interface ImportPageRecord {
   id: string
   importId: Id
   page: number
+  /** "Page 5", "IMG_1234.jpg", "scroll.png (part 2/4)". Missing on older imports. */
+  label?: string
+  /** Original image file name (image imports). */
+  sourceFile?: string
+  /** Extra clockwise rotation chosen in the page picker. */
+  rotation?: 0 | 90 | 180 | 270
   status: 'pending' | 'running' | 'done' | 'error'
   /** Rendered page (~1920 px JPEG), kept for re-cropping pictures. */
   image?: Blob

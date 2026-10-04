@@ -21,7 +21,11 @@ function Progress({ card, state }: { card: Card; state?: ReviewState }) {
   const today = useToday()
   const settings = useSettings()
   const source =
-    card.source.type === 'pdf' ? `Imported from ${card.source.fileName}, page ${card.source.page}` : 'Added manually'
+    card.source.type === 'pdf'
+      ? `Imported from ${card.source.fileName}, page ${card.source.page}`
+      : card.source.type === 'image'
+        ? `Imported from ${card.source.fileName}`
+        : 'Added manually'
   return (
     <div className="mb-6 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
       {settings && <p className="mb-1 text-xs font-semibold tracking-wide uppercase">{REVIEW_MODE_INFO[settings.reviewMode].label}</p>}

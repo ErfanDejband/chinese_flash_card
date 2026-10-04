@@ -1,17 +1,26 @@
 import { newId } from '@/domain/ids'
 import type { Id } from '@/domain/types'
 import { PROMPT_VERSION } from '@/import/ai/prompt'
+import type { Rotation } from '@/import/render'
 import type { PageResult } from '@/import/extract/runExtraction'
 import { db, type ImportDraftRecord, type ImportPageRecord, type ImportRecord } from '../db'
 import { createCards, type NewCard } from './cards'
 
 const pageId = (importId: Id, page: number) => `${importId}:${page}`
 
+export interface NewImportPage {
+  page: number
+  label: string
+  sourceFile?: string
+  rotation: Rotation
+}
+
 export interface NewImport {
   fileName: string
   fileHash: string
+  sourceKind: 'pdf' | 'images'
   pageCount: number
-  pages: number[]
+  pages: NewImportPage[]
   provider: string
   model: string
 }
@@ -22,6 +31,7 @@ export async function createImport(input: NewImport, now = Date.now()): Promise<
     id: newId(),
     fileName: input.fileName,
     fileHash: input.fileHash,
+    sourceKind: input.sourceKind,
     pageCount: input.pageCount,
     status: 'draft',
     acceptedCount: 0,
@@ -34,7 +44,16 @@ export async function createImport(input: NewImport, now = Date.now()): Promise<
   await db.transaction('rw', db.imports, db.importPages, async () => {
     await db.imports.add(record)
     await db.importPages.bulkAdd(
-      input.pages.map((page) => ({ id: pageId(record.id, page), importId: record.id, page, status: 'pending', updatedAt: now })),
+      input.pages.map((p) => ({
+        id: pageId(record.id, p.page),
+        importId: record.id,
+        page: p.page,
+        label: p.label,
+        sourceFile: p.sourceFile,
+        rotation: p.rotation,
+        status: 'pending' as const,
+        updatedAt: now,
+      })),
     )
   })
   return record
@@ -98,7 +117,10 @@ export async function markPageError(importId: Id, page: number, error: string, n
 export async function savePageResult(importId: Id, result: PageResult, now = Date.now()): Promise<void> {
   const { rendered } = result
   await db.transaction('rw', db.imports, db.importPages, db.importDrafts, async () => {
+    // Keep what was set when the page was queued (label, file, rotation).
+    const queued = await db.importPages.get(pageId(importId, rendered.page))
     await db.importPages.put({
+      ...queued,
       id: pageId(importId, rendered.page),
       importId,
       page: rendered.page,
@@ -154,6 +176,7 @@ export async function commitImport(importId: Id, now = Date.now()): Promise<{ cr
     if (!record || record.status !== 'draft') throw new Error('This import is no longer open.')
     const drafts = await listDrafts(importId)
     const chosen = drafts.filter(isImportable)
+    const pages = new Map((await listImportPages(importId)).map((p) => [p.page, p]))
     const inputs: NewCard[] = chosen.map((d) => ({
       hanzi: d.hanzi,
       pinyin: d.pinyin,
@@ -161,7 +184,10 @@ export async function commitImport(importId: Id, now = Date.now()): Promise<{ cr
       notes: d.notes,
       tags: d.kind === 'sentence' ? ['sentence'] : [],
       image: d.crop,
-      source: { type: 'pdf', importId, fileName: record.fileName, page: d.page, bbox: d.sourceBox },
+      source:
+        record.sourceKind === 'images'
+          ? { type: 'image', importId, fileName: pages.get(d.page)?.sourceFile ?? record.fileName, bbox: d.sourceBox }
+          : { type: 'pdf', importId, fileName: record.fileName, page: d.page, bbox: d.sourceBox },
     }))
     const cards = await createCards(inputs, now)
     await db.imports.update(importId, {
