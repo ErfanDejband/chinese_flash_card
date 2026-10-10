@@ -35,6 +35,15 @@ export function shortMonth(date: LocalDate): string {
   return localDay(date).toLocaleDateString(undefined, { month: 'short' })
 }
 
+/** "just now", "5 min ago", "3 h ago", then the date. */
+export function timeAgo(timestamp: number, now = Date.now()): string {
+  const minutes = Math.floor((now - timestamp) / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ago`
+  return shortDateTime(timestamp)
+}
+
 export function shortDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }

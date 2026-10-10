@@ -1,6 +1,7 @@
 import { createPkce, exchangeOpenRouterCode, openRouterAuthUrl, randomToken } from '@/import/ai/openrouterAuth'
 import type { FetchLike } from '@/import/ai/types'
 import { getAiSettings, saveAiSettings } from './aiConfig'
+import { appRootUrl } from './appUrl'
 
 /**
  * Browser side of "Sign in with OpenRouter". The pending sign-in is kept in localStorage, not
@@ -39,7 +40,7 @@ export function subscribeSignInStatus(listener: () => void): () => void {
 
 /** The app's root without the hash; OpenRouter appends `?code=…&state=…`. */
 export function callbackUrl(): string {
-  return `${location.origin}${import.meta.env.BASE_URL}`
+  return appRootUrl()
 }
 
 /** Leaves the app for openrouter.ai; it comes back through `handleOpenRouterCallback`. */

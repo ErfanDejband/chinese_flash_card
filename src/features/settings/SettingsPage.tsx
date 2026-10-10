@@ -14,6 +14,7 @@ import { AiSettings } from './AiSettings'
 import { BackupSettings } from './BackupSettings'
 import { DirectionSettings } from './DirectionSettings'
 import { LeitnerSettings } from './LeitnerSettings'
+import { SyncSettings } from './SyncSettings'
 import { UsagePanel } from './UsagePanel'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -114,6 +115,9 @@ export function SettingsPage() {
       </Section>
       <Section title="AI usage on this device">
         <UsagePanel />
+      </Section>
+      <Section title="Sync between devices">
+        <SyncSettings />
       </Section>
       <Section title="Backup">
         <BackupSettings />

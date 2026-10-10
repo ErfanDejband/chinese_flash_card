@@ -14,3 +14,5 @@ pdf_template/
 # Working plans and Claude Code project memory (kept locally, not published)
 plans/
 CLAUDE.md
+# edd .env for secrets that Provided
+.env

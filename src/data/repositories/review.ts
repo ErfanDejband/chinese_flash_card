@@ -31,10 +31,12 @@ export async function recordAnswer(
 }
 
 export async function undoAnswer(token: AnswerUndoToken, now = Date.now()): Promise<void> {
-  await db.transaction('rw', db.reviewStates, db.reviewLog, async () => {
+  await db.transaction('rw', db.reviewStates, db.reviewLog, db.syncTombstones, async () => {
     // A fresh updatedAt so the reverted state wins a later last-write-wins merge.
     await db.reviewStates.put({ ...token.prevState, updatedAt: now })
     await db.reviewLog.delete(token.logId)
+    // The entry may already have been synced: tell the other devices to drop it too.
+    await db.syncTombstones.put({ id: token.logId, deletedAt: now })
   })
 }
 

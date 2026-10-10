@@ -4,10 +4,31 @@ import { getAiSettings, subscribeAiSettings, type AiSettingsState } from '@/lib/
 import { canInstall, subscribeInstall } from '@/lib/install'
 import { getSignInStatus, subscribeSignInStatus, type SignInStatus } from '@/lib/openrouterSignIn'
 import { mandarinVoices, speechSupported } from '@/lib/speech'
+import { getDeviceSync, subscribeDeviceSync, type DeviceSync } from '@/lib/syncConfig'
+import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '@/lib/syncRunner'
 
 /** AI provider settings of this device. */
 export function useAiSettings(): AiSettingsState {
   return useSyncExternalStore(subscribeAiSettings, getAiSettings)
+}
+
+/** `Date.now()`, refreshed every `intervalMs` (for "5 min ago" texts). */
+export function useNow(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs)
+    return () => clearInterval(timer)
+  }, [intervalMs])
+  return now
+}
+
+/** Google Drive sync of this device: its settings and the live status. */
+export function useDeviceSync(): DeviceSync {
+  return useSyncExternalStore(subscribeDeviceSync, getDeviceSync)
+}
+
+export function useSyncStatus(): SyncStatus {
+  return useSyncExternalStore(subscribeSyncStatus, getSyncStatus)
 }
 
 /** Progress of a "Sign in with OpenRouter" that is finishing on this page load. */

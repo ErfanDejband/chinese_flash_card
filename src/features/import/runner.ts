@@ -16,6 +16,7 @@ import { loadSimplifiedDetector } from '@/import/extract/traditional'
 import { cropFromImage } from '@/import/pdf/crop'
 import type { ImportSource } from '@/import/source/types'
 import { finishRun, recordUsage, startRun as startUsageRun } from '@/lib/aiUsage'
+import { setBusy } from '@/lib/busy'
 
 /**
  * The extraction run lives outside React so it keeps going while the user navigates around
@@ -71,6 +72,8 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
   controller = new AbortController()
   const signal = controller.signal
   set({ importId, phase: 'running', page: undefined, fatal: undefined, waitingUntil: undefined })
+  // A sign-in hop (full-page navigation) would stop the run.
+  setBusy('import', true)
 
   try {
     await requeueInterrupted(importId)
@@ -114,6 +117,7 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
   } finally {
     finishRun()
     controller = undefined
+    setBusy('import', false)
     set({ phase: 'idle', page: undefined, waitingUntil: undefined })
   }
 }

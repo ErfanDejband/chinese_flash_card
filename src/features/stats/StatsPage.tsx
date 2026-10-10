@@ -14,6 +14,7 @@ import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
 import { ActivityCalendar } from './ActivityCalendar'
 import { BoxHistoryChart } from './BoxHistoryChart'
 import { StudyCard } from './StudyCard'
+import { SyncStatusLine } from './SyncStatusLine'
 
 const FORGOTTEN_SHOWN = 10
 
@@ -92,6 +93,7 @@ export function StatsPage() {
           Add your first card
         </ButtonLink>
       )}
+      <SyncStatusLine />
     </>
   )
 

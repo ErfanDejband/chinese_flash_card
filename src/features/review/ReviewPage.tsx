@@ -20,6 +20,7 @@ import {
   startSession,
 } from '@/domain/session/reducer'
 import type { AppSettings, ReviewResult } from '@/domain/types'
+import { requestSync } from '@/lib/syncRunner'
 import { Button, ButtonLink } from '@/ui/Button'
 import { plural } from '@/ui/format'
 import { Hanzi } from '@/ui/Hanzi'
@@ -118,6 +119,12 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
   const [error, setError] = useState<string>()
   const back = useReturnTo()
 
+  const finished = isFinished(state)
+  // Send today's answers to the other devices (silently; never a sign-in hop mid-review).
+  useEffect(() => {
+    if (finished) requestSync('review')
+  }, [finished])
+
   const cardId = currentCardId(state)
   const entry = cardId ? byId.get(cardId) : undefined
   const last = lastHistoryEntry(state)
@@ -171,7 +178,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  if (isFinished(state)) {
+  if (finished) {
     const hardest = retriedCards(state)
     return (
       <Shell>

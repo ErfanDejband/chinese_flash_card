@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { AppSettings, BBox, Card, Id, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
+import type { Tombstone } from '@/domain/sync/merge'
 import type { DraftFields } from '@/import/types'
 
 /** Binary media (card images, later audio), stored as Blobs next to the cards. */
@@ -91,6 +92,8 @@ export class AppDB extends Dexie {
   settings!: EntityTable<SettingsRecord, 'id'>
   importPages!: EntityTable<ImportPageRecord, 'id'>
   importDrafts!: EntityTable<ImportDraftRecord, 'id'>
+  /** Review-log entries deleted by undo, so sync can delete them on other devices too. */
+  syncTombstones!: EntityTable<Tombstone, 'id'>
 
   constructor(name = DB_NAME) {
     super(name)
@@ -107,6 +110,8 @@ export class AppDB extends Dexie {
       importPages: 'id, importId',
       importDrafts: 'id, importId, [importId+page]',
     })
+    // v3: sync tombstones (new table only).
+    this.version(3).stores({ syncTombstones: 'id' })
   }
 }
 
@@ -121,4 +126,5 @@ export const ALL_TABLES = () => [
   db.settings,
   db.importPages,
   db.importDrafts,
+  db.syncTombstones,
 ]

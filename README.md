@@ -15,7 +15,10 @@ provider you configure.
 - **Progress tab**: start today's review (or see what's next), daily streak (also on Home), an 18-week activity calendar,
   the last 7 days vs the week before, cards per box week by week, and your most-forgotten cards — all derived from the
   local review log
-- **Backup**: zip export / import (merge or replace) — also how to move a deck between devices for now
+- **Sync between devices** (Settings → Sync): cards, progress, review history and settings sync through a hidden folder
+  in your own Google Drive — no server, nothing stored anywhere else. Pictures follow in a later update. See
+  [ADR 0007](docs/adr/0007-sync-google-drive-appdata.md)
+- **Backup**: zip export / import (merge or replace)
 - **PWA**: installable on Android, works offline
 - **AI import from PDFs, photos or screenshots** (several images at once; rotate sideways pages; long screenshots
   are split automatically): pick pages → a vision model finds the vocabulary (and infers characters shown only as
@@ -92,9 +95,10 @@ Key decisions are recorded in [docs/adr](docs/adr):
 4. [Scheduling rules](docs/adr/0004-scheduling-rules.md)
 5. [AI-assisted PDF extraction with your own API key](docs/adr/0005-ai-pdf-extraction.md)
 6. [Free AI import via "Sign in with OpenRouter"](docs/adr/0006-free-ai-via-openrouter-oauth.md)
+7. [Sync via each user's Google Drive app folder](docs/adr/0007-sync-google-drive-appdata.md)
 
 ## Roadmap
 
-1. Cloud sync (Supabase), recorded audio, animated/3D boxes
+1. Sync pictures too (step 2 of Drive sync), recorded audio, animated/3D boxes
 2. More review modes (hanzi → pinyin, listening), tags/decks UI
 3. AI extras: example sentences and exercises for existing cards
