@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useReducer, useState, type ReactNode } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 import { loadDeck } from '@/data/repositories/cards'
 import { recordAnswer, undoAnswer, type AnswerUndoToken } from '@/data/repositories/review'
 import { getSettings } from '@/data/repositories/settings'
@@ -34,6 +34,12 @@ function parseRequest(query: string): SessionRequest {
   const box = Number(params.get('box'))
   if (params.has('box') && Number.isInteger(box) && box > 0) return { kind: 'box', box }
   return { kind: 'daily' }
+}
+
+/** Where ✕ and "Back" lead: the Progress tab when the session was started there, else Home. */
+function useReturnTo(): { to: string; label: string; state: unknown } {
+  const state = useLocation().state as { from?: unknown } | null
+  return state?.from === '/progress' ? { to: '/progress', label: 'Back to progress', state } : { to: '/', label: 'Back to home', state }
 }
 
 interface Loaded {
@@ -81,6 +87,7 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 function NothingToReview({ entries, request }: Loaded) {
+  const back = useReturnTo()
   const pool = newCardPool(entries).length
   const extra = Math.min(pool, 5)
   return (
@@ -91,12 +98,12 @@ function NothingToReview({ entries, request }: Loaded) {
         <p className="text-muted">{pool > 0 ? `${plural(pool, 'card')} waiting in the new-card pool.` : 'Come back when cards are due.'}</p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
           {extra > 0 && (
-            <ButtonLink to={`/review?new=${extra}`} replace size="lg">
+            <ButtonLink to={`/review?new=${extra}`} replace state={back.state} size="lg">
               Learn {plural(extra, 'new card')}
             </ButtonLink>
           )}
-          <ButtonLink to="/" variant="secondary" size="lg">
-            Back to home
+          <ButtonLink to={back.to} variant="secondary" size="lg">
+            {back.label}
           </ButtonLink>
         </div>
       </div>
@@ -109,6 +116,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
   const [state, dispatch] = useReducer(sessionReducer, plan, (p) => startSession(p.cardIds, p.newIds))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const back = useReturnTo()
 
   const cardId = currentCardId(state)
   const entry = cardId ? byId.get(cardId) : undefined
@@ -200,8 +208,8 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
             </section>
           )}
           <div className="flex w-full max-w-xs flex-col gap-3">
-            <ButtonLink to="/" size="lg">
-              Back to home
+            <ButtonLink to={back.to} size="lg">
+              {back.label}
             </ButtonLink>
             {last && (
               <Button variant="ghost" onClick={() => void undo()} disabled={busy}>
@@ -221,7 +229,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
     <Shell>
       {/* Grid so the again bar (second row, once something was forgotten) lines up under the main bar. */}
       <div className="grid grid-cols-[auto_1fr_auto_auto] grid-rows-[3.5rem] items-center gap-x-3">
-        <Link to="/" className="-ml-2 grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="End session">
+        <Link to={back.to} className="-ml-2 grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="End session">
           <Icon name="x" />
         </Link>
         <div className="h-2 overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuenow={stats.answered} aria-valuemax={state.total}>

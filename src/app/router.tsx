@@ -1,4 +1,4 @@
-import { createHashRouter } from 'react-router'
+import { createHashRouter, Navigate } from 'react-router'
 import { BoxDetailPage } from '@/features/boxes/BoxDetailPage'
 import { CardsPage } from '@/features/cards/CardsPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
@@ -33,7 +33,8 @@ export const router = createHashRouter([
       { path: 'import', lazy: importPage },
       { path: 'import/:importId', lazy: importSessionPage },
       { path: 'settings', element: <SettingsPage /> },
-      { path: 'stats', element: <StatsPage /> },
+      { path: 'progress', element: <StatsPage /> },
+      { path: 'stats', element: <Navigate to="/progress" replace /> },
       { path: '*', element: <NotFound /> },
     ],
   },

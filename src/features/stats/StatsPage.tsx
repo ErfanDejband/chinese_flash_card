@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router'
 import { summarizeDeck } from '@/domain/deck'
 import { boxHistory, mostForgotten, periodSummary, type PeriodStats } from '@/domain/stats'
 import { useDeck, useSettings } from '@/hooks/useDeck'
@@ -12,6 +13,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
 import { ActivityCalendar } from './ActivityCalendar'
 import { BoxHistoryChart } from './BoxHistoryChart'
+import { StudyCard } from './StudyCard'
 
 const FORGOTTEN_SHOWN = 10
 
@@ -69,7 +71,29 @@ export function StatsPage() {
 
   const mode = settings.reviewMode
   const direction = REVIEW_MODE_INFO[mode].label
-  const header = <PageHeader title="Stats" back="/" subtitle="Your progress over time, on this device" />
+  const { current, best, reviewedToday } = data.streak
+  const header = (
+    <>
+      <PageHeader
+        title="Progress"
+        subtitle={
+          <>
+            {direction}{' '}
+            <Link to="/settings" className="text-accent underline">
+              change
+            </Link>
+          </>
+        }
+      />
+      {deck.length > 0 ? (
+        <StudyCard deck={deck} settings={settings} today={today} reviewedToday={reviewedToday} />
+      ) : (
+        <ButtonLink to="/cards/new" size="lg" className="w-full">
+          Add your first card
+        </ButtonLink>
+      )}
+    </>
+  )
 
   if (data.log.length === 0) {
     return (
@@ -77,16 +101,12 @@ export function StatsPage() {
         {header}
         <div className="py-10 text-center">
           <div className="mb-3 text-5xl">📈</div>
-          <p className="mx-auto mb-6 max-w-sm text-muted">Review some cards and your streak, activity and progress through the boxes appear here.</p>
-          <ButtonLink to="/review" size="lg">
-            Start review
-          </ButtonLink>
+          <p className="mx-auto max-w-sm text-muted">Your streak, activity and progress through the boxes appear here after your first review.</p>
         </div>
       </>
     )
   }
 
-  const { current, best, reviewedToday } = data.streak
   const period = periodSummary(data.log, today)
   const history = boxHistory(data.log, mode, data.cards, settings.leitner, today)
   const pool = summarizeDeck(deck, today, settings.leitner, settings.newPerDay).notStarted
@@ -102,7 +122,7 @@ export function StatsPage() {
     <>
       {header}
 
-      <section className="rounded-3xl border border-line bg-surface p-5 shadow-sm">
+      <section className="mt-6 rounded-3xl border border-line bg-surface p-5 shadow-sm">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="text-5xl font-bold tracking-tight tabular-nums">
@@ -113,9 +133,8 @@ export function StatsPage() {
           </div>
           <div className="text-right text-sm">
             <div>Best: {plural(best, 'day')}</div>
-            <div className="text-muted">
-              {reviewedToday ? 'Reviewed today ✓' : current > 0 ? 'Review today to keep it going' : 'Review today to start one'}
-            </div>
+            {/* "Reviewed today" is already said by the study card above. */}
+            {!reviewedToday && <div className="text-muted">{current > 0 ? 'Review today to keep it going' : 'Review today to start one'}</div>}
           </div>
         </div>
         <ActivityCalendar activity={data.activity} today={today} />

@@ -9,6 +9,7 @@ const paths = {
       <path d="M5.5 15.5A8 8 0 0 0 19 17M18.5 8.5A8 8 0 0 0 5 7" />
     </>
   ),
+  chart: <path d="M4 20h16M7 16v-4M12 16V5M17 16V9" />,
   cards: (
     <>
       <rect x="3" y="7" width="14" height="14" rx="2" />

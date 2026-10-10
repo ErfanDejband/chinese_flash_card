@@ -12,8 +12,9 @@ provider you configure.
   picture → Chinese (fallback: meaning → Chinese) or Chinese → pinyin + meaning + picture.
   Knew / Forgot, undo, keyboard shortcuts, text-to-speech
 - **Leitner boxes**: configurable boxes and intervals, daily new-card limit, visual box shelf, per-box review
-- **Stats**: daily streak (on Home), an 18-week activity calendar, the last 7 days vs the week before, cards per box
-  week by week, and your most-forgotten cards — all derived from the local review log
+- **Progress tab**: start today's review (or see what's next), daily streak (also on Home), an 18-week activity calendar,
+  the last 7 days vs the week before, cards per box week by week, and your most-forgotten cards — all derived from the
+  local review log
 - **Backup**: zip export / import (merge or replace) — also how to move a deck between devices for now
 - **PWA**: installable on Android, works offline
 - **AI import from PDFs, photos or screenshots** (several images at once; rotate sideways pages; long screenshots

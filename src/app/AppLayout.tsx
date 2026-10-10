@@ -7,7 +7,7 @@ import { Icon, type IconName } from '@/ui/icons'
 
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: '/', label: 'Home', icon: 'home', end: true },
-  { to: '/review', label: 'Review', icon: 'review' },
+  { to: '/progress', label: 'Progress', icon: 'chart' },
   { to: '/cards', label: 'Cards', icon: 'cards' },
   { to: '/import', label: 'Import', icon: 'import' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
@@ -56,7 +56,7 @@ export function AppLayout() {
                 }
               >
                 {item.label}
-                {item.to === '/review' && todayCount > 0 && (
+                {item.to === '/progress' && todayCount > 0 && (
                   <span className="ml-1.5 rounded-full bg-accent px-1.5 text-xs font-bold text-on-accent">{todayCount}</span>
                 )}
               </NavLink>
@@ -83,7 +83,7 @@ export function AppLayout() {
             >
               <Icon name={item.icon} className="size-6" />
               {item.label}
-              {item.to === '/review' && <Badge count={todayCount} />}
+              {item.to === '/progress' && <Badge count={todayCount} />}
             </NavLink>
           ))}
         </div>

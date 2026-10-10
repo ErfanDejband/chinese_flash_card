@@ -40,7 +40,7 @@ function Pill({ children }: { children: ReactNode }) {
   return <span className="rounded-full bg-sunken px-3 py-1 text-sm font-medium">{children}</span>
 }
 
-/** Streak at a glance; the whole strip opens the Stats page. */
+/** Streak at a glance; the whole strip opens the Progress tab. */
 function StreakStrip() {
   const stats = useStatsData()
   if (!stats) return null
@@ -48,12 +48,12 @@ function StreakStrip() {
   const text =
     current === 0 ? 'Start a streak today' : `🔥 ${current}-day streak${reviewedToday ? '' : ' — review today to keep it'}`
   return (
-    <Link to="/stats" className="mb-4 flex items-center gap-3 rounded-2xl bg-sunken px-4 py-2.5 text-sm hover:bg-line">
+    <Link to="/progress" className="mb-4 flex items-center gap-3 rounded-2xl bg-sunken px-4 py-2.5 text-sm hover:bg-line">
       <span className="min-w-0 flex-1 truncate font-medium">
         {text}
         {best > current && <span className="font-normal text-muted"> · best {best}</span>}
       </span>
-      <span className="shrink-0 font-semibold text-accent">Stats →</span>
+      <span className="shrink-0 font-semibold text-accent">Progress →</span>
     </Link>
   )
 }
