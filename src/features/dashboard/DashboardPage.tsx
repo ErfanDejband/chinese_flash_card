@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { nextDueDate, summarizeDeck } from '@/domain/deck'
 import { BoxesView } from '@/features/boxes/BoxesView'
 import { useDeck, useSettings } from '@/hooks/useDeck'
+import { useStatsData } from '@/hooks/useStats'
 import { useToday } from '@/hooks/useToday'
 import { ButtonLink } from '@/ui/Button'
 import { AddCardFab } from '@/ui/Fab'
@@ -39,6 +40,24 @@ function Pill({ children }: { children: ReactNode }) {
   return <span className="rounded-full bg-sunken px-3 py-1 text-sm font-medium">{children}</span>
 }
 
+/** Streak at a glance; the whole strip opens the Stats page. */
+function StreakStrip() {
+  const stats = useStatsData()
+  if (!stats) return null
+  const { current, best, reviewedToday } = stats.streak
+  const text =
+    current === 0 ? 'Start a streak today' : `🔥 ${current}-day streak${reviewedToday ? '' : ' — review today to keep it'}`
+  return (
+    <Link to="/stats" className="mb-4 flex items-center gap-3 rounded-2xl bg-sunken px-4 py-2.5 text-sm hover:bg-line">
+      <span className="min-w-0 flex-1 truncate font-medium">
+        {text}
+        {best > current && <span className="font-normal text-muted"> · best {best}</span>}
+      </span>
+      <span className="shrink-0 font-semibold text-accent">Stats →</span>
+    </Link>
+  )
+}
+
 export function DashboardPage() {
   const deck = useDeck()
   const settings = useSettings()
@@ -65,6 +84,8 @@ export function DashboardPage() {
           </>
         }
       />
+
+      <StreakStrip />
 
       <section className="rounded-3xl border border-line bg-surface p-5 shadow-sm">
         {toStudy > 0 ? (

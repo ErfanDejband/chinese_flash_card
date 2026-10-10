@@ -10,10 +10,29 @@ export function relativeDay(date: LocalDate, today: LocalDate): string {
   return d > 0 ? `in ${d} days` : `${-d} days ago`
 }
 
+const localDay = (date: LocalDate) => {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(y!, m! - 1, d!)
+}
+
 /** "Friday, September 25". */
 export function longDate(date: LocalDate): string {
-  const [y, m, d] = date.split('-').map(Number)
-  return new Date(y!, m! - 1, d!).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+  return localDay(date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+}
+
+/** "Fri, Sep 25". */
+export function shortDay(date: LocalDate): string {
+  return localDay(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+/** "Sep 25". */
+export function monthDay(date: LocalDate): string {
+  return localDay(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/** "Sep". */
+export function shortMonth(date: LocalDate): string {
+  return localDay(date).toLocaleDateString(undefined, { month: 'short' })
 }
 
 export function shortDateTime(timestamp: number): string {

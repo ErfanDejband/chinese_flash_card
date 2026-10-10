@@ -20,6 +20,12 @@ export function addDays(date: LocalDate, days: number): LocalDate {
   return `${pad(t.getUTCFullYear(), 4)}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`
 }
 
+/** Day of the week, Monday = 0 … Sunday = 6. */
+export function weekday(date: LocalDate): number {
+  const [y, m, d] = parse(date)
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7
+}
+
 /** Whole days from `from` to `to` (negative if `to` is earlier). */
 export function diffDays(from: LocalDate, to: LocalDate): number {
   const [y1, m1, d1] = parse(from)

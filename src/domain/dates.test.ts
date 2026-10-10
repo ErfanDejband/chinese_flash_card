@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, diffDays, toLocalDate } from './dates'
+import { addDays, diffDays, toLocalDate, weekday } from './dates'
 
 describe('dates', () => {
   it('formats the local calendar day', () => {
@@ -28,5 +28,11 @@ describe('dates', () => {
 
   it('rejects malformed dates', () => {
     expect(() => addDays('2026-9-5', 1)).toThrow()
+  })
+
+  it('weekday counts from Monday', () => {
+    expect(weekday('2026-10-05')).toBe(0) // Monday
+    expect(weekday('2026-10-10')).toBe(5) // Saturday
+    expect(weekday('2026-10-11')).toBe(6) // Sunday
   })
 })

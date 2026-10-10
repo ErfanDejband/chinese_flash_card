@@ -4,6 +4,7 @@ import { CardsPage } from '@/features/cards/CardsPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ReviewPage } from '@/features/review/ReviewPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import { StatsPage } from '@/features/stats/StatsPage'
 import { AppLayout } from './AppLayout'
 import { NotFound, RouteError } from './RouteError'
 
@@ -32,6 +33,7 @@ export const router = createHashRouter([
       { path: 'import', lazy: importPage },
       { path: 'import/:importId', lazy: importSessionPage },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'stats', element: <StatsPage /> },
       { path: '*', element: <NotFound /> },
     ],
   },

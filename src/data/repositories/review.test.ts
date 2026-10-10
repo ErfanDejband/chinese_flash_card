@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_LEITNER } from '@/domain/leitner/config'
 import { ALL_TABLES, db } from '../db'
-import { createCard, loadDeck } from './cards'
-import { listReviewLog, recordAnswer, undoAnswer } from './review'
+import { createCard, deleteCard, loadDeck } from './cards'
+import { listReviewLog, loadStatsData, recordAnswer, undoAnswer } from './review'
 
 beforeEach(async () => {
   await Promise.all(ALL_TABLES().map((t) => t.clear()))
@@ -49,5 +49,18 @@ describe('review repository', () => {
     expect(picture!.state.box).toBe(3)
     expect(readingAfter!.state).toMatchObject({ box: 1, dueOn: '2026-09-28' })
     expect((await listReviewLog(card.id)).map((l) => l.mode)).toEqual(['image_to_word', 'image_to_word', 'hanzi_to_meaning'])
+  })
+
+  it('loads the whole log and every card, deleted ones included, for stats', async () => {
+    const kept = await createCard({ hanzi: '學生', pinyin: 'xuéshēng' })
+    const gone = await createCard({ hanzi: '老師', pinyin: 'lǎoshī' })
+    await recordAnswer(kept.id, 'knew', DEFAULT_LEITNER, day(25))
+    await recordAnswer(gone.id, 'forgot', DEFAULT_LEITNER, day(26))
+    await deleteCard(gone.id)
+
+    const { log, cards } = await loadStatsData()
+    expect(log.map((l) => l.cardId).sort()).toEqual([kept.id, gone.id].sort())
+    expect(cards.find((c) => c.id === gone.id)?.deletedAt).toBeDefined()
+    expect(cards).toHaveLength(2)
   })
 })

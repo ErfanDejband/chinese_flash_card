@@ -1,7 +1,7 @@
 import { toLocalDate } from '@/domain/dates'
 import { newId } from '@/domain/ids'
 import { applyReview, newReviewState, reviewStateId } from '@/domain/leitner/scheduler'
-import type { Id, LeitnerConfig, ReviewLogEntry, ReviewMode, ReviewResult, ReviewState } from '@/domain/types'
+import type { Card, Id, LeitnerConfig, ReviewLogEntry, ReviewMode, ReviewResult, ReviewState } from '@/domain/types'
 import { db } from '../db'
 import { DEFAULT_MODE } from './cards'
 
@@ -44,4 +44,10 @@ export function getReviewState(cardId: Id, mode: ReviewMode = DEFAULT_MODE): Pro
 
 export function listReviewLog(cardId: Id): Promise<ReviewLogEntry[]> {
   return db.reviewLog.where('cardId').equals(cardId).sortBy('at')
+}
+
+/** Everything the stats screen derives from: the whole log, and all cards (deleted ones too, for history). */
+export async function loadStatsData(): Promise<{ log: ReviewLogEntry[]; cards: Card[] }> {
+  const [log, cards] = await Promise.all([db.reviewLog.toArray(), db.cards.toArray()])
+  return { log, cards }
 }
