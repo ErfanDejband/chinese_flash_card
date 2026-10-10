@@ -6,8 +6,9 @@ import { configProblems } from '@/import/ai/createProvider'
 import { serviceFor } from '@/import/ai/detectKey'
 import { openSource, SourceError } from '@/import/source/openSource'
 import type { ImportSource } from '@/import/source/types'
-import { useAiSettings } from '@/hooks/useBrowser'
+import { useAiSettings, useFreeQuota, useSignInStatus } from '@/hooks/useBrowser'
 import { activeProviderConfig } from '@/lib/aiConfig'
+import { startOpenRouterSignIn } from '@/lib/openrouterSignIn'
 import { Button, ButtonLink } from '@/ui/Button'
 import { shortDateTime } from '@/ui/format'
 import { Icon } from '@/ui/icons'
@@ -25,6 +26,8 @@ export function ImportPage() {
   const ai = useAiSettings()
   const config = activeProviderConfig(ai)
   const problems = configProblems(config)
+  const signIn = useSignInStatus()
+  const freeQuota = useFreeQuota(ai.mode === 'free' ? config.apiKey : '')
   const openImports = useLiveQuery(() => listOpenImports(), [])
   const fileInput = useRef<HTMLInputElement>(null)
   const [picked, setPicked] = useState<Picked>()
@@ -97,11 +100,26 @@ export function ImportPage() {
         </p>
         {problems.length > 0 ? (
           <div className="mb-4 rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            Set up an AI provider first: {problems.join(' ')}{' '}
-            <Link to="/settings" className="font-semibold underline">
-              Open Settings
-            </Link>
+            {signIn.kind === 'connecting' ? (
+              'Finishing the OpenRouter sign-in…'
+            ) : (
+              <>
+                {ai.mode === 'free' ? 'Connect a free AI service to read your pages: sign in with Google or e-mail, no key needed.' : `Set up an AI provider first: ${problems.join(' ')}`}{' '}
+                <Link to="/settings" className="font-semibold underline">
+                  Open Settings
+                </Link>
+                {signIn.kind === 'error' && <span className="mt-2 block text-red-700 dark:text-red-300">{signIn.message}</span>}
+                <Button size="sm" className="mt-3 w-full" onClick={() => void startOpenRouterSignIn('/import')}>
+                  Connect free AI (OpenRouter)
+                </Button>
+              </>
+            )}
           </div>
+        ) : ai.mode === 'free' ? (
+          <p className="mb-4 text-sm">
+            Using <span className="font-semibold">free AI (OpenRouter)</span>
+            {freeQuota ? ` · ${freeQuota.remaining} of ${freeQuota.limit} pages left today` : ''}
+          </p>
         ) : (
           <p className="mb-4 text-sm">
             Using <span className="font-semibold">{serviceFor(config.provider, config.baseUrl).label}</span> ·{' '}

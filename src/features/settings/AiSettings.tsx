@@ -6,9 +6,10 @@ import { pickDefaultGeminiModel } from '@/import/ai/gemini'
 import { CLAUDE_PRICES_PER_MTOK } from '@/import/ai/pricing'
 import type { ModelInfo, ProviderConfig } from '@/import/ai/types'
 import { useAiSettings } from '@/hooks/useBrowser'
-import { activeProviderConfig, saveAiSettings, type AiSettingsState } from '@/lib/aiConfig'
+import { activeProviderConfig, saveAiSettings, type AiMode, type AiSettingsState } from '@/lib/aiConfig'
 import { Button } from '@/ui/Button'
 import { cn } from '@/ui/cn'
+import { FreeAiSettings } from './FreeAiSettings'
 
 const input = 'h-12 w-full rounded-xl border border-line bg-paper px-3 outline-none focus:border-accent'
 const OTHER = '__other__'
@@ -46,7 +47,36 @@ function modelLabel(config: ProviderConfig, m: ModelInfo): string {
 
 type Loaded = { key: string; models: ModelInfo[]; error?: string }
 
+const MODES: [AiMode, string][] = [
+  ['free', 'Free — no key'],
+  ['own-key', 'My own API key'],
+]
+
 export function AiSettings() {
+  const settings = useAiSettings()
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-sunken p-1" role="radiogroup" aria-label="How to connect AI">
+        {MODES.map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            role="radio"
+            aria-checked={settings.mode === mode}
+            onClick={() => saveAiSettings({ ...settings, mode })}
+            className={cn('h-10 rounded-lg text-sm font-semibold', settings.mode === mode ? 'bg-paper text-ink shadow-sm' : 'text-muted')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {settings.mode === 'free' ? <FreeAiSettings /> : <OwnKeySettings />}
+    </div>
+  )
+}
+
+/** Paste a key from any supported service (the setup from before the free mode, unchanged). */
+function OwnKeySettings() {
   const settings = useAiSettings()
   const [showKey, setShowKey] = useState(false)
   const [freeOnly, setFreeOnly] = useState(true)

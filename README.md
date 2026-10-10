@@ -37,6 +37,13 @@ there; everything else works. Use the deployed HTTPS site to test installation.
 
 ## PDF import setup
 
+**Easiest: free, no key.** In **Settings → AI for PDF import**, keep **Free — no key** and tap **Connect OpenRouter**
+(or **Connect free AI** on the Import screen). Sign in at OpenRouter with Google or e-mail (no card); the app gets
+your own OpenRouter key automatically and uses its free models (`openrouter/free`). The free tier covers about 50 pages
+a day; the app shows how many are left. See [ADR 0006](docs/adr/0006-free-ai-via-openrouter-oauth.md).
+
+**Or use your own API key** (**My own API key**):
+
 1. Get an API key: a free Google Gemini key at <https://aistudio.google.com/apikey>, a Claude API key from the
    Claude Console (paid; separate from Claude.ai / Claude Code subscriptions), or an OpenRouter / Groq / OpenAI key,
    or use a local LM Studio / Ollama server.
@@ -81,6 +88,7 @@ Key decisions are recorded in [docs/adr](docs/adr):
 3. [Two-stage, pluggable PDF extraction](docs/adr/0003-pdf-extraction-pipeline.md) (superseded by 0005)
 4. [Scheduling rules](docs/adr/0004-scheduling-rules.md)
 5. [AI-assisted PDF extraction with your own API key](docs/adr/0005-ai-pdf-extraction.md)
+6. [Free AI import via "Sign in with OpenRouter"](docs/adr/0006-free-ai-via-openrouter-oauth.md)
 
 ## Roadmap
 

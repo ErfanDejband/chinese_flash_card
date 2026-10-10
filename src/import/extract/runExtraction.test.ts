@@ -101,6 +101,14 @@ describe('runExtraction', () => {
     expect(t.sleeps).toHaveLength(3) // 4 attempts
   })
 
+  it('stops at once when a daily limit is used up', async () => {
+    const t = setup([new ProviderError('quota', 'Daily limit reached: free-models-per-day', { status: 429 }), BOOK3_P20_REPLY])
+    await expect(runExtraction([1, 2], t.deps)).rejects.toThrow(/Resume the remaining pages tomorrow/)
+    expect(t.sleeps).toEqual([])
+    expect(t.requests).toHaveLength(1)
+    expect(t.errors.map(([page]) => page)).toEqual([1])
+  })
+
   it('can be cancelled between pages', async () => {
     const controller = new AbortController()
     const t = setup([BOOK3_P20_REPLY, BOOK3_P20_REPLY], {

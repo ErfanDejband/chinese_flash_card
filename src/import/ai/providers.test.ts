@@ -120,6 +120,19 @@ describe('OpenAI-compatible provider', () => {
     expect(body.messages[1].content[1]).toEqual({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA' } })
   })
 
+  it('tells a used-up daily allowance apart from a per-minute limit', async () => {
+    const inAnHour = String(Date.now() + 3_600_000)
+    const { fetchImpl } = mockFetch(
+      json({ error: { message: 'Rate limit exceeded: free-models-per-day' } }, 429),
+      json({ error: { message: 'Rate limit exceeded' } }, 429, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': inAnHour }),
+      json({ error: { message: 'Rate limit exceeded: free-models-per-min' } }, 429, { 'retry-after': '20' }),
+    )
+    const provider = createOpenAICompatibleProvider({ baseUrl: base, apiKey: KEY, model: 'openrouter/free', fetchImpl })
+    await expect(provider.extractPage(request)).rejects.toMatchObject({ kind: 'quota', transient: false })
+    await expect(provider.extractPage(request)).rejects.toMatchObject({ kind: 'quota' })
+    await expect(provider.extractPage(request)).rejects.toMatchObject({ kind: 'rate-limit', retryAfterMs: 20_000, transient: true })
+  })
+
   it('retries without response_format when the endpoint rejects it', async () => {
     const { fetchImpl, calls } = mockFetch(
       json({ error: { message: 'response_format is not supported by this model' } }, 400),

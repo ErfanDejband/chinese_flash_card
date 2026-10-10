@@ -46,7 +46,8 @@ export interface VisionProvider {
   extractPage(request: PageRequest): Promise<PageResponse>
 }
 
-export type ProviderErrorKind = 'auth' | 'rate-limit' | 'bad-request' | 'server' | 'network' | 'blocked' | 'bad-response'
+/** `quota`: a daily limit is used up; unlike `rate-limit`, waiting a few minutes won't help. */
+export type ProviderErrorKind = 'auth' | 'rate-limit' | 'quota' | 'bad-request' | 'server' | 'network' | 'blocked' | 'bad-response'
 
 export class ProviderError extends Error {
   readonly kind: ProviderErrorKind

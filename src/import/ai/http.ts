@@ -26,6 +26,16 @@ export function retryAfterMs(res: Response, body: unknown): number | undefined {
   return undefined
 }
 
+/**
+ * A 429 for a used-up daily allowance rather than a per-minute limit: the message says so
+ * (OpenRouter "free-models-per-day", Gemini "…PerDay…"), or the limit only resets much later.
+ */
+function isDailyLimit(res: Response, message: string): boolean {
+  if (/per[- ]?day/i.test(message)) return true
+  const reset = Number(res.headers.get('x-ratelimit-reset'))
+  return res.headers.get('x-ratelimit-remaining') === '0' && Number.isFinite(reset) && reset - Date.now() > 5 * 60_000
+}
+
 function errorMessage(body: unknown, fallback: string): string {
   const e = (body as { error?: unknown } | undefined)?.error
   if (typeof e === 'string') return e
@@ -56,6 +66,7 @@ export async function requestJson(fetchImpl: FetchLike, url: string, init: Reque
   const message = errorMessage(body, `${res.status} ${res.statusText}`.trim())
   const status = res.status
   if (status === 401 || status === 403) throw new ProviderError('auth', `The API key was rejected: ${message}`, { status })
+  if (status === 429 && isDailyLimit(res, message)) throw new ProviderError('quota', `Daily limit reached: ${message}`, { status })
   if (status === 429) throw new ProviderError('rate-limit', `Rate limit or quota reached: ${message}`, { status, retryAfterMs: retryAfterMs(res, body) })
   if (status >= 500) throw new ProviderError('server', `The AI service had a problem: ${message}`, { status })
   throw new ProviderError('bad-request', message, { status })

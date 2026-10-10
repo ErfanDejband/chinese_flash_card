@@ -102,6 +102,9 @@ export async function runExtraction(pages: number[], deps: ExtractionDeps): Prom
         const transient = e instanceof ProviderError && e.transient
         const canRetry = attempt < maxAttempts && (transient || (badOutput && attempt < 2))
         if (!canRetry) {
+          if (e instanceof ProviderError && e.kind === 'quota') {
+            throw new FatalExtractionError(`${e.message} Resume the remaining pages tomorrow.`)
+          }
           if (e instanceof ProviderError && e.kind === 'rate-limit') {
             throw new FatalExtractionError(`${e.message} Try again later.`)
           }

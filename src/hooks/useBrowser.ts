@@ -1,11 +1,34 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { openRouterFreeQuota, type FreeQuota } from '@/import/ai/openrouterAuth'
 import { getAiSettings, subscribeAiSettings, type AiSettingsState } from '@/lib/aiConfig'
 import { canInstall, subscribeInstall } from '@/lib/install'
+import { getSignInStatus, subscribeSignInStatus, type SignInStatus } from '@/lib/openrouterSignIn'
 import { mandarinVoices, speechSupported } from '@/lib/speech'
 
 /** AI provider settings of this device. */
 export function useAiSettings(): AiSettingsState {
   return useSyncExternalStore(subscribeAiSettings, getAiSettings)
+}
+
+/** Progress of a "Sign in with OpenRouter" that is finishing on this page load. */
+export function useSignInStatus(): SignInStatus {
+  return useSyncExternalStore(subscribeSignInStatus, getSignInStatus)
+}
+
+/** Today's free OpenRouter requests for this key; undefined while loading or when not reported. */
+export function useFreeQuota(apiKey: string): FreeQuota | undefined {
+  const [entry, setEntry] = useState<{ key: string; quota?: FreeQuota }>()
+  useEffect(() => {
+    if (!apiKey) return
+    const controller = new AbortController()
+    openRouterFreeQuota(apiKey, undefined, controller.signal).then(
+      (quota) => !controller.signal.aborted && setEntry({ key: apiKey, quota }),
+      // Only informative: without it the screens just don't show the count.
+      () => !controller.signal.aborted && setEntry({ key: apiKey }),
+    )
+    return () => controller.abort()
+  }, [apiKey])
+  return entry?.key === apiKey ? entry.quota : undefined
 }
 
 /**
