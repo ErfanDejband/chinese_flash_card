@@ -27,7 +27,8 @@ const QUESTION: Record<PromptKind, string> = {
 interface Props {
   card: Card
   box: number
-  isRepeat: boolean
+  /** 1 on the card's first showing this session; higher on each re-ask. */
+  attempt: number
   revealed: boolean
   mode: ReviewMode
   voiceURI?: string
@@ -37,14 +38,14 @@ function Chip({ children, className = 'bg-sunken text-muted' }: { children: stri
   return <span className={`rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ${className}`}>{children}</span>
 }
 
-export function ReviewCard({ card, box, isRepeat, revealed, mode, voiceURI }: Props) {
+export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Props) {
   const kind = promptKind(card, mode)
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-5 py-4 text-center">
       <div className="flex gap-2">
-        {isRepeat ? (
+        {attempt > 1 ? (
           // Already answered (forgotten) this session: its box has changed, so show only that it's a re-ask.
-          <Chip className="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">Again</Chip>
+          <Chip className="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">{`Again · try ${attempt}`}</Chip>
         ) : (
           <Chip>{box === 0 ? 'New card' : boxLabel(box)}</Chip>
         )}

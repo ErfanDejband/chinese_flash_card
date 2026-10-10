@@ -8,10 +8,13 @@ import type { DeckEntry } from '@/domain/deck'
 import { newCardPool } from '@/domain/deck'
 import { planSession, type SessionPlan, type SessionRequest } from '@/domain/session/plan'
 import {
+  againProgress,
+  attemptNumber,
   currentCardId,
   isFinished,
   isFirstAnswer,
   lastHistoryEntry,
+  retriedCards,
   sessionReducer,
   sessionStats,
   startSession,
@@ -19,6 +22,7 @@ import {
 import type { AppSettings, ReviewResult } from '@/domain/types'
 import { Button, ButtonLink } from '@/ui/Button'
 import { plural } from '@/ui/format'
+import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { ReviewCard } from './ReviewCard'
@@ -160,6 +164,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
   }, [])
 
   if (isFinished(state)) {
+    const hardest = retriedCards(state)
     return (
       <Shell>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
@@ -177,6 +182,23 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
               </div>
             ))}
           </dl>
+          {hardest.length > 0 && (
+            <section className="mb-4 w-full max-w-sm text-left">
+              <h2 className="mb-2 text-sm font-bold tracking-wide text-muted uppercase">Hardest cards</h2>
+              <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+                {hardest.map(({ cardId, tries }) => {
+                  const card = byId.get(cardId)?.card
+                  return (
+                    <li key={cardId} className="flex items-baseline gap-3 px-4 py-2">
+                      <Hanzi className="text-xl">{card?.hanzi}</Hanzi>
+                      <span className="min-w-0 flex-1 truncate text-sm text-muted">{card?.pinyin}</span>
+                      <span className="text-sm text-rose-600 tabular-nums dark:text-rose-400">{tries} tries</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
           <div className="flex w-full max-w-xs flex-col gap-3">
             <ButtonLink to="/" size="lg">
               Back to home
@@ -193,17 +215,19 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
   }
 
   const progress = state.total ? stats.answered / state.total : 0
+  const again = againProgress(state)
 
   return (
     <Shell>
-      <div className="flex h-14 items-center gap-3">
+      {/* Grid so the again bar (second row, once something was forgotten) lines up under the main bar. */}
+      <div className="grid grid-cols-[auto_1fr_auto_auto] grid-rows-[3.5rem] items-center gap-x-3">
         <Link to="/" className="-ml-2 grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="End session">
           <Icon name="x" />
         </Link>
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuenow={stats.answered} aria-valuemax={state.total}>
+        <div className="h-2 overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuenow={stats.answered} aria-valuemax={state.total}>
           <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress * 100}%` }} />
         </div>
-        <span className="min-w-12 text-right text-sm text-muted tabular-nums">
+        <span className="min-w-16 text-right text-sm text-muted tabular-nums">
           {stats.answered}/{state.total}
         </span>
         <button
@@ -215,6 +239,22 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
         >
           <Icon name="undo" />
         </button>
+        {again.total > 0 && (
+          <>
+            <div
+              className="col-start-2 -mt-3 mb-2 h-1.5 overflow-hidden rounded-full bg-sunken"
+              role="progressbar"
+              aria-label="Forgotten cards cleared"
+              aria-valuenow={again.done}
+              aria-valuemax={again.total}
+            >
+              <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${(again.done / again.total) * 100}%` }} />
+            </div>
+            <span className="-mt-3 mb-2 text-right text-xs text-rose-600 tabular-nums dark:text-rose-400">
+              Again {again.done}/{again.total}
+            </span>
+          </>
+        )}
       </div>
 
       {entry && (
@@ -222,7 +262,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
           key={`${entry.card.id}-${state.history.length}`}
           card={entry.card}
           box={entry.state.box}
-          isRepeat={!isFirstAnswer(state, entry.card.id)}
+          attempt={attemptNumber(state, entry.card.id)}
           revealed={state.revealed}
           voiceURI={settings.ttsVoiceURI}
           mode={settings.reviewMode}

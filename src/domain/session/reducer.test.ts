@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  againProgress,
+  attemptNumber,
   currentCardId,
   isFinished,
   isFirstAnswer,
+  retriedCards,
   sessionReducer as r,
   sessionStats,
   startSession,
@@ -66,5 +69,68 @@ describe('session reducer', () => {
 
   it('deduplicates the initial queue', () => {
     expect(startSession(['a', 'a', 'b']).total).toBe(2)
+  })
+})
+
+describe('again progress and tries', () => {
+  it('counts forgotten cards and those cleared since', () => {
+    let s = startSession(['a', 'b', 'c'])
+    expect(againProgress(s)).toEqual({ total: 0, done: 0 })
+    s = answer(s, 'forgot') // a
+    expect(againProgress(s)).toEqual({ total: 1, done: 0 })
+    s = answer(s, 'knew') // b: never part of the again pile
+    s = answer(s, 'forgot') // c
+    expect(againProgress(s)).toEqual({ total: 2, done: 0 })
+    s = answer(s, 'forgot') // a again: still waiting
+    expect(againProgress(s)).toEqual({ total: 2, done: 0 })
+    s = answer(s, 'knew') // c cleared
+    expect(againProgress(s)).toEqual({ total: 2, done: 1 })
+    s = answer(s, 'knew') // a cleared
+    expect(againProgress(s)).toEqual({ total: 2, done: 2 })
+    expect(isFinished(s)).toBe(true)
+  })
+
+  it('undo rolls the again progress back', () => {
+    let s = answer(answer(startSession(['a']), 'forgot'), 'knew')
+    expect(againProgress(s)).toEqual({ total: 1, done: 1 })
+    s = r(s, { type: 'undo' })
+    expect(againProgress(s)).toEqual({ total: 1, done: 0 })
+    s = r(s, { type: 'undo' })
+    expect(againProgress(s)).toEqual({ total: 0, done: 0 })
+  })
+
+  it('numbers each showing of a card; undo steps back', () => {
+    let s = startSession(['a', 'b'])
+    expect(attemptNumber(s, 'a')).toBe(1)
+    s = answer(s, 'forgot') // a → end
+    s = answer(s, 'knew') // b
+    expect(currentCardId(s)).toBe('a')
+    expect(attemptNumber(s, 'a')).toBe(2)
+    s = answer(s, 'forgot')
+    expect(attemptNumber(s, 'a')).toBe(3)
+    s = r(s, { type: 'undo' })
+    expect(attemptNumber(s, 'a')).toBe(2)
+  })
+
+  it('lists retried cards, most tries first, including the final Knew', () => {
+    let s = startSession(['a', 'b', 'c', 'd'])
+    s = answer(s, 'forgot') // a (1)
+    s = answer(s, 'forgot') // b (1)
+    s = answer(s, 'knew') // c: first try, excluded
+    s = answer(s, 'forgot') // d (1)
+    s = answer(s, 'knew') // a (2)
+    s = answer(s, 'forgot') // b (2)
+    s = answer(s, 'knew') // d (2)
+    s = answer(s, 'knew') // b (3)
+    expect(isFinished(s)).toBe(true)
+    expect(retriedCards(s)).toEqual([
+      { cardId: 'b', tries: 3 },
+      { cardId: 'a', tries: 2 },
+      { cardId: 'd', tries: 2 },
+    ])
+  })
+
+  it('has no retried cards when everything was known', () => {
+    expect(retriedCards(answer(startSession(['a']), 'knew'))).toEqual([])
   })
 })

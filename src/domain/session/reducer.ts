@@ -72,6 +72,31 @@ export function sessionStats(s: SessionState): SessionStats {
   }
 }
 
+/**
+ * Forgotten cards this session: `total` grows with every first Forgot, `done` counts those since
+ * answered Knew. A card first answered Knew never comes back, so it is never part of this.
+ */
+export function againProgress(s: SessionState): { total: number; done: number } {
+  const forgotten = new Set(Object.keys(s.firstResults).filter((id) => s.firstResults[id] === 'forgot'))
+  const waiting = s.queue.filter((id) => forgotten.has(id)).length
+  return { total: forgotten.size, done: forgotten.size - waiting }
+}
+
+/** 1 on a card's first showing, 2 on its first re-ask, and so on. */
+export function attemptNumber(s: SessionState, cardId: Id): number {
+  return s.history.filter((h) => h.cardId === cardId).length + 1
+}
+
+/** Cards answered more than once this session, most tries first (ties in first-seen order). */
+export function retriedCards(s: SessionState): { cardId: Id; tries: number }[] {
+  const tries = new Map<Id, number>()
+  for (const h of s.history) tries.set(h.cardId, (tries.get(h.cardId) ?? 0) + 1)
+  return [...tries]
+    .filter(([, n]) => n > 1)
+    .map(([cardId, n]) => ({ cardId, tries: n }))
+    .sort((a, b) => b.tries - a.tries)
+}
+
 export function sessionReducer(s: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
     case 'reveal':
