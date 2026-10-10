@@ -91,6 +91,15 @@ function AppSection() {
           {info.usage !== undefined && ` · ${formatBytes(info.usage)} used`}
         </p>
       )}
+      <p className="text-muted">
+        <a className="underline" href={`${import.meta.env.BASE_URL}about.html`}>
+          About
+        </a>{' '}
+        ·{' '}
+        <a className="underline" href={`${import.meta.env.BASE_URL}privacy.html`}>
+          Privacy policy
+        </a>
+      </p>
     </div>
   )
 }

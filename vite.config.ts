@@ -25,6 +25,8 @@ const pwa = VitePWA({
     globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
     // pdf.js, the full OpenCC converter and the Claude SDK are large and only needed for (online) AI import.
     globIgnores: ['**/pdf.worker*', '**/pdf-*.js', '**/cn2t-*.js', '**/sdk-*.js'],
+    // The static About / Privacy pages (public/) are real pages, not routes of the app.
+    navigateFallbackDenylist: [/\/(about|privacy)\.html$/],
   },
 })
 

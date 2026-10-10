@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Privacy policy of Mandarin Leitner, a local-first flashcard app." />
+    <title>Privacy policy · Mandarin Leitner</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <style>
+      :root { --paper: #f7f4ef; --surface: #ffffff; --ink: #1c1917; --muted: #6b625a; --line: #e4ddd4; --accent: #c2410c; }
+      @media (prefers-color-scheme: dark) {
+        :root { --paper: #15120f; --surface: #1f1b17; --ink: #f5f0ea; --muted: #a89f95; --line: #3a332c; --accent: #f97316; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+      main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+      h1 { font-size: 1.8rem; margin: 0 0 0.25rem; line-height: 1.2; }
+      h2 { font-size: 1.15rem; margin: 2rem 0 0.5rem; }
+      .muted { color: var(--muted); }
+      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 1rem; padding: 1rem 1.25rem; }
+      ul { padding-left: 1.25rem; }
+      li + li { margin-top: 0.35rem; }
+      a { color: var(--accent); overflow-wrap: anywhere; }
+      code { font-size: 0.9em; overflow-wrap: anywhere; }
+      footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Privacy policy</h1>
+      <p class="muted">Mandarin Leitner · last updated 11 October 2026</p>
+
+      <div class="card">
+        <strong>In short:</strong> the app has no server and no account with us. Your cards and progress are stored on your device.
+        Nothing is sent anywhere unless you turn on sync with your own Google Drive or use AI import with an AI service you choose.
+        There are no ads, no analytics and no tracking, and your data is never sold or shared.
+      </div>
+
+      <h2>Who we are</h2>
+      <p>
+        Mandarin Leitner is a free, open-source flashcard app made by an individual developer (GitHub:
+        <a href="https://github.com/ErfanDejband">ErfanDejband</a>). It runs entirely in your web browser and is served as static
+        files from GitHub Pages at <code>https://erfandejband.github.io/chinese_flash_card/</code>.
+      </p>
+
+      <h2>Data stored on your device</h2>
+      <p>
+        Your cards (characters, pinyin, meaning, notes, pictures), your review progress and history, and your settings are kept in your
+        browser's storage on your device. They do not leave the device unless you use one of the optional features below or export a
+        backup file yourself. Deleting the app's site data in your browser deletes them.
+      </p>
+
+      <h2>Sync with Google Drive (optional)</h2>
+      <p>If you connect Google Drive in Settings, the app signs you in with Google and asks for two permissions:</p>
+      <ul>
+        <li>
+          <strong>See, create and delete its own configuration data in your Google Drive</strong>
+          (<code>https://www.googleapis.com/auth/drive.appdata</code>). The app stores a copy of your cards, review progress and history,
+          import records (file names and page numbers) and settings in a hidden folder of your own Google Drive that only this app can
+          open. The app cannot see, read or change any other file in your Drive. AI keys and your speech-voice choice are not synced.
+        </li>
+        <li>
+          <strong>See your email address</strong> (<code>email</code>), only to show which Google account is connected and to pre-select it
+          when you sign in again.
+        </li>
+      </ul>
+      <p>
+        This data goes directly between your browser and Google; it is never sent to the developer or anyone else, and the developer has
+        no access to it. The sign-in token is kept in your browser and expires after about an hour.
+      </p>
+      <p>
+        Mandarin Leitner's use and transfer of information received from Google APIs adheres to the
+        <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the
+        Limited Use requirements. Data from Google is used only to provide sync to you: it is not used for advertising, not sold or
+        transferred to others, not used to train AI models, and not read by people.
+      </p>
+      <p>To stop and remove it:</p>
+      <ul>
+        <li>In the app, <em>Settings → Sync between devices → Disconnect</em> stops syncing on that device.</li>
+        <li>
+          To delete the copy in your Drive: Google Drive → Settings → <em>Manage apps</em> → Mandarin Leitner → <em>Delete hidden app
+          data</em>.
+        </li>
+        <li>To remove the app's access to your Google account: <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+      </ul>
+
+      <h2>AI import (optional)</h2>
+      <p>
+        If you use AI import, the pages, photos or screenshots you select (and any text in them) are sent directly from your browser to
+        the AI service you chose in Settings, such as Google Gemini, Anthropic Claude, OpenRouter, Groq, OpenAI, or a server on your own
+        computer. That service processes them under its own privacy policy; some free tiers may use submitted content to improve their
+        products, so don't import private documents. API keys, or the key received when you connect OpenRouter, are stored only in your
+        browser and are sent only to their own service. They are never included in backups or sync.
+      </p>
+
+      <h2>Other things to know</h2>
+      <ul>
+        <li>Pronunciation uses your device's or browser's text-to-speech; some browsers may use an online voice service to speak the text.</li>
+        <li>GitHub Pages, which hosts the app's files, may keep standard web server logs such as IP addresses (see GitHub's privacy statement).</li>
+        <li>The app is not directed at children under 13.</li>
+        <li>If this policy changes, the new version is published on this page with a new date.</li>
+      </ul>
+
+      <h2>Contact</h2>
+      <p>
+        Questions or requests: please open an issue at
+        <a href="https://github.com/ErfanDejband/chinese_flash_card/issues">github.com/ErfanDejband/chinese_flash_card/issues</a>.
+      </p>
+
+      <footer><a href="about.html">About Mandarin Leitner</a> · <a href="./">Open the app</a></footer>
+    </main>
+  </body>
+</html>

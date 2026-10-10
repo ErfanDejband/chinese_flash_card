@@ -9,7 +9,10 @@ function PrivacyNote() {
     <p className="rounded-xl bg-sunken p-3 text-xs text-muted">
       Your data is stored in your own Google Drive, in a hidden folder only this app can open: nobody else can read it, not even the app’s
       maker. Not synced: AI keys and the speech voice (they stay on each device). To delete the Drive copy: Google Drive → Settings → Manage
-      apps → Mandarin Leitner → Delete hidden app data.
+      apps → Mandarin Leitner → Delete hidden app data.{' '}
+      <a className="underline" href={`${import.meta.env.BASE_URL}privacy.html`}>
+        Privacy policy
+      </a>
     </p>
   )
 }

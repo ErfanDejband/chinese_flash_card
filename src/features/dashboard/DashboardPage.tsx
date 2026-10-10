@@ -32,6 +32,15 @@ function Welcome() {
           <Icon name="import" /> Import from PDF
         </ButtonLink>
       </div>
+      <p className="mt-8 text-sm text-muted">
+        <a className="underline" href={`${import.meta.env.BASE_URL}about.html`}>
+          About
+        </a>{' '}
+        ·{' '}
+        <a className="underline" href={`${import.meta.env.BASE_URL}privacy.html`}>
+          Privacy policy
+        </a>
+      </p>
     </div>
   )
 }

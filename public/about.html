@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Mandarin Leitner: a free flashcard app for learning Mandarin vocabulary (Traditional characters and pinyin) with the Leitner box system." />
+    <title>Mandarin Leitner</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <style>
+      :root { --paper: #f7f4ef; --surface: #ffffff; --ink: #1c1917; --muted: #6b625a; --line: #e4ddd4; --accent: #c2410c; }
+      @media (prefers-color-scheme: dark) {
+        :root { --paper: #15120f; --surface: #1f1b17; --ink: #f5f0ea; --muted: #a89f95; --line: #3a332c; --accent: #f97316; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+      main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+      h1 { font-size: 2rem; margin: 0 0 0.25rem; line-height: 1.2; }
+      h2 { font-size: 1.15rem; margin: 2rem 0 0.5rem; }
+      .lead { color: var(--muted); margin: 0 0 1.5rem; font-size: 1.1rem; }
+      .mark { color: var(--accent); }
+      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 1rem; padding: 1rem 1.25rem; }
+      ul { padding-left: 1.25rem; margin: 0; }
+      li + li { margin-top: 0.35rem; }
+      a { color: var(--accent); overflow-wrap: anywhere; }
+      .button { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; padding: 0.75rem 1.5rem; border-radius: 0.75rem; margin: 0.5rem 0 1.5rem; }
+      footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1><span class="mark" lang="zh-Hant">學</span> Mandarin Leitner</h1>
+      <p class="lead">A free flashcard app for learning Mandarin vocabulary (Traditional characters and pinyin) with the Leitner box system.</p>
+      <a class="button" href="./">Open the app</a>
+
+      <div class="card">
+        <ul>
+          <li><strong>Leitner boxes:</strong> cards you know move up and come back less often; cards you forget start again.</li>
+          <li><strong>Two practice directions:</strong> picture → Chinese, and Chinese → pinyin and meaning, each with its own progress.</li>
+          <li><strong>Progress:</strong> daily streak, activity calendar, weekly numbers and your most-forgotten words.</li>
+          <li><strong>Import from course material:</strong> optionally let an AI model of your choice read PDFs, photos or screenshots and suggest cards, which you check before they are added.</li>
+          <li><strong>Works offline</strong> and installs on Android and desktop as an app.</li>
+        </ul>
+      </div>
+
+      <h2>Your data stays yours</h2>
+      <p>
+        Everything is stored in your browser on your device. There is no account with us, no server, no tracking and no ads.
+        If you want your phone and laptop to stay in step, you can turn on <strong>sync with Google Drive</strong>: the app then
+        keeps a copy of your cards and progress in a hidden folder of <em>your own</em> Google Drive that only this app can open.
+        It cannot see any other file in your Drive. That is why the app asks you to sign in with Google.
+      </p>
+      <p>Details: <a href="privacy.html">Privacy policy</a>.</p>
+
+      <footer>
+        Open source: <a href="https://github.com/ErfanDejband/chinese_flash_card">github.com/ErfanDejband/chinese_flash_card</a> ·
+        <a href="privacy.html">Privacy policy</a>
+      </footer>
+    </main>
+  </body>
+</html>
