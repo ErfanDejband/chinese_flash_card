@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createAnthropicProvider } from './anthropic'
+import { createAnthropicProvider, DEFAULT_CLAUDE_MODEL } from './anthropic'
 import { estimateClaudeCostUsd } from './pricing'
 import { READING_JSON_SCHEMA, READING_SYSTEM_PROMPT, READING_TASK } from './prompt'
 import { ProviderError, type FetchLike } from './types'
@@ -66,6 +66,17 @@ describe('Claude provider (official SDK, mocked fetch)', () => {
     expect(withImage.output_config.format.schema).toEqual(READING_JSON_SCHEMA)
     expect(withImage.messages[0].content.map((b: { type: string }) => b.type)).toEqual(['image', 'text'])
     expect(textOnly.messages[0].content).toEqual([{ type: 'text', text: READING_TASK.user('') }])
+  })
+
+  it('sends refusal fallbacks for Opus 5.5 (the default model) and Sonnet 5.5', async () => {
+    for (const model of [DEFAULT_CLAUDE_MODEL, 'claude-sonnet-5-5']) {
+      const { fetchImpl, calls } = mockFetch(json(message({ model })))
+      const res = await createAnthropicProvider({ apiKey: KEY, model, fetchImpl }).extractPage(request)
+      expect(JSON.parse(calls[0]!.init.body as string).fallbacks).toBe('default')
+      expect(res.usage?.costUsd).toBe(estimateClaudeCostUsd(model, 2000, 500))
+    }
+    expect(DEFAULT_CLAUDE_MODEL).toBe('claude-opus-5-5')
+    expect(estimateClaudeCostUsd('claude-opus-5-5', 1_000_000, 1_000_000)).toBe(24)
   })
 
   it('does not send fallbacks for other models', async () => {

@@ -115,7 +115,7 @@ export function PagePicker({ source, warning, blockedReason, onStart, onCancel }
               role="radio"
               aria-checked={mode === m.mode}
               onClick={() => setMode(m.mode)}
-              className={cn('h-9 rounded-lg text-sm font-semibold', mode === m.mode ? 'bg-surface shadow-sm' : 'text-muted')}
+              className={cn('h-9 rounded-lg text-sm font-semibold transition', mode === m.mode ? 'bg-ink text-paper shadow-sm' : 'text-muted')}
             >
               {m.label}
             </button>

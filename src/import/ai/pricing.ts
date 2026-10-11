@@ -1,6 +1,6 @@
 /**
  * Claude API list prices in USD per million tokens (Anthropic first-party rates, cached
- * 2026-06-24). Used only to *estimate* the cost shown in Settings; the Anthropic Console
+ * 2026-10-06; Haiku 5.5 at its rate for prompts up to 100K tokens). Used only to *estimate* the cost shown in Settings; the Anthropic Console
  * has the authoritative bill. Update when prices change.
  */
 export const CLAUDE_PRICES_PER_MTOK: Record<string, { input: number; output: number }> = {
@@ -11,8 +11,10 @@ export const CLAUDE_PRICES_PER_MTOK: Record<string, { input: number; output: num
   'claude-opus-4-8': { input: 5, output: 25 },
   'claude-opus-4-7': { input: 5, output: 25 },
   'claude-opus-4-6': { input: 5, output: 25 },
+  'claude-sonnet-5-5': { input: 2, output: 10 },
   'claude-sonnet-5': { input: 2, output: 10 },
   'claude-sonnet-4-6': { input: 3, output: 15 },
+  'claude-haiku-5-5': { input: 0.1, output: 0.5 },
   'claude-haiku-4-5': { input: 1, output: 5 },
 }
 

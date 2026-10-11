@@ -3,10 +3,10 @@ import { estimateClaudeCostUsd } from './pricing'
 import { VOCAB_TASK } from './prompt'
 import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type VisionProvider } from './types'
 
-export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5'
+export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5'
 
 /** Models with safety classifiers that can decline; server-side fallbacks re-run a declined request. */
-const FALLBACK_MODELS = /^claude-(opus-5|fable-5)/
+const FALLBACK_MODELS = /^claude-(opus-5|fable-5|sonnet-5-5)/
 
 type ImageMime = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
