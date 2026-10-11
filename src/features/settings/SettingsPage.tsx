@@ -13,6 +13,7 @@ import { PageHeader } from '@/ui/PageHeader'
 import { AiSettings } from './AiSettings'
 import { BackupSettings } from './BackupSettings'
 import { DirectionSettings } from './DirectionSettings'
+import { KnownWordsSettings } from './KnownWordsSettings'
 import { LeitnerSettings } from './LeitnerSettings'
 import { SyncSettings } from './SyncSettings'
 import { UsagePanel } from './UsagePanel'
@@ -118,6 +119,9 @@ export function SettingsPage() {
       </Section>
       <Section title="Pronunciation">
         <VoiceSettings settings={settings} />
+      </Section>
+      <Section title="Known words">
+        <KnownWordsSettings />
       </Section>
       <Section title="AI for PDF import">
         <AiSettings />

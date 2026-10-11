@@ -1,8 +1,8 @@
 import { newId } from '@/domain/ids'
 import type { Id } from '@/domain/types'
-import { PROMPT_VERSION } from '@/import/ai/prompt'
 import type { Rotation } from '@/import/render'
 import type { PageResult } from '@/import/extract/runExtraction'
+import type { ImportMode } from '@/import/types'
 import { db, type ImportDraftRecord, type ImportPageRecord, type ImportRecord } from '../db'
 import { createCards, type NewCard } from './cards'
 
@@ -23,6 +23,8 @@ export interface NewImport {
   pages: NewImportPage[]
   provider: string
   model: string
+  /** Vocabulary pages by default. */
+  mode?: ImportMode
 }
 
 /** Create an import with its selected pages queued as pending. */
@@ -32,6 +34,7 @@ export async function createImport(input: NewImport, now = Date.now()): Promise<
     fileName: input.fileName,
     fileHash: input.fileHash,
     sourceKind: input.sourceKind,
+    mode: input.mode ?? 'vocabulary',
     pageCount: input.pageCount,
     status: 'draft',
     acceptedCount: 0,
@@ -132,8 +135,9 @@ export async function savePageResult(importId: Id, result: PageResult, now = Dat
       pointHeight: rendered.pointHeight,
       textHint: rendered.textHint,
       model: result.model,
-      promptVersion: PROMPT_VERSION,
+      promptVersion: result.promptVersion,
       raw: result.raw,
+      reading: result.reading,
       updatedAt: now,
     })
     await db.importDrafts.where('[importId+page]').equals([importId, rendered.page]).delete()
@@ -170,7 +174,7 @@ async function deleteWorkTables(importId: Id) {
  * Turn the selected drafts into cards (in page and reading order, so they enter the new-card pool
  * in document order) and remove the import's work tables.
  */
-export async function commitImport(importId: Id, now = Date.now()): Promise<{ created: number }> {
+export async function commitImport(importId: Id, now = Date.now()): Promise<{ created: number; cardIds: Id[] }> {
   return db.transaction('rw', [db.cards, db.reviewStates, db.media, db.imports, db.importPages, db.importDrafts], async () => {
     const record = await db.imports.get(importId)
     if (!record || record.status !== 'draft') throw new Error('This import is no longer open.')
@@ -182,6 +186,7 @@ export async function commitImport(importId: Id, now = Date.now()): Promise<{ cr
       pinyin: d.pinyin,
       meaning: d.meaning,
       notes: d.notes,
+      example: d.example,
       tags: d.kind === 'sentence' ? ['sentence'] : [],
       image: d.crop,
       source:
@@ -197,7 +202,7 @@ export async function commitImport(importId: Id, now = Date.now()): Promise<{ cr
       updatedAt: now,
     })
     await deleteWorkTables(importId)
-    return { created: cards.length }
+    return { created: cards.length, cardIds: cards.map((c) => c.id) }
   })
 }
 

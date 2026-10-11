@@ -6,6 +6,7 @@ import { configProblems } from '@/import/ai/createProvider'
 import { serviceFor } from '@/import/ai/detectKey'
 import { openSource, SourceError } from '@/import/source/openSource'
 import type { ImportSource } from '@/import/source/types'
+import type { ImportMode } from '@/import/types'
 import { useAiSettings, useFreeQuota, useSignInStatus } from '@/hooks/useBrowser'
 import { activeProviderConfig } from '@/lib/aiConfig'
 import { startOpenRouterSignIn } from '@/lib/openrouterSignIn'
@@ -54,7 +55,7 @@ export function ImportPage() {
     }
   }
 
-  async function start(pages: PickedPage[]) {
+  async function start(pages: PickedPage[], mode: ImportMode) {
     if (!picked) return
     const { source } = picked
     const record = await createImport({
@@ -65,6 +66,7 @@ export function ImportPage() {
       pages: pages.map(({ page, rotation }) => ({ page, rotation, ...source.pages[page - 1]! })),
       provider: config.provider,
       model: config.model,
+      mode,
     })
     attachSource(record.id, source)
     void startRun(record.id, config)
@@ -83,7 +85,7 @@ export function ImportPage() {
             picked.source.destroy()
             setPicked(undefined)
           }}
-          onStart={(pages) => void start(pages)}
+          onStart={(pages, mode) => void start(pages, mode)}
         />
       </>
     )

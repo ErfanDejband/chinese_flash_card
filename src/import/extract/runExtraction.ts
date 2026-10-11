@@ -1,10 +1,12 @@
 import type { NewMedia } from '@/data/repositories/media'
 import type { BBox } from '@/domain/types'
-import { ModelOutputError, parseModelJson, validateItems } from '../ai/parse'
+import { ModelOutputError, parseModelJson, validateItems, validateReading } from '../ai/parse'
+import { READING_TASK, VOCAB_TASK } from '../ai/prompt'
 import { ProviderError, type VisionProvider } from '../ai/types'
 import { boxToPageUnits } from '../pdf/boxes'
-import type { DraftFields, NormBox } from '../types'
+import type { DraftFields, ImportMode, NormBox, ReadingSentence } from '../types'
 import { postprocess, type PostprocessContext } from './postprocess'
+import { readingDrafts } from './reading'
 
 /** A rendered page: the full image is kept for cropping, the smaller one is sent to the model. */
 export interface RenderedPage {
@@ -28,7 +30,11 @@ export interface PageResult {
   rendered: RenderedPage
   model: string
   raw: string
+  /** Version of the prompt that produced the reply. */
+  promptVersion: number
   drafts: PageDraft[]
+  /** Reading pages: the sentences, split into words, for the reader. */
+  reading?: ReadingSentence[]
 }
 
 /** Persistence used by the run (implemented by the imports repository). */
@@ -46,6 +52,8 @@ export type ExtractionEvent =
 
 export interface ExtractionDeps {
   provider: VisionProvider
+  /** Vocabulary pages by default. */
+  mode?: ImportMode
   render(page: number): Promise<RenderedPage>
   crop(rendered: RenderedPage, box: NormBox): Promise<NewMedia | null>
   toBase64(blob: Blob): Promise<string>
@@ -88,14 +96,16 @@ export async function runExtraction(pages: number[], deps: ExtractionDeps): Prom
   const sleep = deps.sleep ?? defaultSleep
   const random = deps.random ?? Math.random
   const maxAttempts = deps.maxAttempts ?? 4
+  const reading = deps.mode === 'reading'
+  const task = reading ? READING_TASK : VOCAB_TASK
   let done = 0
   let failed = 0
 
-  async function extractWithRetry(page: number, request: () => Promise<{ text: string; model: string }>) {
+  async function extractWithRetry<T>(page: number, request: () => Promise<{ text: string; model: string }>, validate: (json: unknown) => T) {
     for (let attempt = 1; ; attempt++) {
       try {
         const response = await request()
-        return { ...response, ...validateItems(parseModelJson(response.text)) }
+        return { ...response, value: validate(parseModelJson(response.text)) }
       } catch (e) {
         if (isAbort(e)) throw e
         const badOutput = e instanceof ModelOutputError || (e instanceof ProviderError && e.kind === 'bad-response')
@@ -129,24 +139,34 @@ export async function runExtraction(pages: number[], deps: ExtractionDeps): Prom
     try {
       const rendered = await deps.render(page)
       const imageBase64 = await deps.toBase64(rendered.aiImage)
-      const result = await extractWithRetry(page, () =>
+      const request = () =>
         deps.provider.extractPage({
           imageBase64,
           mime: rendered.aiImage.type || 'image/jpeg',
           textHint: rendered.textHint,
+          task,
           signal: deps.signal,
-        }),
-      )
-      const drafts: PageDraft[] = []
-      for (const fields of postprocess(result.items, deps.context)) {
-        const crop = fields.imageBox ? await deps.crop(rendered, fields.imageBox) : null
-        drafts.push(
-          crop && fields.imageBox
-            ? { ...fields, crop, sourceBox: boxToPageUnits(fields.imageBox, rendered.pointWidth, rendered.pointHeight) }
-            : { ...fields, imageBox: null },
-        )
+        })
+      const base = { rendered, promptVersion: task.version }
+      let drafts: PageDraft[]
+      if (reading) {
+        const result = await extractWithRetry(page, request, validateReading)
+        const { drafts: words, sentences } = readingDrafts(result.value.sentences, deps.context)
+        drafts = words
+        await deps.store.saveResult({ ...base, model: result.model, raw: result.text, drafts, reading: sentences })
+      } else {
+        const result = await extractWithRetry(page, request, validateItems)
+        drafts = []
+        for (const fields of postprocess(result.value.items, deps.context)) {
+          const crop = fields.imageBox ? await deps.crop(rendered, fields.imageBox) : null
+          drafts.push(
+            crop && fields.imageBox
+              ? { ...fields, crop, sourceBox: boxToPageUnits(fields.imageBox, rendered.pointWidth, rendered.pointHeight) }
+              : { ...fields, imageBox: null },
+          )
+        }
+        await deps.store.saveResult({ ...base, model: result.model, raw: result.text, drafts })
       }
-      await deps.store.saveResult({ rendered, model: result.model, raw: result.text, drafts })
       done++
       deps.onEvent?.({ type: 'page-done', page, items: drafts.length })
     } catch (e) {

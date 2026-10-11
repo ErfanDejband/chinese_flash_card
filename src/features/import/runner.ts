@@ -8,6 +8,7 @@ import {
   requeueInterrupted,
   savePageResult,
 } from '@/data/repositories/imports'
+import { knownHanziSet } from '@/data/repositories/knownWords'
 import { createProvider } from '@/import/ai/createProvider'
 import { bytesToBase64 } from '@/import/ai/http'
 import type { ProviderConfig, VisionProvider } from '@/import/ai/types'
@@ -79,16 +80,18 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
     await requeueInterrupted(importId)
     const record = await getImport(importId)
     startUsageRun({ importId, fileName: record?.fileName ?? '', provider: config.provider, model: config.model })
-    const [pages, cards, drafts, isSimplified] = await Promise.all([
+    const [pages, cards, drafts, knownHanzi, isSimplified] = await Promise.all([
       listImportPages(importId),
       listActiveCards(),
       listDrafts(importId),
+      knownHanziSet(),
       loadSimplifiedDetector(),
     ])
     const pending = pages.filter((p) => p.status === 'pending').map((p) => p.page)
     const rotation = new Map(pages.map((p) => [p.page, p.rotation ?? 0]))
     await runExtraction(pending, {
       provider: withUsageTracking(createProvider(config), config),
+      mode: record?.mode,
       render: (page) => source.renderPage(page, rotation.get(page) ?? 0),
       crop: (rendered, box) => cropFromImage(rendered.image, box),
       toBase64: async (blob) => bytesToBase64(new Uint8Array(await blob.arrayBuffer())),
@@ -100,6 +103,7 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
       context: {
         existingHanzi: new Set(cards.map((c) => c.hanzi)),
         seenInImport: new Set(drafts.map((d) => d.hanzi)),
+        knownHanzi,
         isSimplified,
       },
       signal,

@@ -15,7 +15,7 @@ provider you configure.
 - **Progress tab**: start today's review (or see what's next), daily streak (also on Home), an 18-week activity calendar,
   the last 7 days vs the week before, cards per box week by week, and your most-forgotten cards — all derived from the
   local review log
-- **Sync between devices** (Settings → Sync): cards, progress, review history and settings sync through a hidden folder
+- **Sync between devices** (Settings → Sync): cards, progress, review history, known words and settings sync through a hidden folder
   in your own Google Drive — no server, nothing stored anywhere else. Pictures follow in a later update. See
   [ADR 0007](docs/adr/0007-sync-google-drive-appdata.md)
 - **Backup**: zip export / import (merge or replace)
@@ -24,6 +24,11 @@ provider you configure.
   are split automatically): pick pages → a vision model finds the vocabulary (and infers characters shown only as
   pinyin + picture) → review, edit and re-crop every card → add them in document order.
   See [ADR 0005](docs/adr/0005-ai-pdf-extraction.md)
+- **Reading pages** (e.g. kids' books with zhuyin): choose *Reading page* when importing and the AI splits every sentence
+  into words with their pinyin in context. Tap the words you don't know; words you already have, names and particles
+  start switched off. Each card keeps its sentence as an example. A **known-words list** (Settings → Known words, or
+  "I know this" while reviewing) keeps words you know out of later imports.
+  See [ADR 0008](docs/adr/0008-reading-pages-and-known-words.md)
 
 ## Development
 
@@ -96,6 +101,7 @@ Key decisions are recorded in [docs/adr](docs/adr):
 5. [AI-assisted PDF extraction with your own API key](docs/adr/0005-ai-pdf-extraction.md)
 6. [Free AI import via "Sign in with OpenRouter"](docs/adr/0006-free-ai-via-openrouter-oauth.md)
 7. [Sync via each user's Google Drive app folder](docs/adr/0007-sync-google-drive-appdata.md)
+8. [Reading pages and the known-words list](docs/adr/0008-reading-pages-and-known-words.md)
 
 ## Roadmap
 

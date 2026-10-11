@@ -15,6 +15,10 @@ export const FLAG_INFO: Record<DraftFlag, { label: string; tone: Tone }> = {
   'duplicate-existing': { label: 'already in your cards', tone: 'check' },
   'duplicate-import': { label: 'duplicate in this import', tone: 'check' },
   'low-confidence': { label: 'AI unsure', tone: 'check' },
+  known: { label: 'you know this', tone: 'info' },
+  name: { label: 'name', tone: 'info' },
+  'function-word': { label: 'particle', tone: 'info' },
+  number: { label: 'number', tone: 'info' },
 }
 
 export const TONE_CLASS: Record<Tone, string> = {

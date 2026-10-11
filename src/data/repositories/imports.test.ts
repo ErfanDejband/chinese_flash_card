@@ -7,6 +7,7 @@ import {
   commitImport,
   createImport,
   discardImport,
+  getImportPage,
   listDrafts,
   listImportPages,
   listOpenImports,
@@ -17,7 +18,7 @@ import {
   updateDraft,
 } from './imports'
 import { unzipSync } from 'fflate'
-import { PROMPT_VERSION } from '@/import/ai/prompt'
+import { PROMPT_VERSION, READING_PROMPT_VERSION } from '@/import/ai/prompt'
 
 beforeEach(async () => {
   await Promise.all(ALL_TABLES().map((t) => t.clear()))
@@ -52,6 +53,7 @@ const result = (page: number, drafts: PageDraft[]): PageResult => ({
   },
   model: 'm',
   raw: '{}',
+  promptVersion: PROMPT_VERSION,
   drafts,
 })
 
@@ -103,9 +105,11 @@ describe('imports repository', () => {
     const drafts = await listDrafts(id)
     await updateDraft(drafts.find((d) => d.hanzi === '今天')!.id, { meaning: 'today' })
 
-    expect(await commitImport(id, 5000)).toEqual({ created: 3 })
+    const committed = await commitImport(id, 5000)
+    expect(committed.created).toBe(3)
 
     const deck = (await loadDeck()).sort((a, b) => a.card.createdAt - b.card.createdAt)
+    expect(committed.cardIds).toEqual(deck.map((e) => e.card.id))
     expect(deck.map((e) => [e.card.hanzi, e.card.tags, e.state.box])).toEqual([
       ['今天', [], 0],
       ['老師', [], 0],
@@ -120,6 +124,21 @@ describe('imports repository', () => {
     expect(await db.importDrafts.count()).toBe(0)
     expect(await db.importPages.count()).toBe(0)
     await expect(commitImport(id)).rejects.toThrow('no longer open')
+  })
+
+  it('keeps the mode and sentences of a reading import, and gives its cards the example', async () => {
+    const pages = [{ page: 1, label: 'IMG_1.jpg', sourceFile: 'IMG_1.jpg', rotation: 0 as const }]
+    const { id } = await createImport({ fileName: 'IMG_1.jpg', fileHash: 'h', sourceKind: 'images', pageCount: 1, pages, provider: 'gemini', model: 'm', mode: 'reading' })
+    expect((await db.imports.get(id))!.mode).toBe('reading')
+
+    const example = { hanzi: '小明去公園。', pinyin: 'Xiǎomíng qù gōngyuán.', meaning: 'Xiaoming goes to the park.' }
+    const reading = [{ text: example.hanzi, pinyin: example.pinyin, meaning: example.meaning, parts: [{ text: '小明', word: true }, { text: '去', word: true }, { text: '公園', word: true }, { text: '。', word: false }] }]
+    await savePageResult(id, { ...result(1, [draft('公園', { example })]), promptVersion: READING_PROMPT_VERSION, reading })
+    expect(await getImportPage(id, 1)).toMatchObject({ promptVersion: READING_PROMPT_VERSION, reading })
+
+    await commitImport(id)
+    const [entry] = await loadDeck()
+    expect(entry!.card).toMatchObject({ hanzi: '公園', example })
   })
 
   it('commits image imports with the photo as provenance', async () => {

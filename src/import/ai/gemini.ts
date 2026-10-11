@@ -1,5 +1,5 @@
 import { requestJson } from './http'
-import { GEMINI_RESPONSE_SCHEMA, SYSTEM_PROMPT, userPrompt } from './prompt'
+import { VOCAB_TASK } from './prompt'
 import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type VisionProvider } from './types'
 
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta'
@@ -51,18 +51,15 @@ export function createGeminiProvider(opts: { apiKey: string; model: string; fetc
     },
 
     async extractPage(req: PageRequest): Promise<PageResponse> {
+      const task = req.task ?? VOCAB_TASK
+      const image = req.imageBase64 ? [{ inlineData: { mimeType: req.mime ?? 'image/jpeg', data: req.imageBase64 } }] : []
       const body = {
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ inlineData: { mimeType: req.mime, data: req.imageBase64 } }, { text: userPrompt(req.textHint) }],
-          },
-        ],
+        systemInstruction: { parts: [{ text: task.system }] },
+        contents: [{ role: 'user', parts: [...image, { text: task.user(req.textHint) }] }],
         generationConfig: {
           temperature: 0,
           responseMimeType: 'application/json',
-          responseSchema: GEMINI_RESPONSE_SCHEMA,
+          responseSchema: task.geminiSchema,
         },
       }
       const url = `${GEMINI_API}/models/${encodeURIComponent(opts.model)}:generateContent`

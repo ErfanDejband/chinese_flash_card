@@ -3,6 +3,7 @@ import { BOOK3_P20_REPLY } from './fixtures'
 import { createGeminiProvider, pickDefaultGeminiModel } from './gemini'
 import { bytesToBase64 } from './http'
 import { createOpenAICompatibleProvider } from './openaiCompatible'
+import { READING_JSON_SHAPE, READING_SYSTEM_PROMPT, READING_TASK } from './prompt'
 import { ProviderError, type FetchLike } from './types'
 
 const KEY = 'test-key-123'
@@ -41,6 +42,21 @@ describe('Gemini provider', () => {
     expect(body.contents[0].parts[1].text).toContain('老師 lǎoshī N teacher')
     expect(body.generationConfig).toMatchObject({ responseMimeType: 'application/json', temperature: 0 })
     expect(body.generationConfig.responseSchema.properties.items.type).toBe('ARRAY')
+  })
+
+  it('sends the reading task, and no image part for a text-only request', async () => {
+    const { fetchImpl, calls } = mockFetch(
+      json({ candidates: [{ content: { parts: [{ text: '{"sentences":[]}' }] }, finishReason: 'STOP' }] }),
+      json({ candidates: [{ content: { parts: [{ text: '{"sentences":[]}' }] }, finishReason: 'STOP' }] }),
+    )
+    const provider = createGeminiProvider({ apiKey: KEY, model: 'm', fetchImpl })
+    await provider.extractPage({ ...request, task: READING_TASK })
+    await provider.extractPage({ textHint: '', task: READING_TASK })
+    const [withImage, textOnly] = calls.map((c) => JSON.parse(c.init.body as string))
+    expect(withImage.systemInstruction.parts[0].text).toBe(READING_SYSTEM_PROMPT)
+    expect(withImage.generationConfig.responseSchema.properties.sentences.type).toBe('ARRAY')
+    expect(withImage.contents[0].parts).toHaveLength(2)
+    expect(textOnly.contents[0].parts).toEqual([{ text: READING_TASK.user('') }])
   })
 
   it('returns token usage, counting thinking tokens as output', async () => {
@@ -118,6 +134,20 @@ describe('OpenAI-compatible provider', () => {
     const body = JSON.parse(init.body as string)
     expect(body.response_format).toEqual({ type: 'json_object' })
     expect(body.messages[1].content[1]).toEqual({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA' } })
+  })
+
+  it('sends the reading task, and no image part for a text-only request', async () => {
+    const reply = () => json({ choices: [{ message: { content: '{"sentences":[]}' } }] })
+    const { fetchImpl, calls } = mockFetch(reply(), reply())
+    const provider = createOpenAICompatibleProvider({ baseUrl: base, apiKey: KEY, model: 'm', fetchImpl })
+    await provider.extractPage({ ...request, task: READING_TASK })
+    await provider.extractPage({ textHint: '', task: READING_TASK })
+    const [withImage, textOnly] = calls.map((c) => JSON.parse(c.init.body as string))
+    expect(withImage.messages[0].content).toBe(`${READING_SYSTEM_PROMPT}
+
+${READING_JSON_SHAPE}`)
+    expect(withImage.messages[1].content).toHaveLength(2)
+    expect(textOnly.messages[1].content).toEqual([{ type: 'text', text: READING_TASK.user('') }])
   })
 
   it('tells a used-up daily allowance apart from a per-minute limit', async () => {

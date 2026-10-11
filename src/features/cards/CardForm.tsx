@@ -31,6 +31,7 @@ export function CardForm({ card, onSaved }: Props) {
   const [pinyin, setPinyin] = useState(card?.pinyin ?? '')
   const [meaning, setMeaning] = useState(card?.meaning ?? '')
   const [notes, setNotes] = useState(card?.notes ?? '')
+  const [example, setExample] = useState(card?.example ?? { hanzi: '', pinyin: '', meaning: '' })
   const [image, setImage] = useState<ImageChange>({ kind: 'keep' })
   const [error, setError] = useState<string>()
   const [saving, setSaving] = useState(false)
@@ -43,7 +44,7 @@ export function CardForm({ card, onSaved }: Props) {
   }
 
   async function save(addAnother: boolean) {
-    const draft: CardDraft = { hanzi, pinyin, meaning, notes, tags: card?.tags }
+    const draft: CardDraft = { hanzi, pinyin, meaning, notes, example, tags: card?.tags }
     const errors = validateCardDraft(draft)
     if (errors.length) {
       setError(errors[0])
@@ -138,6 +139,42 @@ export function CardForm({ card, onSaved }: Props) {
         <span className="mb-1.5 block text-sm font-semibold">Image</span>
         <ImagePicker currentImageId={card?.imageId} value={image} onChange={setImage} />
       </div>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1.5 text-sm font-semibold">Example sentence</legend>
+        <input
+          id="example"
+          lang="zh-Hant"
+          value={example.hanzi}
+          onChange={(e) => setExample({ ...example, hanzi: e.target.value })}
+          onBlur={() => {
+            if (!example.pinyin.trim() && example.hanzi.trim()) setExample({ ...example, pinyin: suggestPinyin(example.hanzi) })
+          }}
+          autoComplete="off"
+          placeholder="我的老師很好。"
+          aria-label="Example sentence"
+          className={`${inputClass} h-12 text-lg`}
+        />
+        <input
+          value={example.pinyin}
+          onChange={(e) => setExample({ ...example, pinyin: e.target.value })}
+          onBlur={() => setExample({ ...example, pinyin: normalizePinyin(example.pinyin) })}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="Wǒ de lǎoshī hěn hǎo."
+          aria-label="Example pinyin"
+          className={`${inputClass} h-11`}
+        />
+        <input
+          value={example.meaning}
+          onChange={(e) => setExample({ ...example, meaning: e.target.value })}
+          autoComplete="off"
+          placeholder="My teacher is very good."
+          aria-label="Example translation"
+          className={`${inputClass} h-11`}
+        />
+      </fieldset>
 
       <Field label="Notes" htmlFor="notes">
         <textarea

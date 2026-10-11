@@ -2,7 +2,7 @@ import { joinDeck, type DeckEntry } from '@/domain/deck'
 import { newId } from '@/domain/ids'
 import { newReviewState } from '@/domain/leitner/scheduler'
 import { normalizePinyin } from '@/domain/pinyin/tones'
-import type { Card, CardSource, Id, ReviewMode } from '@/domain/types'
+import type { Card, CardSource, Example, Id, ReviewMode } from '@/domain/types'
 import { db } from '../db'
 import { putMedia, type NewMedia } from './media'
 
@@ -15,6 +15,8 @@ export interface CardDraft {
   pinyin: string
   meaning?: string
   notes?: string
+  /** An example without characters is dropped. */
+  example?: Example
   tags?: string[]
 }
 
@@ -28,12 +30,18 @@ const clean = (s: string | undefined) => {
   return t ? t : undefined
 }
 
+function normalizeExample(e: Example | undefined): Example | undefined {
+  const hanzi = e?.hanzi.trim()
+  return hanzi ? { hanzi, pinyin: normalizePinyin(e!.pinyin), meaning: e!.meaning.trim() } : undefined
+}
+
 function normalizeDraft(d: CardDraft) {
   return {
     hanzi: d.hanzi.trim(),
     pinyin: normalizePinyin(d.pinyin),
     meaning: clean(d.meaning),
     notes: clean(d.notes),
+    example: normalizeExample(d.example),
     tags: d.tags?.map((t) => t.trim()).filter(Boolean) ?? [],
   }
 }

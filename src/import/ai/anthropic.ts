@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { estimateClaudeCostUsd } from './pricing'
-import { JSON_RESPONSE_SCHEMA, SYSTEM_PROMPT, userPrompt } from './prompt'
+import { VOCAB_TASK } from './prompt'
 import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type VisionProvider } from './types'
 
 export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5'
@@ -78,23 +78,19 @@ export function createAnthropicProvider(opts: { apiKey: string; model: string; f
 
     async extractPage(req: PageRequest): Promise<PageResponse> {
       const anthropic = await getClient()
+      const task = req.task ?? VOCAB_TASK
       const fallbacks = FALLBACK_MODELS.test(opts.model)
+      const image = req.imageBase64
+        ? [{ type: 'image' as const, source: { type: 'base64' as const, media_type: (req.mime ?? 'image/jpeg') as ImageMime, data: req.imageBase64 } }]
+        : []
       const message = await mapErrors(() =>
         anthropic.beta.messages.create(
           {
             model: opts.model,
             max_tokens: 16000,
-            system: SYSTEM_PROMPT,
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'image', source: { type: 'base64', media_type: req.mime as ImageMime, data: req.imageBase64 } },
-                  { type: 'text', text: userPrompt(req.textHint) },
-                ],
-              },
-            ],
-            output_config: { format: { type: 'json_schema', schema: JSON_RESPONSE_SCHEMA } },
+            system: task.system,
+            messages: [{ role: 'user', content: [...image, { type: 'text', text: task.user(req.textHint) }] }],
+            output_config: { format: { type: 'json_schema', schema: task.jsonSchema } },
             ...(fallbacks ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
           },
           { signal: req.signal },

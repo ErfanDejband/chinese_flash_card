@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createAnthropicProvider } from './anthropic'
 import { estimateClaudeCostUsd } from './pricing'
+import { READING_JSON_SCHEMA, READING_SYSTEM_PROMPT, READING_TASK } from './prompt'
 import { ProviderError, type FetchLike } from './types'
 
 const KEY = 'sk-ant-api03-test-key'
@@ -53,6 +54,18 @@ describe('Claude provider (official SDK, mocked fetch)', () => {
     expect(body.messages[0].content[1].text).toContain('老師 lǎoshī N teacher')
     expect(body.output_config.format.type).toBe('json_schema')
     expect(body.output_config.format.schema.additionalProperties).toBe(false)
+  })
+
+  it('sends the reading task as the system prompt and schema, and no image for a text-only request', async () => {
+    const { fetchImpl, calls } = mockFetch(json(message()), json(message()))
+    const provider = createAnthropicProvider({ apiKey: KEY, model: 'claude-opus-5', fetchImpl })
+    await provider.extractPage({ ...request, task: READING_TASK })
+    await provider.extractPage({ textHint: '', task: READING_TASK })
+    const [withImage, textOnly] = calls.map((c) => JSON.parse(c.init.body as string))
+    expect(withImage.system).toBe(READING_SYSTEM_PROMPT)
+    expect(withImage.output_config.format.schema).toEqual(READING_JSON_SCHEMA)
+    expect(withImage.messages[0].content.map((b: { type: string }) => b.type)).toEqual(['image', 'text'])
+    expect(textOnly.messages[0].content).toEqual([{ type: 'text', text: READING_TASK.user('') }])
   })
 
   it('does not send fallbacks for other models', async () => {

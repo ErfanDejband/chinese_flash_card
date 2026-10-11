@@ -37,7 +37,18 @@ function fakeDrive() {
 }
 
 const deviceB = new AppDB('device-b')
-const tablesOf = (d: AppDB) => [d.cards, d.reviewStates, d.reviewLog, d.media, d.imports, d.settings, d.importPages, d.importDrafts, d.syncTombstones]
+const tablesOf = (d: AppDB) => [
+  d.cards,
+  d.reviewStates,
+  d.reviewLog,
+  d.media,
+  d.imports,
+  d.settings,
+  d.importPages,
+  d.importDrafts,
+  d.syncTombstones,
+  d.knownWords,
+]
 
 beforeEach(async () => {
   await Promise.all([...ALL_TABLES(), ...tablesOf(deviceB)].map((t) => t.clear()))
@@ -126,6 +137,32 @@ describe('runSync between two devices', () => {
     await d.syncB()
     expect(await deviceA.settings.get('app')).toMatchObject({ newPerDay: 25, ttsVoiceURI: 'android-voice' })
     expect(await deviceB.settings.get('app')).toMatchObject({ newPerDay: 25, ttsVoiceURI: 'windows-voice' })
+  })
+
+  it('syncs known words, including removals and adding one back', async () => {
+    const d = devices()
+    await deviceA.knownWords.bulkPut([
+      { id: '我', addedAt: 1, updatedAt: 1 },
+      { id: '是', addedAt: 1, updatedAt: 1 },
+    ])
+    await d.syncA()
+    expect(d.remote.files.size).toBe(2) // known.json.gz + manifest
+    await d.syncB()
+    expect((await deviceB.knownWords.toArray()).map((w) => w.id)).toEqual(['我', '是'])
+
+    await deviceB.knownWords.update('是', { deletedAt: 5, updatedAt: 5 })
+    await deviceA.knownWords.put({ id: '的', addedAt: 6, updatedAt: 6 })
+    await d.syncB()
+    await d.syncA()
+    await d.syncB()
+    for (const device of [deviceA, deviceB]) {
+      expect((await device.knownWords.filter((w) => w.deletedAt === undefined).toArray()).map((w) => w.id)).toEqual(['我', '的'])
+    }
+
+    await deviceA.knownWords.put({ id: '是', addedAt: 9, updatedAt: 9 })
+    await d.syncA()
+    await d.syncB()
+    expect((await deviceB.knownWords.get('是'))?.deletedAt).toBeUndefined()
   })
 
   it('does not sync imports that are still drafts', async () => {

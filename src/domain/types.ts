@@ -30,6 +30,13 @@ export type CardSource =
   /** A photo or screenshot; bbox in the image's pixels. */
   | { type: 'image'; importId: Id; fileName: string; bbox?: BBox }
 
+/** A sentence that shows a word in use. */
+export interface Example {
+  hanzi: string
+  pinyin: string
+  meaning: string
+}
+
 /** A vocabulary item: content only. Scheduling lives in {@link ReviewState}. */
 export interface Card {
   id: Id
@@ -38,6 +45,8 @@ export interface Card {
   pinyin: string
   meaning?: string
   notes?: string
+  /** The sentence the word was learned from (reading imports), shown with the answer. */
+  example?: Example
   imageId?: Id
   audioId?: Id
   tags: string[]
@@ -46,6 +55,18 @@ export interface Card {
   createdAt: Timestamp
   updatedAt: Timestamp
   /** Soft delete, kept so a future sync can propagate deletions. */
+  deletedAt?: Timestamp
+}
+
+/**
+ * A word the learner already knows but has no card for (我, 是, 的): imports switch it off.
+ * Removing one is a soft delete so sync can carry it to other devices.
+ */
+export interface KnownWord {
+  /** The characters. */
+  id: string
+  addedAt: Timestamp
+  updatedAt: Timestamp
   deletedAt?: Timestamp
 }
 

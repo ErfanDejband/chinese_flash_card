@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate'
-import type { Card, ReviewLogEntry, ReviewState } from '@/domain/types'
+import type { Card, KnownWord, ReviewLogEntry, ReviewState } from '@/domain/types'
 import { ALL_TABLES, db, type ImportRecord, type MediaRecord, type SettingsRecord } from '../db'
 
 /**
@@ -24,20 +24,24 @@ interface Tables {
   imports: ImportRecord[]
   settings: SettingsRecord[]
   media: MediaMeta[]
+  knownWords: KnownWord[]
 }
 
 const TABLE_FILES = ['cards', 'reviewStates', 'reviewLog', 'imports', 'settings', 'media'] as const
+/** Tables added later: missing from older backups, which still restore. */
+const OPTIONAL_TABLE_FILES = ['knownWords'] as const
 
 const json = (value: unknown) => strToU8(JSON.stringify(value))
 
 export async function exportBackup(now = Date.now()): Promise<Uint8Array> {
-  const [cards, reviewStates, reviewLog, imports, settings, media] = await Promise.all([
+  const [cards, reviewStates, reviewLog, imports, settings, media, knownWords] = await Promise.all([
     db.cards.toArray(),
     db.reviewStates.toArray(),
     db.reviewLog.toArray(),
     db.imports.toArray(),
     db.settings.toArray(),
     db.media.toArray(),
+    db.knownWords.toArray(),
   ])
   const manifest: Manifest = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now }
   const files: Zippable = {
@@ -48,6 +52,7 @@ export async function exportBackup(now = Date.now()): Promise<Uint8Array> {
     'imports.json': json(imports),
     'settings.json': json(settings),
     'media.json': json(media.map(({ blob: _blob, ...meta }) => meta)),
+    'knownWords.json': json(knownWords),
   }
   for (const m of media) {
     // Images are already compressed; store them as-is.
@@ -75,9 +80,10 @@ function readBackup(bytes: Uint8Array): { tables: Tables; mediaFiles: Map<string
   if (typeof manifest.version !== 'number' || manifest.version > BACKUP_VERSION) {
     throw new BackupFormatError('This backup was made by a newer version of the app. Update the app first.')
   }
-  const tables = {} as Record<(typeof TABLE_FILES)[number], unknown>
-  for (const t of TABLE_FILES) {
-    const rows = read(`${t}.json`)
+  const tables = {} as Record<(typeof TABLE_FILES)[number] | (typeof OPTIONAL_TABLE_FILES)[number], unknown>
+  for (const t of [...TABLE_FILES, ...OPTIONAL_TABLE_FILES]) {
+    const optional = (OPTIONAL_TABLE_FILES as readonly string[]).includes(t)
+    const rows = optional && !files[`${t}.json`] ? [] : read(`${t}.json`)
     if (!Array.isArray(rows)) throw new BackupFormatError(`Backup table ${t} is malformed.`)
     tables[t] = rows
   }
@@ -121,6 +127,7 @@ export async function restoreBackup(bytes: Uint8Array, mode: 'merge' | 'replace'
       await db.reviewLog.bulkPut(tables.reviewLog)
       await db.imports.bulkPut(tables.imports)
       await db.settings.bulkPut(tables.settings)
+      await db.knownWords.bulkPut(tables.knownWords)
       await db.media.bulkPut(media)
       return { cards: tables.cards.length, media: media.length, reviews: tables.reviewLog.length }
     }
@@ -130,6 +137,7 @@ export async function restoreBackup(bytes: Uint8Array, mode: 'merge' | 'replace'
     await db.reviewStates.bulkPut(await newerRows(tables.reviewStates, (ids) => db.reviewStates.bulkGet(ids)))
     await db.imports.bulkPut(await newerRows(tables.imports, (ids) => db.imports.bulkGet(ids)))
     await db.settings.bulkPut(await newerRows(tables.settings, (ids) => db.settings.bulkGet(ids as 'app'[])))
+    await db.knownWords.bulkPut(await newerRows(tables.knownWords, (ids) => db.knownWords.bulkGet(ids)))
 
     const haveLog = new Set(await db.reviewLog.toCollection().primaryKeys())
     const newLog = tables.reviewLog.filter((l) => !haveLog.has(l.id))

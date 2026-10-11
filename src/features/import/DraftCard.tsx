@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { updateDraft, type DraftPatch } from '@/data/repositories/imports'
+import { addKnownWords, removeKnownWord } from '@/data/repositories/knownWords'
 import type { ImportDraftRecord } from '@/data/db'
 import { suggestPinyin } from '@/domain/pinyin/suggest'
 import { normalizePinyin } from '@/domain/pinyin/tones'
@@ -7,12 +8,14 @@ import { loadSimplifiedDetector, loadToTraditional } from '@/import/extract/trad
 import type { DraftFlag } from '@/import/types'
 import { useBlobUrl } from '@/hooks/useBrowser'
 import { cn } from '@/ui/cn'
+import { ExampleSentence } from '@/ui/ExampleSentence'
 import { Icon } from '@/ui/icons'
 import { FLAG_INFO, liveFlags, TONE_CLASS } from './flags'
 
 const field = 'w-full rounded-lg border border-line bg-paper px-2.5 outline-none focus:border-accent'
 
-export function DraftCard({ draft, onEditImage }: { draft: ImportDraftRecord; onEditImage(): void }) {
+/** `reading`: a word from a story page; it has its sentence instead of a picture. */
+export function DraftCard({ draft, reading = false, onEditImage }: { draft: ImportDraftRecord; reading?: boolean; onEditImage(): void }) {
   // Local copies so typing doesn't round-trip through IndexedDB; saved on blur.
   const [hanzi, setHanzi] = useState(draft.hanzi)
   const [pinyin, setPinyin] = useState(draft.pinyin)
@@ -32,6 +35,17 @@ export function DraftCard({ draft, onEditImage }: { draft: ImportDraftRecord; on
     const flags: DraftFlag[] = draft.flags.filter((f) => f !== 'maybe-simplified')
     if (next && isSimplified(next)) flags.push('maybe-simplified')
     save({ hanzi: next, flags, selected: draft.selected && next.length > 0 })
+  }
+
+  /** Remember the word as known (later imports switch it off too) and leave it out of this one. */
+  async function markKnown() {
+    await addKnownWords([hanzi])
+    save({ selected: false, flags: [...draft.flags.filter((f) => f !== 'known'), 'known'] })
+  }
+
+  async function unmarkKnown() {
+    await removeKnownWord(hanzi.trim())
+    save({ flags: draft.flags.filter((f) => f !== 'known') })
   }
 
   async function toTraditional() {
@@ -55,15 +69,17 @@ export function DraftCard({ draft, onEditImage }: { draft: ImportDraftRecord; on
           />
         </label>
 
-        <button
-          type="button"
-          onClick={onEditImage}
-          className="relative grid size-24 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-white text-muted sm:size-28"
-          aria-label={draft.crop ? 'Adjust picture' : 'Pick a picture from the page'}
-        >
-          {cropUrl ? <img src={cropUrl} alt="" className="size-full object-contain" /> : <Icon name="image" className="size-7" />}
-          <span className="absolute right-1 bottom-1 rounded-md bg-black/55 px-1.5 text-[10px] font-semibold text-white">edit</span>
-        </button>
+        {!reading && (
+          <button
+            type="button"
+            onClick={onEditImage}
+            className="relative grid size-24 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-white text-muted sm:size-28"
+            aria-label={draft.crop ? 'Adjust picture' : 'Pick a picture from the page'}
+          >
+            {cropUrl ? <img src={cropUrl} alt="" className="size-full object-contain" /> : <Icon name="image" className="size-7" />}
+            <span className="absolute right-1 bottom-1 rounded-md bg-black/55 px-1.5 text-[10px] font-semibold text-white">edit</span>
+          </button>
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <input
@@ -102,15 +118,19 @@ export function DraftCard({ draft, onEditImage }: { draft: ImportDraftRecord; on
         </div>
       </div>
 
+      {draft.example && <ExampleSentence example={draft.example} word={hanzi} className="mt-2 px-1" />}
+
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => save({ kind: draft.kind === 'word' ? 'sentence' : 'word' })}
-          className="rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted"
-          title="Toggle word / sentence"
-        >
-          {draft.kind === 'word' ? 'Word' : 'Sentence'}
-        </button>
+        {!reading && (
+          <button
+            type="button"
+            onClick={() => save({ kind: draft.kind === 'word' ? 'sentence' : 'word' })}
+            className="rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted"
+            title="Toggle word / sentence"
+          >
+            {draft.kind === 'word' ? 'Word' : 'Sentence'}
+          </button>
+        )}
         {flags.map((f) => (
           <span key={f} className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', TONE_CLASS[FLAG_INFO[f].tone])}>
             {FLAG_INFO[f].label}
@@ -132,6 +152,15 @@ export function DraftCard({ draft, onEditImage }: { draft: ImportDraftRecord; on
             }}
           >
             use dictionary pinyin
+          </button>
+        )}
+        {draft.kind === 'word' && canSelect && (
+          <button
+            type="button"
+            className="ml-auto text-xs font-semibold text-accent underline"
+            onClick={() => void (flags.includes('known') ? unmarkKnown() : markKnown())}
+          >
+            {flags.includes('known') ? 'remove from known words' : 'I know this'}
           </button>
         )}
       </div>

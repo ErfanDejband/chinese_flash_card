@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import type { ImportDraftRecord, ImportPageRecord } from '@/data/db'
+import { listActiveCards } from '@/data/repositories/cards'
 import {
   commitImport,
   discardImport,
@@ -27,6 +28,7 @@ import { CropEditor } from './CropEditor'
 import { DraftCard } from './DraftCard'
 import { formatPageRanges } from './pageRanges'
 import { attachSource, hasSource, isRunning, runStore, startRun, stopRun } from './runner'
+import { SentenceReader } from './SentenceReader'
 
 const pageLabel = (p: ImportPageRecord) => p.label ?? `Page ${p.page}`
 
@@ -190,17 +192,57 @@ function PageGroup({ label, drafts, onEditImage }: { label: string; drafts: Impo
   )
 }
 
+/**
+ * A reading page: its sentences as tappable words, then full cards for the words being added
+ * (to check pinyin and meaning). Words left out are only in the sentences, one tap from coming back.
+ */
+function ReadingGroup({
+  page,
+  drafts,
+  allDrafts,
+  existing,
+}: {
+  page: ImportPageRecord
+  drafts: ImportDraftRecord[]
+  allDrafts: ReadonlyMap<string, ImportDraftRecord>
+  existing: ReadonlySet<string>
+}) {
+  const adding = drafts.filter((d) => d.selected)
+  const leftOut = drafts.length - adding.length
+  return (
+    <section className="mb-6">
+      <h3 className="mb-2 font-semibold">
+        {pageLabel(page)} <span className="text-sm font-normal text-muted">· {plural(adding.length, 'new word')}</span>
+      </h3>
+      <SentenceReader sentences={page.reading ?? []} drafts={allDrafts} existing={existing} />
+      {adding.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-3">
+          {adding.map((d) => (
+            <DraftCard key={d.id} draft={d} reading onEditImage={() => {}} />
+          ))}
+        </ul>
+      )}
+      {leftOut > 0 && (
+        <p className="mt-2 text-sm text-muted">
+          {plural(leftOut, 'word')} left out (names, particles, numbers, words you know): tap one above to add it.
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function ImportSessionPage() {
   const importId = useParams().importId!
   const navigate = useNavigate()
   const record = useLiveQuery(async () => (await getImport(importId)) ?? null, [importId])
   const pages = useLiveQuery(() => listImportPages(importId), [importId])
   const drafts = useLiveQuery(() => listDrafts(importId), [importId])
+  const existing = useLiveQuery(async () => new Set((await listActiveCards()).map((c) => c.hanzi)), [])
   const [editing, setEditing] = useState<ImportDraftRecord>()
   const [committing, setCommitting] = useState(false)
   const running = useSyncExternalStore(runStore.subscribe, () => isRunning(importId))
 
-  if (record === undefined || !pages || !drafts) return <Loading />
+  if (record === undefined || !pages || !drafts || !existing) return <Loading />
   if (record === null || record.status !== 'draft') {
     return (
       <>
@@ -210,9 +252,12 @@ export function ImportSessionPage() {
     )
   }
 
+  const reading = record.mode === 'reading'
   const byPage = new Map<number, ImportDraftRecord[]>()
   for (const d of drafts) byPage.set(d.page, [...(byPage.get(d.page) ?? []), d])
-  const empty = pages.filter((p) => p.status === 'done' && !byPage.has(p.page))
+  const byHanzi = new Map(drafts.map((d) => [d.hanzi, d]))
+  const readingPages = pages.filter((p) => p.status === 'done' && (p.reading?.length || byPage.has(p.page)))
+  const empty = pages.filter((p) => p.status === 'done' && (reading ? !readingPages.includes(p) : !byPage.has(p.page)))
   const emptyText =
     record.sourceKind === 'images' ? empty.map(pageLabel).join(', ') : `page ${formatPageRanges(empty.map((p) => p.page))}`
   const labelOf = new Map(pages.map((p) => [p.page, pageLabel(p)]))
@@ -234,7 +279,16 @@ export function ImportSessionPage() {
       <PageHeader title="Review import" subtitle={record.fileName} back="/import" />
       <Progress importId={importId} fileHash={record.fileHash} pages={pages} />
 
-      {drafts.length === 0 ? (
+      {reading && readingPages.length > 0 ? (
+        <>
+          <p className="mb-3 text-sm text-muted">
+            Tap a word to add it or leave it out. <span className="text-ink">✓</span> already a card · dashed: a word you know.
+          </p>
+          {readingPages.map((p) => (
+            <ReadingGroup key={p.id} page={p} drafts={byPage.get(p.page) ?? []} allDrafts={byHanzi} existing={existing} />
+          ))}
+        </>
+      ) : drafts.length === 0 ? (
         <p className="py-8 text-center text-muted">{running ? 'Cards appear here as pages are read.' : 'No vocabulary found yet.'}</p>
       ) : (
         [...byPage.entries()].map(([page, list]) => (

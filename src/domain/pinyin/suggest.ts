@@ -1,4 +1,4 @@
-import { pinyin } from 'pinyin-pro'
+import { pinyin, polyphonic } from 'pinyin-pro'
 import { normalizePinyin, toSearchKey } from './tones'
 
 /** Pinyin for `hanzi` with tone marks, syllables of a word joined: `老師` → `lǎoshī`. */
@@ -43,16 +43,37 @@ function tonesCompatible(a: string, b: string): boolean {
   return true
 }
 
+const ONLY_HAN = /^\p{Script=Han}{1,8}$/u
+
 /**
- * Compare given pinyin with the dictionary reading. Only a hint: polyphonic characters and
- * tone sandhi (一, 不) legitimately differ from the dictionary.
+ * True when `given` reads each character with one of its dictionary readings (還 hái or huán,
+ * 了 le or liǎo), so a polyphonic character read right for its sentence isn't flagged.
+ */
+function isAnyReading(hanzi: string, given: string, ignoreTones = false): boolean {
+  if (!ONLY_HAN.test(hanzi)) return false
+  const options = polyphonic(hanzi, { type: 'array', toneType: 'symbol' }).map((rs) => rs.map(compact))
+  const target = compact(given)
+  const same = (a: string, b: string) => (ignoreTones ? toSearchKey(a) === toSearchKey(b) : tonesCompatible(a, b))
+  const fits = (i: number, at: number): boolean =>
+    i === options.length
+      ? at === target.length
+      : options[i]!.some((r) => {
+          const piece = target.slice(at, at + r.length)
+          return piece.length === r.length && same(piece, r) && fits(i + 1, at + r.length)
+        })
+  return fits(0, 0)
+}
+
+/**
+ * Compare given pinyin with the dictionary reading. Only a hint: tone sandhi (一, 不) and
+ * dictionary gaps legitimately differ. Any dictionary reading of a polyphonic character counts.
  */
 export function checkPinyin(hanzi: string, given: string): PinyinCheck {
   const expected = suggestPinyin(hanzi)
   if (!expected || !given.trim()) return 'unknown'
   const a = compact(expected)
   const b = compact(given)
-  if (a === b || tonesCompatible(a, b)) return 'match'
-  if (toSearchKey(a) === toSearchKey(b)) return 'tone-differs'
+  if (a === b || tonesCompatible(a, b) || isAnyReading(hanzi.trim(), given)) return 'match'
+  if (toSearchKey(a) === toSearchKey(b) || isAnyReading(hanzi.trim(), given, true)) return 'tone-differs'
   return 'mismatch'
 }

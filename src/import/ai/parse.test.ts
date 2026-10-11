@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BOOK2_P5_REPLY, BOOK3_P20_REPLY } from './fixtures'
-import { ModelOutputError, parseBox, parseModelJson, validateItems } from './parse'
+import { BOOK2_P5_REPLY, BOOK3_P20_REPLY, READING_REPLY } from './fixtures'
+import { ModelOutputError, parseBox, parseModelJson, validateItems, validateReading } from './parse'
 
 describe('parseModelJson', () => {
   it('reads plain JSON and fenced JSON', () => {
@@ -56,5 +56,41 @@ describe('validateItems', () => {
 
   it('requires an items list', () => {
     expect(() => validateItems({ cards: [] })).toThrow(ModelOutputError)
+  })
+})
+
+describe('validateReading', () => {
+  it('reads sentences with their words', () => {
+    const { sentences } = validateReading(parseModelJson(READING_REPLY))
+    expect(sentences.map((s) => s.words.length)).toEqual([7, 9, 6])
+    expect(sentences[0]!.words[0]).toEqual({ hanzi: '小明', pinyin: 'Xiǎomíng', meaning: 'Xiaoming (a name)', role: 'name', confidence: 0.95 })
+  })
+
+  it('strips zhuyin, drops empty words and sentences, and coerces unknown values', () => {
+    const { sentences } = validateReading({
+      sentences: [
+        {
+          text: '我ㄨㄛˇ 愛ㄞˋ 你。',
+          pinyin: 'Wǒ ài nǐ.',
+          meaning: 'I love you.',
+          words: [
+            { hanzi: '我ㄨㄛˇ', pinyin: 'wǒ', meaning: 'I', role: 'pronoun', confidence: 3 },
+            { hanzi: 'ㄞˋ', pinyin: '', meaning: '' },
+            { hanzi: '愛', pinyin: 'ài', meaning: 'to love', role: 'word' },
+          ],
+        },
+        { text: '', words: [] },
+      ],
+    })
+    expect(sentences).toHaveLength(1)
+    expect(sentences[0]!.text).toBe('我 愛 你。')
+    expect(sentences[0]!.words).toEqual([
+      { hanzi: '我', pinyin: 'wǒ', meaning: 'I', role: 'word', confidence: 1 },
+      { hanzi: '愛', pinyin: 'ài', meaning: 'to love', role: 'word', confidence: 0.5 },
+    ])
+  })
+
+  it('requires a sentences list', () => {
+    expect(() => validateReading({ items: [] })).toThrow(ModelOutputError)
   })
 })

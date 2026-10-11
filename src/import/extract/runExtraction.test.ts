@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BOOK2_P5_REPLY, BOOK3_P20_REPLY } from '../ai/fixtures'
+import { BOOK2_P5_REPLY, BOOK3_P20_REPLY, READING_REPLY } from '../ai/fixtures'
+import { PROMPT_VERSION, READING_PROMPT_VERSION, READING_TASK, VOCAB_TASK } from '../ai/prompt'
 import { ProviderError, type PageRequest, type VisionProvider } from '../ai/types'
 import { FatalExtractionError, runExtraction, type ExtractionDeps, type ExtractionEvent, type PageResult, type RenderedPage } from './runExtraction'
 
@@ -71,6 +72,21 @@ describe('runExtraction', () => {
     // imageBox [330, 600, 820, 860] on a 960 × 540 pt page
     expect(teacher.sourceBox).toEqual({ x: 576, y: 178.2, width: 249.6, height: 264.6 })
     expect(t.saved[0]!.model).toBe('fake-model')
+    expect(t.requests[0]!.task).toBe(VOCAB_TASK)
+    expect(t.saved[0]!.promptVersion).toBe(PROMPT_VERSION)
+    expect(t.saved[0]!.reading).toBeUndefined()
+  })
+
+  it('splits reading pages into word drafts without crops and keeps the sentences', async () => {
+    const t = setup([READING_REPLY], { mode: 'reading', context: { existingHanzi: new Set(['媽媽']), seenInImport: new Set() } })
+    expect(await runExtraction([1], t.deps)).toEqual({ done: 1, failed: 0 })
+    expect(t.requests[0]!.task).toBe(READING_TASK)
+    const [page] = t.saved
+    expect(page!.promptVersion).toBe(READING_PROMPT_VERSION)
+    expect(page!.reading!.map((s) => s.text)).toEqual(['小明和媽媽一起去公園散步。', '他看到一隻小狗在草地上跑來跑去。', '小狗很可愛，小明笑了。'])
+    expect(page!.drafts).toHaveLength(19)
+    expect(page!.drafts.some((d) => d.hanzi === '媽媽' || d.crop)).toBe(false)
+    expect(page!.drafts[0]!.example?.hanzi).toBe('小明和媽媽一起去公園散步。')
   })
 
   it('waits for Retry-After on a rate limit, then continues', async () => {

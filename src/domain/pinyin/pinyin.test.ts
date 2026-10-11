@@ -97,6 +97,12 @@ describe('checkPinyin', () => {
     ['鴨子', 'yá zi', 'tone-differs'],
     ['女', 'nǚ', 'match'],
     ['女', 'nǔ', 'tone-differs'], // loose: search keys fold ü into u
+    // Any dictionary reading of a polyphonic character (read from zhuyin in its sentence).
+    ['還', 'hái', 'match'],
+    ['了', 'le', 'match'],
+    ['長大', 'zhǎngdà', 'match'],
+    ['還', 'hǎi', 'tone-differs'],
+    ['長大', 'zhǎng', 'mismatch'],
   ])('%s vs %s → %s', (hanzi, given, expected) => {
     expect(checkPinyin(hanzi, given)).toBe(expected)
   })

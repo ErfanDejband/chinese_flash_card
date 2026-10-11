@@ -1,4 +1,4 @@
-import type { ExtractedItem, FieldSource, NormBox } from '../types'
+import type { ExtractedItem, FieldSource, NormBox, ReadingItem, ReadingWord, WordRole } from '../types'
 
 export class ModelOutputError extends Error {}
 
@@ -62,4 +62,38 @@ export function validateItems(json: unknown): ValidatedPage {
     })
   }
   return { items, dropped }
+}
+
+const ROLES: ReadonlySet<string> = new Set<WordRole>(['word', 'name', 'function', 'number'])
+const confidenceOf = (v: unknown) => Math.min(1, Math.max(0, typeof v === 'number' && Number.isFinite(v) ? v : 0.5))
+
+/** Zhuyin letters and tone marks: a reading aid that must never end up in a card. */
+const ZHUYIN = /[㄀-ㄯㆠ-ㆿˊˇˋ˙]/g
+export const stripZhuyin = (s: string) => s.replace(ZHUYIN, '')
+
+/** Coerce a reading-page reply into sentences; empty sentences and words are dropped. */
+export function validateReading(json: unknown): { sentences: ReadingItem[] } {
+  const raw = json && typeof json === 'object' ? (json as { sentences?: unknown }).sentences : undefined
+  if (!Array.isArray(raw)) throw new ModelOutputError('The model reply has no "sentences" list.')
+  const sentences: ReadingItem[] = []
+  for (const r of raw) {
+    const o = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>
+    const text = stripZhuyin(str(o.text)).replace(/\s+/g, ' ').trim()
+    const words: ReadingWord[] = []
+    for (const w of Array.isArray(o.words) ? o.words : []) {
+      const ow = (w && typeof w === 'object' ? w : {}) as Record<string, unknown>
+      const hanzi = stripZhuyin(str(ow.hanzi)).replace(/\s+/g, '')
+      if (!hanzi) continue
+      words.push({
+        hanzi,
+        pinyin: str(ow.pinyin),
+        meaning: str(ow.meaning),
+        role: ROLES.has(str(ow.role)) ? (str(ow.role) as WordRole) : 'word',
+        confidence: confidenceOf(ow.confidence),
+      })
+    }
+    if (!text && !words.length) continue
+    sentences.push({ text: text || words.map((w) => w.hanzi).join(''), pinyin: str(o.pinyin), meaning: str(o.meaning), words })
+  }
+  return { sentences }
 }

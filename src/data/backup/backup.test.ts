@@ -3,6 +3,8 @@ import { DEFAULT_LEITNER } from '@/domain/leitner/config'
 import { ALL_TABLES, db } from '../db'
 import { createCard, updateCard } from '../repositories/cards'
 import { recordAnswer } from '../repositories/review'
+import { unzipSync, zipSync } from 'fflate'
+import { addKnownWords, listKnownWords } from '../repositories/knownWords'
 import { BackupFormatError, exportBackup, restoreBackup } from './backup'
 
 const wipe = () => Promise.all(ALL_TABLES().map((t) => t.clear()))
@@ -57,6 +59,18 @@ describe('backup', () => {
 
     await restoreBackup(backupA, 'merge') // idempotent
     expect(await db.reviewLog.count()).toBe(1)
+  })
+
+  it('keeps known words, and still restores older backups without them', async () => {
+    await addKnownWords(['我', '是'], 1000)
+    const zip = await exportBackup()
+    await wipe()
+    await restoreBackup(zip, 'replace')
+    expect((await listKnownWords()).map((w) => w.id).sort()).toEqual(['我', '是'])
+
+    const { 'knownWords.json': _known, ...older } = unzipSync(zip)
+    await restoreBackup(zipSync(older), 'replace')
+    expect(await listKnownWords()).toEqual([])
   })
 
   it('rejects files that are not backups', async () => {

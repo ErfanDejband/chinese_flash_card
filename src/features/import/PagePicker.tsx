@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { nextRotation, type Rotation } from '@/import/render'
 import type { ImportSource } from '@/import/source/types'
+import type { ImportMode } from '@/import/types'
 import { Button } from '@/ui/Button'
 import { cn } from '@/ui/cn'
 import { plural } from '@/ui/format'
@@ -17,9 +18,25 @@ interface Props {
   warning?: string
   /** Why extraction cannot start (e.g. AI not configured). */
   blockedReason?: string
-  onStart(pages: PickedPage[]): void
+  onStart(pages: PickedPage[], mode: ImportMode): void
   onCancel(): void
 }
+
+const MODE_KEY = 'mandarin-leitner.import-mode'
+
+/** The last kind of page imported on this device. */
+function lastMode(): ImportMode {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'reading' ? 'reading' : 'vocabulary'
+  } catch {
+    return 'vocabulary'
+  }
+}
+
+const MODES: { mode: ImportMode; label: string; hint: string }[] = [
+  { mode: 'vocabulary', label: 'Vocabulary page', hint: 'Word lists, vocabulary slides, pictures with labels.' },
+  { mode: 'reading', label: 'Reading page', hint: 'A story (e.g. a kids’ book with zhuyin): its sentences are split into words.' },
+]
 
 /** Thumbnails of every page (PDF page, image, or part of a long screenshot); the user picks and rotates. */
 export function PagePicker({ source, warning, blockedReason, onStart, onCancel }: Props) {
@@ -28,6 +45,7 @@ export function PagePicker({ source, warning, blockedReason, onStart, onCancel }
   const [rotations, setRotations] = useState<Record<number, Rotation>>({})
   const [thumbs, setThumbs] = useState<Record<number, string>>({})
   const [rangeText, setRangeText] = useState('')
+  const [mode, setMode] = useState(lastMode)
   const urls = useRef(new Set<string>())
 
   async function showThumbnail(page: number, rotation: Rotation) {
@@ -89,6 +107,21 @@ export function PagePicker({ source, warning, blockedReason, onStart, onCancel }
           request.
         </p>
         {warning && <p className="mt-2 rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{warning}</p>}
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-sunken p-1" role="radiogroup" aria-label="What the pages hold">
+          {MODES.map((m) => (
+            <button
+              key={m.mode}
+              type="button"
+              role="radio"
+              aria-checked={mode === m.mode}
+              onClick={() => setMode(m.mode)}
+              className={cn('h-9 rounded-lg text-sm font-semibold', mode === m.mode ? 'bg-surface shadow-sm' : 'text-muted')}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-muted">{MODES.find((m) => m.mode === mode)!.hint}</p>
         {source.skipped.length > 0 && (
           <ul className="mt-2 rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
             {source.skipped.map((s) => (
@@ -176,7 +209,17 @@ export function PagePicker({ source, warning, blockedReason, onStart, onCancel }
           <Button
             className="flex-1"
             disabled={!pages.length || Boolean(blockedReason)}
-            onClick={() => onStart(pages.map((page) => ({ page, rotation: rotations[page] ?? 0 })))}
+            onClick={() => {
+              try {
+                localStorage.setItem(MODE_KEY, mode)
+              } catch {
+                // Remembering the choice is only a convenience.
+              }
+              onStart(
+                pages.map((page) => ({ page, rotation: rotations[page] ?? 0 })),
+                mode,
+              )
+            }}
           >
             <Icon name="sparkle" className="size-5" /> Extract {plural(pages.length, 'page')}
           </Button>

@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { AppSettings, BBox, Card, Id, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
+import type { AppSettings, BBox, Card, Id, KnownWord, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
 import type { Tombstone } from '@/domain/sync/merge'
-import type { DraftFields } from '@/import/types'
+import type { DraftFields, ImportMode, ReadingSentence } from '@/import/types'
 
 /** Binary media (card images, later audio), stored as Blobs next to the cards. */
 export interface MediaRecord {
@@ -25,6 +25,8 @@ export interface ImportRecord {
   rejectedCount: number
   /** Missing on imports made before image support: PDF. */
   sourceKind?: 'pdf' | 'images'
+  /** What the pages hold; missing on imports made before reading pages: vocabulary. */
+  mode?: ImportMode
   /** AI provider and model used for extraction. */
   provider?: string
   model?: string
@@ -57,6 +59,8 @@ export interface ImportPageRecord {
   promptVersion?: number
   /** Raw model reply, for debugging extraction problems. */
   raw?: string
+  /** Reading pages: the sentences split into words, for the reader. */
+  reading?: ReadingSentence[]
   updatedAt: Timestamp
 }
 
@@ -94,6 +98,7 @@ export class AppDB extends Dexie {
   importDrafts!: EntityTable<ImportDraftRecord, 'id'>
   /** Review-log entries deleted by undo, so sync can delete them on other devices too. */
   syncTombstones!: EntityTable<Tombstone, 'id'>
+  knownWords!: EntityTable<KnownWord, 'id'>
 
   constructor(name = DB_NAME) {
     super(name)
@@ -112,6 +117,8 @@ export class AppDB extends Dexie {
     })
     // v3: sync tombstones (new table only).
     this.version(3).stores({ syncTombstones: 'id' })
+    // v4: words the learner already knows (new table only).
+    this.version(4).stores({ knownWords: 'id' })
   }
 }
 
@@ -127,4 +134,5 @@ export const ALL_TABLES = () => [
   db.importPages,
   db.importDrafts,
   db.syncTombstones,
+  db.knownWords,
 ]

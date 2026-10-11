@@ -21,6 +21,7 @@ function localFiles(local: LocalSnapshot): Map<string, Rows> {
     [TABLE_FILES.states, local.states],
     [TABLE_FILES.imports, local.imports],
     [TABLE_FILES.settings, local.settings],
+    [TABLE_FILES.known, local.known],
   ])
   for (const e of local.log) {
     const name = logFileName(logMonth(e.at))
@@ -36,10 +37,17 @@ function tableKey(name: string): keyof typeof TABLE_FILES {
   return (Object.keys(TABLE_FILES) as (keyof typeof TABLE_FILES)[]).find((k) => TABLE_FILES[k] === name)!
 }
 
-const emptyChanges = (): LocalChanges => ({ cards: [], states: [], imports: [], settings: [], tombstones: [], logAdds: [], logDeletes: [] })
+const emptyChanges = (): LocalChanges => ({ cards: [], states: [], imports: [], settings: [], tombstones: [], known: [], logAdds: [], logDeletes: [] })
 
 const changeCount = (c: LocalChanges) =>
-  c.cards.length + c.states.length + c.imports.length + c.settings.length + c.tombstones.length + c.logAdds.length + c.logDeletes.length
+  c.cards.length +
+  c.states.length +
+  c.imports.length +
+  c.settings.length +
+  c.tombstones.length +
+  c.known.length +
+  c.logAdds.length +
+  c.logDeletes.length
 
 async function listRemote(drive: DriveLike): Promise<Map<string, RemoteFile>> {
   return new Map((await drive.list()).map((f) => [f.name, f]))
@@ -145,7 +153,7 @@ export async function runSync(drive: DriveLike, store: LocalStore, previous: Syn
 export async function replaceLocalFromRemote(drive: DriveLike, store: LocalStore): Promise<SyncOutcome> {
   const remote = await listRemote(drive)
   await checkManifest(drive, remote, {})
-  const snapshot: LocalSnapshot = { cards: [], states: [], imports: [], settings: [], tombstones: [], log: [] }
+  const snapshot: LocalSnapshot = { cards: [], states: [], imports: [], settings: [], tombstones: [], known: [], log: [] }
   const files: SyncFiles = {}
   let downloaded = 0
   for (const [name, file] of remote) {

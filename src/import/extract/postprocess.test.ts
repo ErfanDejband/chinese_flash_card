@@ -71,6 +71,16 @@ describe('postprocess', () => {
     expect(trad!.flags).not.toContain('maybe-simplified')
   })
 
+  it('switches off words in the known-words list (after duplicates)', () => {
+    const c = ctx({ existingHanzi: new Set(['我']), knownHanzi: new Set(['我', '你']) })
+    const drafts = postprocess([item({ hanzi: '我', pinyin: 'wǒ' }), item({ hanzi: '你', pinyin: 'nǐ' }), item({ hanzi: '他', pinyin: 'tā' })], c)
+    expect(drafts.map((d) => [d.flags, d.selected])).toEqual([
+      [['duplicate-existing'], false],
+      [['known'], false],
+      [[], true],
+    ])
+  })
+
   it('flags low confidence and keeps sentences spaced', () => {
     const [d] = postprocess([item({ kind: 'sentence', hanzi: '我是 老師。', pinyin: 'Wǒ shì lǎoshī.', confidence: 0.4 })], ctx())
     expect(d).toMatchObject({ hanzi: '我是 老師。', flags: ['low-confidence'] })

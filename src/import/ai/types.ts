@@ -1,3 +1,5 @@
+import type { JsonTask } from './prompt'
+
 export type ProviderKind = 'gemini' | 'anthropic' | 'openai-compatible'
 
 /** Per-device AI settings. Stored in localStorage only (never in backups). */
@@ -26,10 +28,12 @@ export interface ModelInfo {
 }
 
 export interface PageRequest {
-  /** Base64 page image (no data: prefix). */
-  imageBase64: string
-  mime: string
+  /** Base64 page image (no data: prefix). Omitted for text-only requests. */
+  imageBase64?: string
+  mime?: string
   textHint: string
+  /** What to ask for; the vocabulary prompt by default. */
+  task?: JsonTask
   signal?: AbortSignal
 }
 

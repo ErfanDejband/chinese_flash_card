@@ -1,5 +1,5 @@
 import { requestJson } from './http'
-import { JSON_SHAPE, SYSTEM_PROMPT, userPrompt } from './prompt'
+import { VOCAB_TASK } from './prompt'
 import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type VisionProvider } from './types'
 
 interface ListedModel {
@@ -35,19 +35,17 @@ export function createOpenAICompatibleProvider(opts: {
   if (base.includes('openrouter.ai')) headers['X-OpenRouter-Title'] = 'Mandarin Leitner'
 
   async function complete(req: PageRequest, jsonMode: boolean): Promise<ChatResponse> {
+    const task = req.task ?? VOCAB_TASK
+    const image = req.imageBase64
+      ? [{ type: 'image_url', image_url: { url: `data:${req.mime ?? 'image/jpeg'};base64,${req.imageBase64}` } }]
+      : []
     const body = {
       model: opts.model,
       temperature: 0,
       ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
       messages: [
-        { role: 'system', content: `${SYSTEM_PROMPT}\n\n${JSON_SHAPE}` },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt(req.textHint) },
-            { type: 'image_url', image_url: { url: `data:${req.mime};base64,${req.imageBase64}` } },
-          ],
-        },
+        { role: 'system', content: `${task.system}\n\n${task.jsonShape}` },
+        { role: 'user', content: [{ type: 'text', text: task.user(req.textHint) }, ...image] },
       ],
     }
     return (await requestJson(fetchImpl, `${base}/chat/completions`, {

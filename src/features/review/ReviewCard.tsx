@@ -1,6 +1,7 @@
 import type { Card, ReviewMode } from '@/domain/types'
 import { speak, speechSupported } from '@/lib/speech'
 import { boxLabel } from '@/ui/boxTones'
+import { ExampleSentence } from '@/ui/ExampleSentence'
 import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { MediaImage } from '@/ui/MediaImage'
@@ -79,6 +80,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
           {kind === 'hanzi' && card.imageId && (
             <MediaImage id={card.imageId} alt="" className="mt-2 max-h-[24dvh] w-full max-w-xs rounded-2xl bg-white object-contain p-2 shadow-sm" />
           )}
+          {card.example && <ExampleSentence example={card.example} word={card.hanzi} className="mt-2 max-w-md" />}
           {card.notes && <p className="mt-2 max-w-md text-sm whitespace-pre-line text-muted">{card.notes}</p>}
         </div>
       )}
