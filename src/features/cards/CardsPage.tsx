@@ -1,5 +1,7 @@
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { createPictureJob, listOpenPictureJobs } from '@/data/repositories/pictures'
 import { effectiveBox } from '@/domain/leitner/scheduler'
 import { matchesQuery } from '@/domain/search'
 import { useDeck, useSettings } from '@/hooks/useDeck'
@@ -23,7 +25,11 @@ export function CardsPage() {
   const query = params.get('q') ?? ''
   const boxParam = params.get('box')
   const boxFilter = boxParam === null ? null : Number(boxParam)
+  const noPicture = params.get('pic') === 'none'
   const [limit, setLimit] = useState(PAGE)
+  const navigate = useNavigate()
+  const openJob = useLiveQuery(async () => (await listOpenPictureJobs())[0] ?? null, [])
+  const [starting, setStarting] = useState(false)
 
   if (!deck || !settings) return <Loading />
   const config = settings.leitner
@@ -39,10 +45,20 @@ export function CardsPage() {
   const boxOf = (box: number) => (box === 0 ? 0 : effectiveBox(box, config))
   const results = deck
     .filter((e) => boxFilter === null || boxOf(e.state.box) === boxFilter)
+    .filter((e) => !noPicture || !e.card.imageId)
     .filter((e) => matchesQuery(e.card, query))
     .sort((a, b) => b.card.createdAt - a.card.createdAt)
 
   const filters: (number | null)[] = [null, 0, ...config.boxes.map((_, i) => i + 1)]
+
+  async function addPictures() {
+    setStarting(true)
+    const job = await createPictureJob(
+      results.map((e) => e.card.id),
+      'cards',
+    )
+    navigate(`/pictures/${job.id}`)
+  }
 
   return (
     <>
@@ -60,6 +76,18 @@ export function CardsPage() {
           />
         </label>
         <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4" role="group" aria-label="Filter by box">
+          <button
+            type="button"
+            aria-pressed={noPicture}
+            onClick={() => update('pic', noPicture ? null : 'none')}
+            className={cn(
+              'h-9 shrink-0 rounded-full border px-4 text-sm font-medium',
+              noPicture ? 'border-transparent bg-ink text-paper' : 'border-line bg-surface text-muted',
+            )}
+          >
+            No picture
+          </button>
+          <span className="my-1.5 w-px shrink-0 bg-line" aria-hidden="true" />
           {filters.map((f) => (
             <button
               key={f ?? 'all'}
@@ -76,8 +104,19 @@ export function CardsPage() {
         </div>
       </div>
 
+      {openJob && (
+        <Link to={`/pictures/${openJob.id}`} className="mb-3 block rounded-2xl border border-accent/40 bg-surface p-3 text-sm">
+          Pictures are waiting to be saved. <span className="font-semibold text-accent">Continue</span>
+        </Link>
+      )}
+      {noPicture && results.length > 0 && !openJob && (
+        <Button className="mb-3 w-full" onClick={() => void addPictures()} disabled={starting}>
+          Add pictures to {plural(results.length, 'card')}
+        </Button>
+      )}
+
       {results.length === 0 ? (
-        <p className="py-12 text-center text-muted">{query || boxFilter !== null ? 'No matching cards.' : 'No cards yet.'}</p>
+        <p className="py-12 text-center text-muted">{query || boxFilter !== null || noPicture ? 'No matching cards.' : 'No cards yet.'}</p>
       ) : (
         <ul className="-mx-2">
           {results.slice(0, limit).map(({ card, state }) => (

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import type { ImportDraftRecord, ImportPageRecord } from '@/data/db'
 import { listActiveCards } from '@/data/repositories/cards'
+import { createPictureJob } from '@/data/repositories/pictures'
 import {
   commitImport,
   discardImport,
@@ -231,6 +232,55 @@ function ReadingGroup({
   )
 }
 
+/** After "Add cards": offer pictures for the new cards that have none (e.g. words from a reading page). */
+function Finished({ importId, added }: { importId: string; added: number }) {
+  const navigate = useNavigate()
+  const withoutPicture = useLiveQuery(
+    async () =>
+      (await listActiveCards())
+        .filter((c) => c.source.type !== 'manual' && c.source.importId === importId && !c.imageId)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .map((c) => c.id),
+    [importId],
+  )
+  const [starting, setStarting] = useState(false)
+
+  async function addPictures(ids: string[]) {
+    setStarting(true)
+    const job = await createPictureJob(ids, 'import')
+    navigate(`/pictures/${job.id}`, { replace: true })
+  }
+
+  return (
+    <>
+      <PageHeader title="Import finished" back="/import" />
+      <section className="rounded-3xl border border-line bg-surface p-5">
+        <p className="text-lg font-semibold">Added {plural(added, 'card')}.</p>
+        {withoutPicture && withoutPicture.length > 0 ? (
+          <>
+            <p className="mt-1 text-muted">
+              {withoutPicture.length === added ? 'None of them has' : `${plural(withoutPicture.length, 'card')} have no`} a picture. Pictures help in the
+              picture → Chinese direction: the app can draw them (AI, a few cents) or use emoji (free).
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button onClick={() => void addPictures(withoutPicture)} disabled={starting}>
+                Add pictures
+              </Button>
+              <Button variant="secondary" onClick={() => navigate('/boxes/0', { replace: true })}>
+                Later
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="mt-4">
+            <Button onClick={() => navigate('/boxes/0', { replace: true })}>See the new cards</Button>
+          </div>
+        )}
+      </section>
+    </>
+  )
+}
+
 export function ImportSessionPage() {
   const importId = useParams().importId!
   const navigate = useNavigate()
@@ -243,11 +293,12 @@ export function ImportSessionPage() {
   const running = useSyncExternalStore(runStore.subscribe, () => isRunning(importId))
 
   if (record === undefined || !pages || !drafts || !existing) return <Loading />
+  if (record?.status === 'committed') return <Finished importId={importId} added={record.acceptedCount} />
   if (record === null || record.status !== 'draft') {
     return (
       <>
         <PageHeader title="Import finished" back="/import" />
-        <p className="text-muted">This import was already {record?.status === 'committed' ? 'added to your cards' : 'closed'}.</p>
+        <p className="text-muted">This import was closed.</p>
       </>
     )
   }
@@ -267,8 +318,8 @@ export function ImportSessionPage() {
   async function commit() {
     setCommitting(true)
     try {
+      // The page turns into the finished view, which offers pictures for cards that have none.
       await commitImport(importId)
-      navigate('/boxes/0', { replace: true })
     } finally {
       setCommitting(false)
     }

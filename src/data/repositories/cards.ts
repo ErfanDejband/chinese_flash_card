@@ -106,6 +106,16 @@ export async function updateCard(id: Id, draft: CardDraft, image?: NewMedia | nu
   })
 }
 
+/** Give a card a new picture (replacing any it had). */
+export async function setCardImage(id: Id, image: NewMedia, now = Date.now()): Promise<void> {
+  await db.transaction('rw', db.cards, db.media, async () => {
+    const existing = await db.cards.get(id)
+    if (!existing || existing.deletedAt !== undefined) return
+    if (existing.imageId) await db.media.delete(existing.imageId)
+    await db.cards.put({ ...existing, imageId: await putMedia(image, now), updatedAt: now })
+  })
+}
+
 /** Soft delete: the row stays (for a future sync) but disappears from the app. */
 export async function deleteCard(id: Id, now = Date.now()): Promise<void> {
   await db.cards.update(id, { deletedAt: now, updatedAt: now })

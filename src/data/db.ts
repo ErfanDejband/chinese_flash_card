@@ -1,7 +1,10 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { AppSettings, BBox, Card, Id, KnownWord, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
 import type { Tombstone } from '@/domain/sync/merge'
-import type { DraftFields, ImportMode, ReadingSentence } from '@/import/types'
+import type { DraftFields, ImportMode, NormBox, ReadingSentence } from '@/import/types'
+import type { SheetSize } from '@/pictures/sheet'
+import type { PictureStyleId } from '@/pictures/styles'
+import type { PicturePlan, PictureService } from '@/pictures/types'
 
 /** Binary media (card images, later audio), stored as Blobs next to the cards. */
 export interface MediaRecord {
@@ -77,6 +80,84 @@ export interface ImportDraftRecord extends DraftFields {
   updatedAt: Timestamp
 }
 
+/** A picture as stored (same shape as a card image). */
+export interface PictureBlob {
+  blob: Blob
+  mime: string
+  width: number
+  height: number
+}
+
+/**
+ * Making pictures for a set of cards. Work tables like the import ones: device-only, not synced
+ * or backed up, deleted when the pictures are saved or discarded.
+ */
+export interface PictureJobRecord {
+  id: Id
+  /** Where the cards came from (for the way back). */
+  from: 'import' | 'cards'
+  /** planning → choosing the method (setup) → making the pictures (running) → keep / redo (review). */
+  status: 'planning' | 'setup' | 'running' | 'review'
+  /** Set when a run starts. */
+  method?: 'paid' | 'emoji'
+  style?: PictureStyleId
+  perSheet?: SheetSize
+  service?: PictureService
+  model?: string
+  /** The planning call failed or there was no AI: plans are just the meanings. */
+  planFailed?: boolean
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+/** One generated image holding several pictures (or four versions of one word). */
+export interface PictureSheetRecord {
+  id: Id
+  jobId: Id
+  /** Run order. */
+  order: number
+  /** Card per cell, in cell order. A variants sheet has one card. */
+  cardIds: Id[]
+  variants: boolean
+  status: 'pending' | 'done' | 'error'
+  image?: Blob
+  width?: number
+  height?: number
+  /** Crop box per cell (variants: 4). */
+  boxes?: NormBox[]
+  error?: string
+  updatedAt: Timestamp
+}
+
+/** One card's picture in a job. */
+export interface PictureDraftRecord {
+  /** `${jobId}:${cardId}` */
+  id: string
+  jobId: Id
+  cardId: Id
+  order: number
+  /** The card's words when the job started (for prompts and the grid). */
+  hanzi: string
+  pinyin: string
+  meaning: string
+  plan?: PicturePlan
+  /** Make a picture for this card (picturable, or "try anyway"). */
+  include: boolean
+  status: 'waiting' | 'ready' | 'failed'
+  picture?: PictureBlob
+  /** Where the picture was cut from, for adjusting the crop. */
+  sheetId?: Id
+  cell?: number
+  box?: NormBox
+  /** Save this picture to the card. */
+  keep: boolean
+  /** Four versions to choose from (Regenerate), cut from `optionsSheetId`. */
+  options?: PictureBlob[]
+  optionsSheetId?: Id
+  error?: string
+  updatedAt: Timestamp
+}
+
 export interface SettingsRecord extends AppSettings {
   id: 'app'
 }
@@ -99,6 +180,9 @@ export class AppDB extends Dexie {
   /** Review-log entries deleted by undo, so sync can delete them on other devices too. */
   syncTombstones!: EntityTable<Tombstone, 'id'>
   knownWords!: EntityTable<KnownWord, 'id'>
+  pictureJobs!: EntityTable<PictureJobRecord, 'id'>
+  pictureSheets!: EntityTable<PictureSheetRecord, 'id'>
+  pictureDrafts!: EntityTable<PictureDraftRecord, 'id'>
 
   constructor(name = DB_NAME) {
     super(name)
@@ -119,6 +203,8 @@ export class AppDB extends Dexie {
     this.version(3).stores({ syncTombstones: 'id' })
     // v4: words the learner already knows (new table only).
     this.version(4).stores({ knownWords: 'id' })
+    // v5: picture-making work tables (new tables only).
+    this.version(5).stores({ pictureJobs: 'id', pictureSheets: 'id, jobId', pictureDrafts: 'id, jobId' })
   }
 }
 
@@ -135,4 +221,7 @@ export const ALL_TABLES = () => [
   db.importDrafts,
   db.syncTombstones,
   db.knownWords,
+  db.pictureJobs,
+  db.pictureSheets,
+  db.pictureDrafts,
 ]

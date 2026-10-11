@@ -1,7 +1,8 @@
 import type { NewMedia } from '@/data/repositories/media'
 import type { BBox } from '@/domain/types'
-import { ModelOutputError, parseModelJson, validateItems, validateReading } from '../ai/parse'
+import { parseModelJson, validateItems, validateReading } from '../ai/parse'
 import { READING_TASK, VOCAB_TASK } from '../ai/prompt'
+import { isAbort, withRetry } from '../ai/retry'
 import { ProviderError, type VisionProvider } from '../ai/types'
 import { boxToPageUnits } from '../pdf/boxes'
 import type { DraftFields, ImportMode, NormBox, ReadingSentence } from '../types'
@@ -70,65 +71,36 @@ export interface ExtractionDeps {
 /** Stops the whole run: retrying other pages cannot help (bad key, quota exhausted). */
 export class FatalExtractionError extends Error {}
 
-function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) return reject(signal.reason)
-    const timer = setTimeout(resolve, ms)
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        reject(signal.reason)
-      },
-      { once: true },
-    )
-  })
-}
-
-const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
-
 /**
  * Process pages one at a time (free tiers allow few requests per minute): render → model →
  * validate → post-process → crop pictures → persist. Transient failures are retried with
  * backoff (honouring Retry-After); a page that still fails is recorded and the run continues.
  */
 export async function runExtraction(pages: number[], deps: ExtractionDeps): Promise<{ done: number; failed: number }> {
-  const sleep = deps.sleep ?? defaultSleep
-  const random = deps.random ?? Math.random
-  const maxAttempts = deps.maxAttempts ?? 4
   const reading = deps.mode === 'reading'
   const task = reading ? READING_TASK : VOCAB_TASK
   let done = 0
   let failed = 0
 
   async function extractWithRetry<T>(page: number, request: () => Promise<{ text: string; model: string }>, validate: (json: unknown) => T) {
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const response = await request()
-        return { ...response, value: validate(parseModelJson(response.text)) }
-      } catch (e) {
-        if (isAbort(e)) throw e
-        const badOutput = e instanceof ModelOutputError || (e instanceof ProviderError && e.kind === 'bad-response')
-        const transient = e instanceof ProviderError && e.transient
-        const canRetry = attempt < maxAttempts && (transient || (badOutput && attempt < 2))
-        if (!canRetry) {
-          if (e instanceof ProviderError && e.kind === 'quota') {
-            throw new FatalExtractionError(`${e.message} Resume the remaining pages tomorrow.`)
-          }
-          if (e instanceof ProviderError && e.kind === 'rate-limit') {
-            throw new FatalExtractionError(`${e.message} Try again later.`)
-          }
-          throw e
-        }
-        const rateLimited = e instanceof ProviderError && e.kind === 'rate-limit'
-        const base = rateLimited ? 10_000 : 1_000
-        const ms =
-          e instanceof ProviderError && e.retryAfterMs !== undefined
-            ? e.retryAfterMs + 250
-            : Math.round(Math.min(120_000, base * 2 ** (attempt - 1)) * (0.75 + random() / 2))
-        deps.onEvent?.({ type: 'waiting', page, ms, reason: rateLimited ? 'rate limit' : 'retrying' })
-        await sleep(ms, deps.signal)
-      }
+    try {
+      return await withRetry(
+        async () => {
+          const response = await request()
+          return { ...response, value: validate(parseModelJson(response.text)) }
+        },
+        {
+          maxAttempts: deps.maxAttempts,
+          signal: deps.signal,
+          sleep: deps.sleep,
+          random: deps.random,
+          onWait: (ms, reason) => deps.onEvent?.({ type: 'waiting', page, ms, reason }),
+        },
+      )
+    } catch (e) {
+      if (e instanceof ProviderError && e.kind === 'quota') throw new FatalExtractionError(`${e.message} Resume the remaining pages tomorrow.`)
+      if (e instanceof ProviderError && e.kind === 'rate-limit') throw new FatalExtractionError(`${e.message} Try again later.`)
+      throw e
     }
   }
 

@@ -15,6 +15,7 @@ import { BackupSettings } from './BackupSettings'
 import { DirectionSettings } from './DirectionSettings'
 import { KnownWordsSettings } from './KnownWordsSettings'
 import { LeitnerSettings } from './LeitnerSettings'
+import { PictureSettings } from './PictureSettings'
 import { SyncSettings } from './SyncSettings'
 import { UsagePanel } from './UsagePanel'
 
@@ -125,6 +126,9 @@ export function SettingsPage() {
       </Section>
       <Section title="AI for PDF import">
         <AiSettings />
+      </Section>
+      <Section title="Pictures for cards">
+        <PictureSettings />
       </Section>
       <Section title="AI usage on this device">
         <UsagePanel />

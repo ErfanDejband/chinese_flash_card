@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { _resetAiSettingsCache, activeProviderConfig, DEFAULT_AI_SETTINGS, getAiSettings, saveAiSettings } from './aiConfig'
+import { _resetAiSettingsCache, activeProviderConfig, DEFAULT_AI_SETTINGS, getAiSettings, pictureSetup, saveAiSettings } from './aiConfig'
 
 // Minimal localStorage for Node.
 const store = new Map<string, string>()
@@ -53,5 +53,28 @@ describe('AI settings', () => {
       baseUrl: 'https://openrouter.ai/api/v1',
     })
     expect(activeProviderConfig({ ...s, mode: 'own-key' })).toMatchObject({ provider: 'gemini', apiKey: 'AIza-made-up' })
+  })
+})
+
+describe('picture settings', () => {
+  const pics = (patch: Partial<typeof DEFAULT_AI_SETTINGS.pictures>) => ({ ...DEFAULT_AI_SETTINGS.pictures, ...patch })
+
+  it('defaults to OpenRouter with the cheapest models, and fills in missing fields of older settings', () => {
+    expect(getAiSettings().pictures).toMatchObject({ service: 'openrouter', style: 'flat', perSheet: 6 })
+    localStorage.setItem('mandarin-leitner.ai', JSON.stringify({ mode: 'free', pictures: { service: 'gemini', perSheet: 5, style: 'nope' } }))
+    _resetAiSettingsCache()
+    expect(getAiSettings().pictures).toMatchObject({ service: 'gemini', perSheet: 6, style: 'flat', models: DEFAULT_AI_SETTINGS.pictures.models })
+  })
+
+  it('reuses a key the device already has for that service, unless one was entered for pictures', () => {
+    const base = { ...DEFAULT_AI_SETTINGS, free: { apiKey: 'sk-or-free' }, gemini: { apiKey: 'AIza-import', model: '' } }
+    expect(pictureSetup(base)).toMatchObject({ service: 'openrouter', apiKey: 'sk-or-free', keyFrom: 'free-sign-in' })
+    const ownRouter = { ...base, openai: { baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'sk-or-own', model: '' } }
+    expect(pictureSetup(ownRouter)).toMatchObject({ apiKey: 'sk-or-own', keyFrom: 'import' })
+    expect(pictureSetup({ ...base, pictures: pics({ service: 'gemini' }) })).toMatchObject({ apiKey: 'AIza-import', model: 'gemini-3.1-flash-lite-image', keyFrom: 'import' })
+    // An OpenRouter import key is not an OpenAI key.
+    expect(pictureSetup({ ...ownRouter, pictures: pics({ service: 'openai' }) })).toMatchObject({ apiKey: '', keyFrom: 'none' })
+    const entered = pics({ service: 'openai', keys: { openrouter: '', openai: ' sk-pics ', gemini: '' } })
+    expect(pictureSetup({ ...base, pictures: entered })).toMatchObject({ apiKey: 'sk-pics', model: 'gpt-image-1-mini', keyFrom: 'pictures' })
   })
 })

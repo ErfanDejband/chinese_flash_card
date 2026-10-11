@@ -62,6 +62,13 @@ export function formatUsd(usd: number): string {
   return `$${usd.toFixed(usd < 10 ? 2 : 0)}`
 }
 
+/** Small prices keep their digits: `$0.0012`, `$0.034`, `$1.20`. */
+export function formatPrice(usd: number): string {
+  if (usd === 0) return '$0'
+  if (usd < 0.1) return `$${Number(usd.toPrecision(2))}`
+  return `$${usd.toFixed(2)}`
+}
+
 export function plural(n: number, word: string, pluralWord = `${word}s`): string {
   return `${n} ${n === 1 ? word : pluralWord}`
 }

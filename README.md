@@ -2,8 +2,8 @@
 
 A personal, mobile-first PWA for learning Mandarin vocabulary (Traditional characters + pinyin) with the
 [Leitner box system](https://en.wikipedia.org/wiki/Leitner_system). Offline-first: your cards live in your
-browser (IndexedDB). The only thing that leaves the device is a PDF page you choose to import, sent to the AI
-provider you configure.
+browser (IndexedDB). Nothing leaves the device unless you use an optional feature: AI import and AI pictures
+send what they need to the AI services you configure, and sync stores a copy in your own Google Drive.
 
 ## Features
 
@@ -29,6 +29,11 @@ provider you configure.
   start switched off. Each card keeps its sentence as an example. A **known-words list** (Settings → Known words, or
   "I know this" while reviewing) keeps words you know out of later imports.
   See [ADR 0008](docs/adr/0008-reading-pages-and-known-words.md)
+- **Pictures for cards without one** (after an import, or Cards → *No picture*): an AI image model draws several pictures on one
+  sheet, which the app cuts apart. That's about ¼–⅑ of the price of single pictures. Choose a style (flat icon, sticker, textbook
+  sketch, soft scene, photo) and see an estimate first, then keep, adjust or redraw each picture before saving. Works with OpenRouter
+  (with credit), OpenAI or Gemini keys (Settings → Pictures for cards). Free option: emoji.
+  See [ADR 0009](docs/adr/0009-pictures-for-cards.md)
 
 ## Development
 
@@ -102,6 +107,7 @@ Key decisions are recorded in [docs/adr](docs/adr):
 6. [Free AI import via "Sign in with OpenRouter"](docs/adr/0006-free-ai-via-openrouter-oauth.md)
 7. [Sync via each user's Google Drive app folder](docs/adr/0007-sync-google-drive-appdata.md)
 8. [Reading pages and the known-words list](docs/adr/0008-reading-pages-and-known-words.md)
+9. [Pictures for cards (sheets, cut apart)](docs/adr/0009-pictures-for-cards.md)
 
 ## Roadmap
 

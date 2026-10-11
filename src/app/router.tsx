@@ -13,6 +13,7 @@ import { NotFound, RouteError } from './RouteError'
 const cardEditPage = async () => ({ Component: (await import('@/features/cards/CardEditPage')).CardEditPage })
 const importPage = async () => ({ Component: (await import('@/features/import/ImportPage')).ImportPage })
 const importSessionPage = async () => ({ Component: (await import('@/features/import/ImportSessionPage')).ImportSessionPage })
+const picturesPage = async () => ({ Component: (await import('@/features/pictures/PicturesPage')).PicturesPage })
 
 /**
  * Hash routing: works on static hosting (GitHub Pages) without server rewrites,
@@ -32,6 +33,7 @@ export const router = createHashRouter([
       { path: 'boxes/:box', element: <BoxDetailPage /> },
       { path: 'import', lazy: importPage },
       { path: 'import/:importId', lazy: importSessionPage },
+      { path: 'pictures/:jobId', lazy: picturesPage },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'progress', element: <StatsPage /> },
       { path: 'stats', element: <Navigate to="/progress" replace /> },
