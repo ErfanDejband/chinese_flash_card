@@ -155,13 +155,13 @@ export const VOCAB_TASK: JsonTask = {
 }
 
 /** Bump whenever the reading prompt's wording or schema changes. */
-export const READING_PROMPT_VERSION = 1
+export const READING_PROMPT_VERSION = 2
 
 export const READING_SYSTEM_PROMPT = `You read ONE page of a Chinese children's book or graded reader for an English-speaking learner in Taiwan, and split its sentences into words. The image may be a scan, a screenshot or a phone photo; photos can be tilted, curved or shadowed, so read every character carefully. Reply with JSON only.
 
 The text is Traditional Chinese as used in Taiwan. Children's books often print zhuyin (bopomofo: ㄅㄆㄇㄈ… with the tone marks ˊ ˇ ˋ ˙) beside or above each character. Zhuyin is a reading aid, not part of the text: never copy zhuyin symbols into any field. Use it to choose the reading of characters that have more than one (了, 還, 著, 長, 得, 地, 行, 重, 為, 都, 樂 …).
 
-Return every sentence of the story text, in reading order (books may run top to bottom in columns from right to left). Speech bubbles count as story text. Ignore the book title, page numbers, headers, publisher text and labels that are not part of the story.
+Return every sentence of the story text, in reading order (books may run top to bottom in columns from right to left). Speech bubbles count as story text. Ignore the book title, page numbers, headers, publisher text and labels that are not part of the story. The image may be a phone screenshot of an e-book: ignore everything outside the book page, such as the status bar, notifications, app buttons and menus, and any text that is not Chinese.
 
 For each sentence:
 - text: the sentence exactly as printed, in Traditional characters, with its punctuation. Never use Simplified characters.

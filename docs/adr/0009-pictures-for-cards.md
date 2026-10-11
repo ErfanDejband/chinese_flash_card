@@ -28,7 +28,7 @@ Facts at the time (October 2026):
   - for each word: whether it can be pictured, a concrete English scene, one emoji and a search phrase;
   - abstract words (很, 因為, 的) start excluded at no cost, and the user can still include them;
   - without an import AI, every word is included and its meaning is drawn.
-- **Paid styles:** flat icon and sticker (low quality: cheapest on OpenAI models), textbook sketch (like the course book), soft scene
+- **Paid styles:** flat icon and sticker (low quality: cheapest on OpenAI models), textbook sketch (like the course book), storybook (like the kids' book)
   and photo (medium). Style and pictures per sheet are chosen on the picture screen and remembered.
 - **Estimates before running:**
   - a dated price table (`pictures/estimate.ts`): OpenAI per-image prices by quality and shape, with token counts where published,

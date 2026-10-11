@@ -31,7 +31,7 @@ send what they need to the AI services you configure, and sync stores a copy in 
   See [ADR 0008](docs/adr/0008-reading-pages-and-known-words.md)
 - **Pictures for cards without one** (after an import, or Cards → *No picture*): an AI image model draws several pictures on one
   sheet, which the app cuts apart. That's about ¼–⅑ of the price of single pictures. Choose a style (flat icon, sticker, textbook
-  sketch, soft scene, photo) and see an estimate first, then keep, adjust or redraw each picture before saving. Works with OpenRouter
+  sketch, storybook, photo) and see an estimate first, then keep, adjust or redraw each picture before saving. Works with OpenRouter
   (with credit), OpenAI or Gemini keys (Settings → Pictures for cards). Free option: emoji.
   See [ADR 0009](docs/adr/0009-pictures-for-cards.md)
 

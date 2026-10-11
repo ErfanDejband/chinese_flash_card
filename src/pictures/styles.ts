@@ -38,9 +38,10 @@ export const PICTURE_STYLES: readonly PictureStyle[] = [
   },
   {
     id: 'scene',
-    label: 'Soft scene',
-    description: 'Muted flat colours with gentle shading; good for actions.',
-    prompt: 'a soft flat illustration in muted pastel colours with gentle shading, a small simple scene like a modern picture book',
+    label: 'Storybook',
+    description: 'Soft pastel drawings with a crayon texture, like a kids’ picture book.',
+    prompt:
+      "a soft children's picture-book illustration with gentle crayon and coloured-pencil texture, pastel colours, rounded cute characters and a small simple scene, on a plain white background",
     quality: 'medium',
   },
   {
