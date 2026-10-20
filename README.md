@@ -8,9 +8,10 @@ send what they need to the AI services you configure, and sync stores a copy in 
 ## Features
 
 - **Cards**: characters, pinyin (type `lao3shi1` → `lǎoshī`, or auto-fill from the characters), meaning, image, notes
-- **Review**: two practice directions, each with its own boxes (Settings → Practice direction):
-  picture → Chinese (fallback: meaning → Chinese) or Chinese → pinyin + meaning + picture.
-  Knew / Forgot, undo, keyboard shortcuts, text-to-speech
+- **Review**: three practice directions, each with its own boxes (Settings → Practice direction):
+  picture → Chinese (fallback: meaning → Chinese), Chinese → pinyin + meaning + picture, or sound → Chinese
+  (the device speaks the word; tap ▶ or press R to hear it again). Knew / Forgot, undo, keyboard shortcuts, text-to-speech
+- **Light or dark**: follows the system, or pick Light / Dark (Settings → Appearance, or the sun/moon button on Home)
 - **Leitner boxes**: configurable boxes and intervals, daily new-card limit, visual box shelf, per-box review
 - **Progress tab**: start today's review (or see what's next), daily streak (also on Home), an 18-week activity calendar,
   the last 7 days vs the week before, cards per box week by week, and your most-forgotten cards — all derived from the
@@ -34,6 +35,12 @@ send what they need to the AI services you configure, and sync stores a copy in 
   sketch, storybook, photo) and see an estimate first, then keep, adjust or redraw each picture before saving. Works with OpenRouter
   (with credit), OpenAI or Gemini keys (Settings → Pictures for cards). Free option: emoji.
   See [ADR 0009](docs/adr/0009-pictures-for-cards.md)
+
+## Support
+
+Mandarin Leitner is free, with no ads and no tracking. If it helps you: star the repo, share the app, or report bugs and
+ideas in [Issues](https://github.com/ErfanDejband/chinese_flash_card/issues). Donation links appear in Settings →
+*Support this app* once they are set up.
 
 ## Development
 
