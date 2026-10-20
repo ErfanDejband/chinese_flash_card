@@ -14,6 +14,14 @@ describe('joinDeck', () => {
     expect(entries.map((e) => e.card.id)).toEqual([a.id, c.id])
     expect(entries[1]!.state.box).toBe(0)
   })
+
+  it('treats a card started only in other directions as new in listening', () => {
+    const a = makeCard()
+    const states = [makeState(a.id, 3, TODAY), makeState(a.id, 2, TODAY, { id: `${a.id}:hanzi_to_meaning`, mode: 'hanzi_to_meaning' })]
+    const [entry] = joinDeck([a], states, 'listening', 0)
+    expect(entry!.state).toMatchObject({ id: `${a.id}:listening`, mode: 'listening', box: 0, dueOn: null })
+    expect(newCardPool(joinDeck([a], states, 'listening', 0))).toHaveLength(1)
+  })
 })
 
 describe('summarizeDeck', () => {

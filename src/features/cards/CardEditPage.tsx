@@ -13,7 +13,7 @@ import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
-import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
+import { reviewModeInfo } from '@/ui/reviewModes'
 import { useSettings } from '@/hooks/useDeck'
 import { CardForm } from './CardForm'
 
@@ -28,7 +28,7 @@ function Progress({ card, state }: { card: Card; state?: ReviewState }) {
         : 'Added manually'
   return (
     <div className="mb-6 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
-      {settings && <p className="mb-1 text-xs font-semibold tracking-wide uppercase">{REVIEW_MODE_INFO[settings.reviewMode].label}</p>}
+      {settings && <p className="mb-1 text-xs font-semibold tracking-wide uppercase">{reviewModeInfo(settings.reviewMode).label}</p>}
       {state && state.box > 0 ? (
         <p>
           <span className="font-semibold text-ink">{boxLabel(state.box)}</span>

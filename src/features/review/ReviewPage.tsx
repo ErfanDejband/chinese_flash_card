@@ -20,6 +20,7 @@ import {
   startSession,
 } from '@/domain/session/reducer'
 import type { AppSettings, ReviewResult } from '@/domain/types'
+import { speak, speechSupported } from '@/lib/speech'
 import { requestSync } from '@/lib/syncRunner'
 import { Button, ButtonLink } from '@/ui/Button'
 import { plural } from '@/ui/format'
@@ -129,6 +130,8 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
   const entry = cardId ? byId.get(cardId) : undefined
   const last = lastHistoryEntry(state)
   const stats = sessionStats(state)
+  // Sound → Chinese: R plays the word again, before or after the answer is shown.
+  const canReplay = settings.reviewMode === 'listening' && speechSupported()
 
   async function answer(result: ReviewResult) {
     if (!cardId || busy || !state.revealed) return
@@ -170,6 +173,8 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
       void answer('knew')
     } else if (e.key === 'u') {
       void undo()
+    } else if (e.key === 'r' && !e.repeat && canReplay && entry) {
+      speak(entry.card.hanzi, settings.ttsVoiceURI)
     }
   })
   useEffect(() => {
@@ -304,6 +309,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
           )}
           <p className="mt-2 hidden text-center text-xs text-muted md:block">
             {state.revealed ? '← or 1: forgot · → or 2: knew · U: undo' : 'Space: show answer'}
+            {canReplay && ' · R: replay'}
           </p>
         </div>
       </div>

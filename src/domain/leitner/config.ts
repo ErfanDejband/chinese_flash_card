@@ -1,6 +1,13 @@
 import type { AppSettings, LeitnerConfig, ReviewMode } from '../types'
 
-export const REVIEW_MODES: readonly ReviewMode[] = ['image_to_word', 'hanzi_to_meaning']
+export const REVIEW_MODES: readonly ReviewMode[] = ['image_to_word', 'hanzi_to_meaning', 'listening']
+
+export const DEFAULT_REVIEW_MODE: ReviewMode = 'image_to_word'
+
+/** False for a direction this build doesn't know (e.g. synced from a newer version of the app). */
+export function isReviewMode(value: unknown): value is ReviewMode {
+  return REVIEW_MODES.includes(value as ReviewMode)
+}
 
 export const DEFAULT_LEITNER: LeitnerConfig = {
   boxes: [1, 2, 4, 7, 14].map((intervalDays) => ({ intervalDays })),
@@ -13,7 +20,7 @@ export const MIN_BOXES = 3
 export const MAX_BOXES = 10
 
 export function defaultSettings(now: number): AppSettings {
-  return { leitner: DEFAULT_LEITNER, newPerDay: DEFAULT_NEW_PER_DAY, reviewMode: 'image_to_word', updatedAt: now }
+  return { leitner: DEFAULT_LEITNER, newPerDay: DEFAULT_NEW_PER_DAY, reviewMode: DEFAULT_REVIEW_MODE, updatedAt: now }
 }
 
 /** Returns a list of problems; empty when the config is valid. */

@@ -19,6 +19,18 @@ describe('settings repository', () => {
     expect((await getSettings()).reviewMode).toBe('hanzi_to_meaning')
   })
 
+  it('saves and reads the listening direction', async () => {
+    await saveSettings({ leitner: DEFAULT_LEITNER, newPerDay: 15, reviewMode: 'listening' })
+    expect((await getSettings()).reviewMode).toBe('listening')
+  })
+
+  it('reads a direction from a newer app version as the default one, leaving the row alone', async () => {
+    // E.g. synced or restored from a build that has a mode this one doesn't know.
+    await db.settings.put({ id: 'app', leitner: DEFAULT_LEITNER, newPerDay: 12, reviewMode: 'bogus' as never, updatedAt: 1 })
+    expect(await getSettings()).toMatchObject({ newPerDay: 12, reviewMode: 'image_to_word' })
+    expect((await db.settings.get('app'))?.reviewMode).toBe('bogus')
+  })
+
   it('rejects an unknown direction', () => {
     const errors = validateSettings({ leitner: DEFAULT_LEITNER, newPerDay: 15, reviewMode: 'sideways' as never })
     expect(errors).toContain('Unknown practice direction.')

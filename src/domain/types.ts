@@ -9,10 +9,11 @@ export type LocalDate = string
 export type Timestamp = number
 
 /**
- * A review mode is one "direction" of practice. Each (card, mode) pair has its own Leitner state,
- * so new modes (hanzi → pinyin, listening, ...) can be added without migrating existing progress.
+ * A review mode is one "direction" of practice: picture → Chinese, Chinese → meaning, or listening
+ * (the word is spoken). Each (card, mode) pair has its own Leitner state, so new modes can be added
+ * without migrating existing progress.
  */
-export type ReviewMode = 'image_to_word' | 'hanzi_to_meaning'
+export type ReviewMode = 'image_to_word' | 'hanzi_to_meaning' | 'listening'
 
 export type ReviewResult = 'knew' | 'forgot'
 

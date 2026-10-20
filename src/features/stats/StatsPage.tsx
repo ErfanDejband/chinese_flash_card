@@ -10,7 +10,7 @@ import { CardRow } from '@/ui/CardRow'
 import { plural } from '@/ui/format'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
-import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
+import { reviewModeInfo } from '@/ui/reviewModes'
 import { ActivityCalendar } from './ActivityCalendar'
 import { BoxHistoryChart } from './BoxHistoryChart'
 import { StudyCard } from './StudyCard'
@@ -71,7 +71,7 @@ export function StatsPage() {
   if (!data || !settings || !deck) return <Loading />
 
   const mode = settings.reviewMode
-  const direction = REVIEW_MODE_INFO[mode].label
+  const direction = reviewModeInfo(mode).label
   const { current, best, reviewedToday } = data.streak
   const header = (
     <>
@@ -142,7 +142,7 @@ export function StatsPage() {
         <ActivityCalendar activity={data.activity} today={today} />
       </section>
 
-      <Section title="Last 7 days" note="Both directions; “known first time” counts each card’s first answer of the day.">
+      <Section title="Last 7 days" note="All directions; “known first time” counts each card’s first answer of the day.">
         <PeriodTiles {...period} />
       </Section>
 

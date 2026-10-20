@@ -34,6 +34,16 @@ describe('dailyActivity', () => {
     expect(days.get('2026-10-09')).toEqual({ reviews: 1, knew: 1, forgot: 0 })
     expect(days.get('2026-10-10')).toEqual({ reviews: 2, knew: 1, forgot: 1 })
   })
+
+  it('counts every direction, listening included', () => {
+    const days = dailyActivity([
+      entry('a', '2026-10-10', 'knew', 1, 2),
+      entry('a', '2026-10-10', 'forgot', 0, 1, { mode: 'listening' }),
+      entry('b', '2026-10-11', 'knew', 0, 2, { mode: 'listening' }),
+    ])
+    expect(days.get('2026-10-10')).toEqual({ reviews: 2, knew: 1, forgot: 1 })
+    expect(days.get('2026-10-11')).toEqual({ reviews: 1, knew: 1, forgot: 0 })
+  })
 })
 
 describe('streaks', () => {
@@ -86,6 +96,7 @@ describe('boxHistory', () => {
       entry(a.id, '2026-10-06', 'knew', 2, 3),
       entry(b.id, '2026-10-09', 'knew', 1, 2),
       entry(a.id, '2026-10-01', 'knew', 0, 4, { mode: 'hanzi_to_meaning' }), // other direction: ignored
+      entry(b.id, '2026-10-02', 'knew', 0, 5, { mode: 'listening' }), // ignored too
     ]
     const history = boxHistory(log, 'image_to_word', [a, b], DEFAULT_LEITNER, today, 3)
     expect(history.map((h) => h.end)).toEqual(['2026-09-26', '2026-10-03', '2026-10-10'])
@@ -119,6 +130,8 @@ describe('mostForgotten', () => {
       entry('c', '2026-10-05', 'forgot', 3, 1),
       entry('a', '2026-10-06', 'forgot', 2, 1),
       entry('d', '2026-10-07', 'forgot', 1, 1, { mode: 'hanzi_to_meaning' }),
+      entry('e', '2026-10-08', 'forgot', 2, 1, { mode: 'listening' }),
+      entry('c', '2026-10-08', 'forgot', 1, 1, { mode: 'listening', hour: 10 }),
     ]
     expect(mostForgotten(log, 'image_to_word').map((f) => [f.cardId, f.forgot])).toEqual([
       ['a', 2], // ties with b; forgotten more recently
@@ -126,6 +139,10 @@ describe('mostForgotten', () => {
       ['c', 1],
     ])
     expect(mostForgotten(log, 'hanzi_to_meaning').map((f) => f.cardId)).toEqual(['d'])
+    expect(mostForgotten(log, 'listening').map((f) => [f.cardId, f.forgot])).toEqual([
+      ['c', 1], // forgotten later that day than e
+      ['e', 1],
+    ])
   })
 })
 

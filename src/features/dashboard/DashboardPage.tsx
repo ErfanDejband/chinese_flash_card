@@ -11,7 +11,7 @@ import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
-import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
+import { reviewModeInfo } from '@/ui/reviewModes'
 import { ThemeToggle } from '@/ui/ThemeToggle'
 import { Link } from 'react-router'
 
@@ -87,7 +87,7 @@ export function DashboardPage() {
         title="Today"
         subtitle={
           <>
-            {longDate(today)} · {REVIEW_MODE_INFO[settings.reviewMode].label}{' '}
+            {longDate(today)} · {reviewModeInfo(settings.reviewMode).label}{' '}
             <Link to="/settings" className="text-accent underline">
               change
             </Link>

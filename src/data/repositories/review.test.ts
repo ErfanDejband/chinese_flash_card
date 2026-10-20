@@ -51,6 +51,25 @@ describe('review repository', () => {
     expect((await listReviewLog(card.id)).map((l) => l.mode)).toEqual(['image_to_word', 'image_to_word', 'hanzi_to_meaning'])
   })
 
+  it('keeps listening progress separate from the other directions', async () => {
+    const card = await createCard({ hanzi: '學生', pinyin: 'xuéshēng' })
+    await recordAnswer(card.id, 'knew', DEFAULT_LEITNER, day(25)) // picture → Chinese
+    await recordAnswer(card.id, 'forgot', DEFAULT_LEITNER, new Date(2026, 8, 25, 12, 0), 'hanzi_to_meaning')
+
+    const [heard] = await loadDeck('listening')
+    expect(heard!.state).toMatchObject({ id: `${card.id}:listening`, mode: 'listening', box: 0 })
+
+    await recordAnswer(card.id, 'knew', DEFAULT_LEITNER, new Date(2026, 8, 25, 18, 0), 'listening')
+    await recordAnswer(card.id, 'knew', DEFAULT_LEITNER, day(27), 'listening')
+    const [picture] = await loadDeck('image_to_word')
+    const [reading] = await loadDeck('hanzi_to_meaning')
+    const [heardAfter] = await loadDeck('listening')
+    expect(picture!.state.box).toBe(2)
+    expect(reading!.state.box).toBe(1)
+    expect(heardAfter!.state).toMatchObject({ box: 3, dueOn: '2026-10-01', reviewCount: 2 })
+    expect((await listReviewLog(card.id)).map((l) => l.mode)).toEqual(['image_to_word', 'hanzi_to_meaning', 'listening', 'listening'])
+  })
+
   it('loads the whole log and every card, deleted ones included, for stats', async () => {
     const kept = await createCard({ hanzi: '學生', pinyin: 'xuéshēng' })
     const gone = await createCard({ hanzi: '老師', pinyin: 'lǎoshī' })
