@@ -17,6 +17,7 @@ import { DirectionSettings } from './DirectionSettings'
 import { KnownWordsSettings } from './KnownWordsSettings'
 import { LeitnerSettings } from './LeitnerSettings'
 import { PictureSettings } from './PictureSettings'
+import { SupportSettings } from './SupportSettings'
 import { SyncSettings } from './SyncSettings'
 import { UsagePanel } from './UsagePanel'
 
@@ -142,6 +143,9 @@ export function SettingsPage() {
       </Section>
       <Section title="Backup">
         <BackupSettings />
+      </Section>
+      <Section title="Support this app">
+        <SupportSettings />
       </Section>
       <Section title="App">
         <AppSection />

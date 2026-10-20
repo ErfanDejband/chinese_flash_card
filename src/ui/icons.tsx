@@ -59,6 +59,17 @@ const paths = {
       <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" />
     </>
   ),
+  heart: <path d="M12 19.6 4.6 12.4a4.75 4.75 0 0 1 6.7-6.7l.7.7.7-.7a4.75 4.75 0 0 1 6.7 6.7z" />,
+  star: <path d="M12 3.4 14.4 9.6 21 10 15.9 14.2 17.6 20.6 12 17 6.4 20.6 8.1 14.2 3 10 9.6 9.6z" />,
+  share: (
+    <>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" />
+    </>
+  ),
+  external: <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
   image: (
     <>
       <rect x="3" y="3" width="18" height="18" rx="2" />
