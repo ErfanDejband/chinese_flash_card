@@ -11,6 +11,7 @@ import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { AiSettings } from './AiSettings'
+import { AppearanceSettings } from './AppearanceSettings'
 import { BackupSettings } from './BackupSettings'
 import { DirectionSettings } from './DirectionSettings'
 import { KnownWordsSettings } from './KnownWordsSettings'
@@ -120,6 +121,9 @@ export function SettingsPage() {
       </Section>
       <Section title="Pronunciation">
         <VoiceSettings settings={settings} />
+      </Section>
+      <Section title="Appearance">
+        <AppearanceSettings />
       </Section>
       <Section title="Known words">
         <KnownWordsSettings />

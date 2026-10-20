@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Dark mode follows the `dark` class on <html> (System / Light / Dark in Settings; src/lib/theme.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-paper: #f7f4ef;
   --color-surface: #ffffff;
@@ -24,18 +27,16 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-paper: #15120f;
-    --color-surface: #1f1b17;
-    --color-sunken: #2a241f;
-    --color-ink: #f3efe9;
-    --color-muted: #a39a90;
-    --color-line: #3a332c;
-    --color-accent: #f97316;
-    --color-accent-strong: #fb923c;
-    --color-on-accent: #1c1008;
-  }
+:root.dark {
+  --color-paper: #15120f;
+  --color-surface: #1f1b17;
+  --color-sunken: #2a241f;
+  --color-ink: #f3efe9;
+  --color-muted: #a39a90;
+  --color-line: #3a332c;
+  --color-accent: #f97316;
+  --color-accent-strong: #fb923c;
+  --color-on-accent: #1c1008;
 }
 
 @utility pb-safe {
@@ -47,8 +48,12 @@
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: light;
   -webkit-tap-highlight-color: transparent;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {

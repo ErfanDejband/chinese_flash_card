@@ -8,8 +8,10 @@ import { handleGoogleCallback } from './lib/googleSignIn'
 import { handleOpenRouterCallback } from './lib/openrouterSignIn'
 import { initSync } from './lib/syncRunner'
 import { requestPersistentStorage } from './lib/storage'
+import { initTheme } from './lib/theme'
 import './index.css'
 
+initTheme()
 void requestPersistentStorage()
 
 // Back from a sign-in (OpenRouter: `?code=`, Google: `#access_token=`): finish it and show the

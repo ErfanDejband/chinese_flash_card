@@ -6,6 +6,7 @@ import { getSignInStatus, subscribeSignInStatus, type SignInStatus } from '@/lib
 import { mandarinVoices, speechSupported } from '@/lib/speech'
 import { getDeviceSync, subscribeDeviceSync, type DeviceSync } from '@/lib/syncConfig'
 import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '@/lib/syncRunner'
+import { getResolvedTheme, getThemePref, subscribeTheme, type Theme, type ThemePref } from '@/lib/theme'
 
 /** AI provider settings of this device. */
 export function useAiSettings(): AiSettingsState {
@@ -29,6 +30,16 @@ export function useDeviceSync(): DeviceSync {
 
 export function useSyncStatus(): SyncStatus {
   return useSyncExternalStore(subscribeSyncStatus, getSyncStatus)
+}
+
+/** Appearance setting of this device: System, Light or Dark. */
+export function useThemePref(): ThemePref {
+  return useSyncExternalStore(subscribeTheme, getThemePref)
+}
+
+/** The theme on screen now (System resolved by the OS setting). */
+export function useResolvedTheme(): Theme {
+  return useSyncExternalStore(subscribeTheme, getResolvedTheme)
 }
 
 /** Progress of a "Sign in with OpenRouter" that is finishing on this page load. */

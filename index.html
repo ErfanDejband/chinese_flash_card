@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Learn Mandarin vocabulary with the Leitner box system" />
     <title>Mandarin Leitner</title>
+    <script>
+      // Light / dark before the first paint (same rule as src/lib/theme.ts, which takes over).
+      try {
+        var t = localStorage.getItem('mandarin-leitner.theme')
+        var d = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+        if (d) document.documentElement.classList.add('dark')
+        document.documentElement.style.colorScheme = d ? 'dark' : 'light'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -6,11 +6,19 @@
     <meta name="description" content="Mandarin Leitner: a free flashcard app for learning Mandarin vocabulary (Traditional characters and pinyin) with the Leitner box system." />
     <title>Mandarin Leitner</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <script>
+      // Same light / dark choice as the app (Settings → Appearance).
+      try {
+        var t = localStorage.getItem('mandarin-leitner.theme')
+        if (t === 'light' || t === 'dark') document.documentElement.classList.add(t)
+      } catch (e) {}
+    </script>
     <style>
-      :root { --paper: #f7f4ef; --surface: #ffffff; --ink: #1c1917; --muted: #6b625a; --line: #e4ddd4; --accent: #c2410c; }
+      :root { color-scheme: light; --paper: #f7f4ef; --surface: #ffffff; --ink: #1c1917; --muted: #6b625a; --line: #e4ddd4; --accent: #c2410c; }
       @media (prefers-color-scheme: dark) {
-        :root { --paper: #15120f; --surface: #1f1b17; --ink: #f5f0ea; --muted: #a89f95; --line: #3a332c; --accent: #f97316; }
+        :root:not(.light) { color-scheme: dark; --paper: #15120f; --surface: #1f1b17; --ink: #f5f0ea; --muted: #a89f95; --line: #3a332c; --accent: #f97316; }
       }
+      :root.dark { color-scheme: dark; --paper: #15120f; --surface: #1f1b17; --ink: #f5f0ea; --muted: #a89f95; --line: #3a332c; --accent: #f97316; }
       * { box-sizing: border-box; }
       body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
       main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }

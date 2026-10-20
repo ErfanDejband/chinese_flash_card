@@ -12,6 +12,7 @@ import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { REVIEW_MODE_INFO } from '@/ui/reviewModes'
+import { ThemeToggle } from '@/ui/ThemeToggle'
 import { Link } from 'react-router'
 
 const EXTRA_NEW = 5
@@ -92,6 +93,7 @@ export function DashboardPage() {
             </Link>
           </>
         }
+        actions={<ThemeToggle className="-mr-2" />}
       />
 
       <StreakStrip />
