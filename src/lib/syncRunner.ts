@@ -123,7 +123,7 @@ export function syncNow(): void {
 }
 
 export function connectGoogleDrive(): void {
-  startGoogleSignIn({ returnTo: '/settings', chooseAccount: true })
+  startGoogleSignIn({ returnTo: '/settings/sync', chooseAccount: true })
 }
 
 /** Stop syncing on this device. The data stays on the device and in Drive. */

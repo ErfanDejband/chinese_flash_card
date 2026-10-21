@@ -79,6 +79,8 @@ const paths = {
   ),
   trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V4h6v3" />,
   back: <path d="m15 18-6-6 6-6" />,
+  chevron: <path d="m9 18 6-6-6-6" />,
+  cloud: <path d="M7 19a5 5 0 0 1-.6-9.96A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 10.5z" />,
   sparkle: (
     <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" />
   ),

@@ -3,7 +3,7 @@ import { BoxDetailPage } from '@/features/boxes/BoxDetailPage'
 import { CardsPage } from '@/features/cards/CardsPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ReviewPage } from '@/features/review/ReviewPage'
-import { SettingsPage } from '@/features/settings/SettingsPage'
+import { SettingsCategoryPage, SettingsIndex, SettingsLayout } from '@/features/settings/SettingsPage'
 import { StatsPage } from '@/features/stats/StatsPage'
 import { AppLayout } from './AppLayout'
 import { NotFound, RouteError } from './RouteError'
@@ -34,7 +34,14 @@ export const router = createHashRouter([
       { path: 'import', lazy: importPage },
       { path: 'import/:importId', lazy: importSessionPage },
       { path: 'pictures/:jobId', lazy: picturesPage },
-      { path: 'settings', element: <SettingsPage /> },
+      {
+        path: 'settings',
+        element: <SettingsLayout />,
+        children: [
+          { index: true, element: <SettingsIndex /> },
+          { path: ':category', element: <SettingsCategoryPage /> },
+        ],
+      },
       { path: 'progress', element: <StatsPage /> },
       { path: 'stats', element: <Navigate to="/progress" replace /> },
       { path: '*', element: <NotFound /> },

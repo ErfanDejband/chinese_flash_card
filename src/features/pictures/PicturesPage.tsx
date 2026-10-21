@@ -124,11 +124,11 @@ function Setup({ job, drafts }: { job: PictureJobRecord; drafts: PictureDraftRec
         <section className="mb-24 flex flex-col gap-4">
           <p className="text-sm text-muted">
             {SERVICE_LABEL[estimate.setup.service]} · {estimate.setup.model || 'no model'} ·{' '}
-            <Link to="/settings" className="text-accent underline">
+            <Link to="/settings/ai" className="text-accent underline">
               change
             </Link>
           </p>
-          {problems.length > 0 && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{problems.join(' ')} Set it up in Settings → Pictures for cards.</p>}
+          {problems.length > 0 && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{problems.join(' ')} Set it up in Settings → AI & pictures.</p>}
 
           <div role="radiogroup" aria-label="Style" className="grid gap-2 sm:grid-cols-2">
             {PICTURE_STYLES.map((s) => {

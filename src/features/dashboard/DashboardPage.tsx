@@ -12,6 +12,7 @@ import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { reviewModeInfo } from '@/ui/reviewModes'
+import { SupportButton } from '@/ui/SupportButton'
 import { ThemeToggle } from '@/ui/ThemeToggle'
 import { Link } from 'react-router'
 
@@ -88,12 +89,17 @@ export function DashboardPage() {
         subtitle={
           <>
             {longDate(today)} · {reviewModeInfo(settings.reviewMode).label}{' '}
-            <Link to="/settings" className="text-accent underline">
+            <Link to="/settings/study" className="text-accent underline">
               change
             </Link>
           </>
         }
-        actions={<ThemeToggle className="-mr-2" />}
+        actions={
+          <div className="-mr-2 flex">
+            <SupportButton />
+            <ThemeToggle />
+          </div>
+        }
       />
 
       <StreakStrip />

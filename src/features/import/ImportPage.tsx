@@ -107,7 +107,7 @@ export function ImportPage() {
             ) : (
               <>
                 {ai.mode === 'free' ? 'Connect a free AI service to read your pages: sign in with Google or e-mail, no key needed.' : `Set up an AI provider first: ${problems.join(' ')}`}{' '}
-                <Link to="/settings" className="font-semibold underline">
+                <Link to="/settings/ai" className="font-semibold underline">
                   Open Settings
                 </Link>
                 {signIn.kind === 'error' && <span className="mt-2 block text-red-700 dark:text-red-300">{signIn.message}</span>}

@@ -1,155 +1,111 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { saveSettings } from '@/data/repositories/settings'
+import type { ReactNode } from 'react'
+import { Link, Navigate, NavLink, Outlet, useParams } from 'react-router'
 import type { AppSettings } from '@/domain/types'
-import { useCanInstall, useVoices } from '@/hooks/useBrowser'
+import { useIsDesktop } from '@/hooks/useBrowser'
 import { useSettings } from '@/hooks/useDeck'
-import { isStandalone, promptInstall } from '@/lib/install'
-import { pickVoice, speak, speechSupported } from '@/lib/speech'
-import { formatBytes, storageInfo, type StorageInfo } from '@/lib/storage'
-import { Button } from '@/ui/Button'
+import { cn } from '@/ui/cn'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { AiSettings } from './AiSettings'
 import { AppearanceSettings } from './AppearanceSettings'
+import { AppInfoSettings } from './AppInfoSettings'
 import { BackupSettings } from './BackupSettings'
+import { findCategory, SECTION_TITLES, SETTINGS_CATEGORIES, type SettingsSectionId } from './categories'
 import { DirectionSettings } from './DirectionSettings'
 import { KnownWordsSettings } from './KnownWordsSettings'
 import { LeitnerSettings } from './LeitnerSettings'
 import { PictureSettings } from './PictureSettings'
+import { Section } from './Section'
 import { SupportSettings } from './SupportSettings'
 import { SyncSettings } from './SyncSettings'
 import { UsagePanel } from './UsagePanel'
+import { VoiceSettings } from './VoiceSettings'
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="mb-6 rounded-3xl border border-line bg-surface p-5">
-      <h2 className="mb-4 text-lg font-bold">{title}</h2>
-      {children}
-    </section>
-  )
+const SECTION_CONTENT: Record<SettingsSectionId, (settings: AppSettings) => ReactNode> = {
+  direction: (s) => <DirectionSettings settings={s} />,
+  leitner: (s) => <LeitnerSettings key={JSON.stringify([s.leitner, s.newPerDay])} settings={s} />,
+  knownWords: () => <KnownWordsSettings />,
+  appearance: () => <AppearanceSettings />,
+  voice: (s) => <VoiceSettings settings={s} />,
+  ai: () => <AiSettings />,
+  pictures: () => <PictureSettings />,
+  usage: () => <UsagePanel />,
+  sync: () => <SyncSettings />,
+  backup: () => <BackupSettings />,
+  support: () => <SupportSettings />,
+  app: () => <AppInfoSettings />,
 }
 
-function VoiceSettings({ settings }: { settings: AppSettings }) {
-  const voices = useVoices()
-  if (!speechSupported()) return <p className="text-sm text-muted">This browser has no text-to-speech.</p>
-  const active = pickVoice(settings.ttsVoiceURI)
-
-  async function choose(voiceURI: string) {
-    const { updatedAt: _updatedAt, ...rest } = settings
-    await saveSettings({ ...rest, ttsVoiceURI: voiceURI || undefined })
-  }
-
+/** `/settings/*`: on a laptop, the categories stay in a sidebar next to the open one. */
+export function SettingsLayout() {
   return (
-    <div className="flex flex-col gap-3">
-      {voices.length === 0 ? (
-        <p className="text-sm text-muted">
-          No Mandarin voice found. On Android, install one under Settings → System → Languages → Text-to-speech.
-        </p>
-      ) : (
-        <select
-          value={settings.ttsVoiceURI ?? ''}
-          onChange={(e) => void choose(e.target.value)}
-          className="h-12 rounded-xl border border-line bg-paper px-3 outline-none focus:border-accent"
-          aria-label="Voice"
-        >
-          <option value="">Automatic{active ? ` (${active.name})` : ''}</option>
-          {voices.map((v) => (
-            <option key={v.voiceURI} value={v.voiceURI}>
-              {v.name} · {v.lang}
-            </option>
+    <div className="md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8">
+      <aside className="sticky top-24 hidden self-start md:block">
+        <p className="mb-3 px-3 text-xs font-bold tracking-wide text-muted uppercase">Settings</p>
+        <nav className="flex flex-col gap-1" aria-label="Settings">
+          {SETTINGS_CATEGORIES.map((c) => (
+            <NavLink
+              key={c.id}
+              to={`/settings/${c.id}`}
+              className={({ isActive }) =>
+                cn('flex items-center gap-3 rounded-lg px-3 py-2 font-medium', isActive ? 'bg-sunken text-ink' : 'text-muted hover:text-ink')
+              }
+            >
+              <Icon name={c.icon} className="size-5 shrink-0" />
+              {c.title}
+            </NavLink>
           ))}
-        </select>
-      )}
-      <div>
-        <Button variant="secondary" size="sm" onClick={() => speak('你好，老師', settings.ttsVoiceURI)}>
-          <Icon name="speaker" className="size-4" /> Test voice
-        </Button>
+        </nav>
+      </aside>
+      <div className="min-w-0">
+        <Outlet />
       </div>
     </div>
   )
 }
 
-function AppSection() {
-  const canInstall = useCanInstall()
-  const [info, setInfo] = useState<StorageInfo>()
-  useEffect(() => {
-    void storageInfo().then(setInfo)
-  }, [])
-
-  return (
-    <div className="flex flex-col gap-3 text-sm">
-      {isStandalone() ? (
-        <p>Running as an installed app.</p>
-      ) : canInstall ? (
-        <div>
-          <Button onClick={() => void promptInstall()}>Install app</Button>
-          <p className="mt-2 text-muted">Adds the app to your home screen and lets it work offline.</p>
-        </div>
-      ) : (
-        <p className="text-muted">To install: open the browser menu and choose “Add to Home screen” / “Install app”.</p>
-      )}
-      {info && (
-        <p className="text-muted">
-          Storage: {info.persisted ? 'persistent (protected from automatic clean-up)' : 'best-effort (the browser may clear it when space runs low — keep backups)'}
-          {info.usage !== undefined && ` · ${formatBytes(info.usage)} used`}
-        </p>
-      )}
-      <p className="text-muted">
-        <a className="underline" href={`${import.meta.env.BASE_URL}about.html`}>
-          About
-        </a>{' '}
-        ·{' '}
-        <a className="underline" href={`${import.meta.env.BASE_URL}privacy.html`}>
-          Privacy policy
-        </a>
-      </p>
-    </div>
-  )
-}
-
-export function SettingsPage() {
-  const settings = useSettings()
-  if (!settings) return <Loading />
+/** `/settings`: the list of categories on a phone; a laptop opens the first one (the sidebar lists them). */
+export function SettingsIndex() {
+  const desktop = useIsDesktop()
+  if (desktop) return <Navigate to="/settings/study" replace />
   return (
     <>
       <PageHeader title="Settings" />
-      <Section title="Practice direction">
-        <DirectionSettings settings={settings} />
-      </Section>
-      <Section title="Leitner boxes">
-        <LeitnerSettings key={JSON.stringify([settings.leitner, settings.newPerDay])} settings={settings} />
-      </Section>
-      <Section title="Pronunciation">
-        <VoiceSettings settings={settings} />
-      </Section>
-      <Section title="Appearance">
-        <AppearanceSettings />
-      </Section>
-      <Section title="Known words">
-        <KnownWordsSettings />
-      </Section>
-      <Section title="AI for PDF import">
-        <AiSettings />
-      </Section>
-      <Section title="Pictures for cards">
-        <PictureSettings />
-      </Section>
-      <Section title="AI usage on this device">
-        <UsagePanel />
-      </Section>
-      <Section title="Sync between devices">
-        <SyncSettings />
-      </Section>
-      <Section title="Backup">
-        <BackupSettings />
-      </Section>
-      <Section title="Support this app">
-        <SupportSettings />
-      </Section>
-      <Section title="App">
-        <AppSection />
-      </Section>
+      <nav aria-label="Settings" className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface">
+        {SETTINGS_CATEGORIES.map((c) => (
+          <Link key={c.id} to={`/settings/${c.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-sunken">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
+              <Icon name={c.icon} className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">{c.title}</span>
+              <span className="block truncate text-sm text-muted">{c.description}</span>
+            </span>
+            <Icon name="chevron" className="size-5 shrink-0 text-muted" />
+          </Link>
+        ))}
+      </nav>
+    </>
+  )
+}
+
+/** `/settings/:category`: that category's sections. */
+export function SettingsCategoryPage() {
+  const { category: id } = useParams()
+  const category = findCategory(id)
+  const settings = useSettings()
+  const desktop = useIsDesktop()
+  if (!category) return <Navigate to="/settings" replace />
+  if (!settings) return <Loading />
+  return (
+    <>
+      <PageHeader title={category.title} back={desktop ? undefined : '/settings'} />
+      {category.sections.map((section) => (
+        <Section key={section} title={SECTION_TITLES[section]}>
+          {SECTION_CONTENT[section](settings)}
+        </Section>
+      ))}
     </>
   )
 }

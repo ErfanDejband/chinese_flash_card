@@ -42,6 +42,19 @@ export function useResolvedTheme(): Theme {
   return useSyncExternalStore(subscribeTheme, getResolvedTheme)
 }
 
+const DESKTOP_QUERY = '(min-width: 48rem)' // Tailwind's `md`
+
+function subscribeDesktop(listener: () => void): () => void {
+  const query = matchMedia(DESKTOP_QUERY)
+  query.addEventListener('change', listener)
+  return () => query.removeEventListener('change', listener)
+}
+
+/** True on screens where the `md:` styles apply (laptop layout). */
+export function useIsDesktop(): boolean {
+  return useSyncExternalStore(subscribeDesktop, () => matchMedia(DESKTOP_QUERY).matches, () => false)
+}
+
 /** Progress of a "Sign in with OpenRouter" that is finishing on this page load. */
 export function useSignInStatus(): SignInStatus {
   return useSyncExternalStore(subscribeSignInStatus, getSignInStatus)

@@ -80,7 +80,7 @@ export function StatsPage() {
         subtitle={
           <>
             {direction}{' '}
-            <Link to="/settings" className="text-accent underline">
+            <Link to="/settings/study" className="text-accent underline">
               change
             </Link>
           </>

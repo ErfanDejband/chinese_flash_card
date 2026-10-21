@@ -20,7 +20,7 @@ export function SyncStatusLine() {
         Retry
       </button>
     ) : status.kind === 'choose' ? (
-      <Link to="/settings" className="font-semibold text-accent">
+      <Link to="/settings/sync" className="font-semibold text-accent">
         Settings →
       </Link>
     ) : status.kind === 'idle' ? (

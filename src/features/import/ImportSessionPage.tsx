@@ -120,7 +120,7 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
           {run.importId === importId && run.fatal && <p className="text-sm text-red-600">Stopped: {run.fatal}</p>}
           {problems.length > 0 && (remaining > 0 || failed.length > 0) && (
             <p className="text-sm text-amber-700 dark:text-amber-400">
-              AI not ready: {problems.join(' ')} <Link to="/settings" className="underline">Settings</Link>
+              AI not ready: {problems.join(' ')} <Link to="/settings/ai" className="underline">Settings</Link>
             </p>
           )}
           <div className="flex flex-wrap gap-2">

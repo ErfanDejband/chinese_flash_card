@@ -109,8 +109,8 @@ export function handleGoogleCallback(now = Date.now()): GoogleCallbackResult | u
   } catch {
     // Storage blocked: the attempt expires on its own.
   }
-  if (match.kind === 'mismatch') return { kind: 'mismatch', returnTo: '/settings' }
-  const returnTo = match.pending.returnTo.startsWith('/') ? match.pending.returnTo : '/settings'
+  if (match.kind === 'mismatch') return { kind: 'mismatch', returnTo: '/settings/sync' }
+  const returnTo = match.pending.returnTo.startsWith('/') ? match.pending.returnTo : '/settings/sync'
   if (match.kind === 'error') return { kind: 'error', returnTo, error: match.error, silent: match.pending.silent }
   saveGoogleToken(match.accessToken, now + match.expiresInMs)
   return { kind: 'token', returnTo }

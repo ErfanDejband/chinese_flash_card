@@ -101,7 +101,7 @@ export function handleOpenRouterCallback(fetchImpl?: FetchLike): string | undefi
 
   if (match.kind === 'mismatch') {
     setStatus({ kind: 'error', message: 'That sign-in could not be verified (it may be too old). Please connect again.' })
-    return '/settings'
+    return '/settings/ai'
   }
 
   setStatus({ kind: 'connecting' })
@@ -112,7 +112,7 @@ export function handleOpenRouterCallback(fetchImpl?: FetchLike): string | undefi
     },
     (e: unknown) => setStatus({ kind: 'error', message: e instanceof Error ? e.message : 'Could not finish the sign-in.' }),
   )
-  return match.pending.returnTo.startsWith('/') ? match.pending.returnTo : '/settings'
+  return match.pending.returnTo.startsWith('/') ? match.pending.returnTo : '/settings/ai'
 }
 
 /** Forget the OpenRouter key on this device (the key itself is revoked on openrouter.ai). */

@@ -33,7 +33,7 @@ export function FreeAiSettings() {
           </div>
         </div>
       ) : (
-        <Button size="lg" className="w-full" disabled={connecting} onClick={() => void startOpenRouterSignIn('/settings')}>
+        <Button size="lg" className="w-full" disabled={connecting} onClick={() => void startOpenRouterSignIn('/settings/ai')}>
           {connecting ? 'Connecting…' : 'Connect OpenRouter'}
         </Button>
       )}
