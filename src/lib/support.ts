@@ -12,11 +12,12 @@ export interface SupportLink {
 /**
  * Donation links. An entry stays hidden while its `url` is empty and appears once it holds an https link:
  * - Ko-fi: `https://ko-fi.com/<name>`
- * - GitHub Sponsors: `https://github.com/sponsors/ErfanDejband` once the profile is approved
+ * - GitHub Sponsors: `https://github.com/sponsors/ErfanDejband` once the profile is approved (Taiwan isn't a supported
+ *   region as of 2026-10, so this stays empty for now)
  * - custom: a Stripe Payment Link (`https://buy.stripe.com/…`) or `https://revolut.me/<name>`; adjust its label and note to match
  */
 export const SUPPORT_LINKS: SupportLink[] = [
-  { id: 'ko-fi', label: 'Buy me a coffee on Ko-fi', url: '', note: 'One-off tip' },
+  { id: 'ko-fi', label: 'Buy me a coffee on Ko-fi', url: 'https://ko-fi.com/mandarinleitner', note: 'One-off tip' },
   { id: 'github-sponsors', label: 'Sponsor on GitHub', url: '', note: 'One-off or monthly' },
   { id: 'custom', label: 'Donate', url: '', note: 'Card or bank transfer' },
 ]

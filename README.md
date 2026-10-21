@@ -38,9 +38,9 @@ send what they need to the AI services you configure, and sync stores a copy in 
 
 ## Support
 
-Mandarin Leitner is free, with no ads and no tracking. If it helps you: star the repo, share the app, or report bugs and
-ideas in [Issues](https://github.com/ErfanDejband/chinese_flash_card/issues). Donation links appear in Settings →
-*Support this app* once they are set up.
+Mandarin Leitner is free, with no ads and no tracking. If it helps you, you can
+[buy me a coffee on Ko-fi](https://ko-fi.com/mandarinleitner), star the repo, share the app, or report bugs and ideas in
+[Issues](https://github.com/ErfanDejband/chinese_flash_card/issues). The same links are in Settings → *Support this app*.
 
 ## Development
 
