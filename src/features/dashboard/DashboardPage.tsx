@@ -1,13 +1,15 @@
 import type { ReactNode } from 'react'
 import { nextDueDate, summarizeDeck } from '@/domain/deck'
+import { SAMPLE_TAG } from '@/domain/sampleDeck'
 import { BoxesView } from '@/features/boxes/BoxesView'
+import { SampleBanner } from '@/features/onboarding/SampleBanner'
+import { Welcome } from '@/features/onboarding/Welcome'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { useStatsData } from '@/hooks/useStats'
 import { useToday } from '@/hooks/useToday'
 import { ButtonLink } from '@/ui/Button'
 import { AddCardFab } from '@/ui/Fab'
 import { longDate, plural, relativeDay } from '@/ui/format'
-import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
@@ -17,35 +19,6 @@ import { ThemeToggle } from '@/ui/ThemeToggle'
 import { Link } from 'react-router'
 
 const EXTRA_NEW = 5
-
-function Welcome() {
-  return (
-    <div className="py-10 text-center">
-      <Hanzi className="mb-4 block text-7xl text-accent">學</Hanzi>
-      <h1 className="mb-2 text-2xl font-bold">Welcome to Mandarin Leitner</h1>
-      <p className="mx-auto mb-8 max-w-sm text-muted">
-        Add vocabulary cards, then review a little every day. Cards you know move up through the boxes and come back less often.
-      </p>
-      <div className="mx-auto flex max-w-xs flex-col gap-3">
-        <ButtonLink to="/cards/new" size="lg">
-          <Icon name="plus" /> Add your first card
-        </ButtonLink>
-        <ButtonLink to="/import" variant="secondary" size="lg">
-          <Icon name="import" /> Import from PDF
-        </ButtonLink>
-      </div>
-      <p className="mt-8 text-sm text-muted">
-        <a className="underline" href={`${import.meta.env.BASE_URL}about.html`}>
-          About
-        </a>{' '}
-        ·{' '}
-        <a className="underline" href={`${import.meta.env.BASE_URL}privacy.html`}>
-          Privacy policy
-        </a>
-      </p>
-    </div>
-  )
-}
 
 function Pill({ children }: { children: ReactNode }) {
   return <span className="rounded-full bg-sunken px-3 py-1 text-sm font-medium">{children}</span>
@@ -74,13 +47,14 @@ export function DashboardPage() {
   const settings = useSettings()
   const today = useToday()
   if (!deck || !settings) return <Loading />
-  if (deck.length === 0) return <Welcome />
+  if (deck.length === 0) return <Welcome settings={settings} />
 
   const s = summarizeDeck(deck, today, settings.leitner, settings.newPerDay)
   const toStudy = s.due + s.newToday
   const nextDue = nextDueDate(deck, today)
   const extra = Math.min(s.notStarted, EXTRA_NEW)
   const lastBox = s.boxes[s.boxes.length - 1]
+  const samples = deck.filter((e) => e.card.tags.includes(SAMPLE_TAG)).length
 
   return (
     <>
@@ -97,11 +71,15 @@ export function DashboardPage() {
         actions={
           <div className="-mr-2 flex">
             <SupportButton />
+            <Link to="/help" className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="Help" title="Help">
+              <Icon name="help" />
+            </Link>
             <ThemeToggle />
           </div>
         }
       />
 
+      <SampleBanner count={samples} />
       <StreakStrip />
 
       <section className="rounded-3xl border border-line bg-surface p-5 shadow-sm">

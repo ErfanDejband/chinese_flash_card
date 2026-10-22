@@ -121,6 +121,26 @@ export async function deleteCard(id: Id, now = Date.now()): Promise<void> {
   await db.cards.update(id, { deletedAt: now, updatedAt: now })
 }
 
+const activeWithTag = (tag: string) => db.cards.filter((c) => c.deletedAt === undefined && c.tags.includes(tag)).toArray()
+
+/** Soft-delete every card with this tag (the sample cards). Returns how many. */
+export async function deleteCardsByTag(tag: string, now = Date.now()): Promise<number> {
+  return db.transaction('rw', db.cards, async () => {
+    const cards = await activeWithTag(tag)
+    await db.cards.bulkPut(cards.map((c) => ({ ...c, deletedAt: now, updatedAt: now })))
+    return cards.length
+  })
+}
+
+/** Take a tag off every card that has it (keeping the sample cards as ordinary ones). Returns how many. */
+export async function removeTag(tag: string, now = Date.now()): Promise<number> {
+  return db.transaction('rw', db.cards, async () => {
+    const cards = await activeWithTag(tag)
+    await db.cards.bulkPut(cards.map((c) => ({ ...c, tags: c.tags.filter((t) => t !== tag), updatedAt: now })))
+    return cards.length
+  })
+}
+
 export async function getCard(id: Id): Promise<Card | undefined> {
   const card = await db.cards.get(id)
   return card?.deletedAt === undefined ? card : undefined

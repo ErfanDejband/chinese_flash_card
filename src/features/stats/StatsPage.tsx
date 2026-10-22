@@ -104,6 +104,9 @@ export function StatsPage() {
         <div className="py-10 text-center">
           <div className="mb-3 text-5xl">📈</div>
           <p className="mx-auto max-w-sm text-muted">Your streak, activity and progress through the boxes appear here after your first review.</p>
+          <Link to="/help?topic=boxes" className="mt-4 inline-block text-sm font-semibold text-accent">
+            How the boxes work →
+          </Link>
         </div>
       </>
     )
@@ -153,7 +156,7 @@ export function StatsPage() {
 
       <Section title="Most forgotten" note={`${direction}: tap a card to add a note or a picture that helps.`}>
         {forgotten.length === 0 ? (
-          <p className="text-muted">Nothing forgotten yet 🎉</p>
+          <p className="text-muted">Nothing forgotten yet 🎉 Cards you mark Forgot show up here.</p>
         ) : (
           <ul className="-mx-2">
             {forgotten.map((f) => (

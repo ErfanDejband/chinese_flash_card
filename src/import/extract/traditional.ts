@@ -2,7 +2,7 @@
  * Characters that OpenCC maps Simplified → Traditional but that are also correct in Taiwan
  * Traditional (台灣, 皇后, 公里, 游泳, 干擾…). Without this list they would be flagged.
  */
-const DUAL_USE = new Set([...'台后里丑伙游征准岩几干面余谷松斗范卷克困蒙朴曲舍于郁致制朱表出借折秋涂向周注才了只系占'])
+const DUAL_USE = new Set([...'台后里丑伙游征准岩几干面余谷松斗范卷克困蒙朴曲舍于郁致制朱表出借折秋涂向周注才了只系占吃'])
 
 let detector: Promise<(text: string) => boolean> | undefined
 

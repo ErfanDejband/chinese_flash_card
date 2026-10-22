@@ -14,6 +14,7 @@ const cardEditPage = async () => ({ Component: (await import('@/features/cards/C
 const importPage = async () => ({ Component: (await import('@/features/import/ImportPage')).ImportPage })
 const importSessionPage = async () => ({ Component: (await import('@/features/import/ImportSessionPage')).ImportSessionPage })
 const picturesPage = async () => ({ Component: (await import('@/features/pictures/PicturesPage')).PicturesPage })
+const helpPage = async () => ({ Component: (await import('@/features/help/HelpPage')).HelpPage })
 
 /**
  * Hash routing: works on static hosting (GitHub Pages) without server rewrites,
@@ -43,6 +44,7 @@ export const router = createHashRouter([
         ],
       },
       { path: 'progress', element: <StatsPage /> },
+      { path: 'help', lazy: helpPage },
       { path: 'stats', element: <Navigate to="/progress" replace /> },
       { path: '*', element: <NotFound /> },
     ],

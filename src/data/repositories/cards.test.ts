@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ALL_TABLES, db } from '../db'
-import { createCard, createCards, deleteCard, getCard, loadDeck, updateCard } from './cards'
+import { createCard, createCards, deleteCard, deleteCardsByTag, getCard, loadDeck, removeTag, updateCard } from './cards'
 
 const image = (text: string) => ({ blob: new Blob([text], { type: 'image/webp' }), mime: 'image/webp', width: 10, height: 10 })
 
@@ -50,5 +50,18 @@ describe('card repository', () => {
     expect(await getCard(card.id)).toBeUndefined()
     expect(await loadDeck()).toHaveLength(0)
     expect((await db.cards.get(card.id))!.deletedAt).toBe(9999)
+  })
+
+  it('removes or keeps the cards with a tag', async () => {
+    const [cat, dog] = await createCards([{ hanzi: '貓', pinyin: 'māo', tags: ['sample'] }, { hanzi: '狗', pinyin: 'gǒu', tags: ['sample', 'pets'] }], 1000)
+    const mine = await createCard({ hanzi: '茶', pinyin: 'chá' }, 2000)
+    expect(await removeTag('sample', 3000)).toBe(2)
+    expect(await getCard(dog!.id)).toMatchObject({ tags: ['pets'], updatedAt: 3000 })
+    expect(await getCard(cat!.id)).toMatchObject({ tags: [] })
+    expect(await removeTag('sample', 4000)).toBe(0)
+
+    await createCard({ hanzi: '水', pinyin: 'shuǐ', tags: ['sample'] }, 5000)
+    expect(await deleteCardsByTag('sample', 6000)).toBe(1)
+    expect((await loadDeck()).map((e) => e.card.id).sort()).toEqual([cat!.id, dog!.id, mine.id].sort())
   })
 })

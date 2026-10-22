@@ -13,6 +13,7 @@ import { AppInfoSettings } from './AppInfoSettings'
 import { BackupSettings } from './BackupSettings'
 import { findCategory, SECTION_TITLES, SETTINGS_CATEGORIES, type SettingsSectionId } from './categories'
 import { DirectionSettings } from './DirectionSettings'
+import { HelpSettings } from './HelpSettings'
 import { KnownWordsSettings } from './KnownWordsSettings'
 import { LeitnerSettings } from './LeitnerSettings'
 import { PictureSettings } from './PictureSettings'
@@ -34,6 +35,7 @@ const SECTION_CONTENT: Record<SettingsSectionId, (settings: AppSettings) => Reac
   sync: () => <SyncSettings />,
   backup: () => <BackupSettings />,
   support: () => <SupportSettings />,
+  help: () => <HelpSettings />,
   app: () => <AppInfoSettings />,
 }
 

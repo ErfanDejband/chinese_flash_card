@@ -6,7 +6,7 @@ import { effectiveBox } from '@/domain/leitner/scheduler'
 import { matchesQuery } from '@/domain/search'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { boxLabel, boxTone } from '@/ui/boxTones'
-import { Button } from '@/ui/Button'
+import { Button, ButtonLink } from '@/ui/Button'
 import { CardRow } from '@/ui/CardRow'
 import { cn } from '@/ui/cn'
 import { AddCardFab } from '@/ui/Fab'
@@ -115,8 +115,23 @@ export function CardsPage() {
         </Button>
       )}
 
-      {results.length === 0 ? (
-        <p className="py-12 text-center text-muted">{query || boxFilter !== null || noPicture ? 'No matching cards.' : 'No cards yet.'}</p>
+      {deck.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="mx-auto mb-5 max-w-sm text-muted">No cards yet. Type your first word, or let the AI make cards from a textbook page.</p>
+          <div className="mx-auto flex max-w-xs flex-col gap-3">
+            <ButtonLink to="/cards/new">
+              <Icon name="plus" /> Add a card
+            </ButtonLink>
+            <ButtonLink to="/import" variant="secondary">
+              <Icon name="import" /> Import a PDF or photos
+            </ButtonLink>
+          </div>
+          <Link to="/" className="mt-5 inline-block text-sm font-semibold text-accent">
+            Or try 10 sample words →
+          </Link>
+        </div>
+      ) : results.length === 0 ? (
+        <p className="py-12 text-center text-muted">No matching cards.</p>
       ) : (
         <ul className="-mx-2">
           {results.slice(0, limit).map(({ card, state }) => (

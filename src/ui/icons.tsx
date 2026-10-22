@@ -85,6 +85,12 @@ const paths = {
     <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" />
   ),
   download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2" />
+    </>
+  ),
   upload: <path d="M12 20V9M7 14l5-5 5 5M5 4h14" />,
 } satisfies Record<string, ReactNode>
 

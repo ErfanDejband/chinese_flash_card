@@ -1,4 +1,4 @@
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { newCardPool, summarizeDeck } from '@/domain/deck'
 import { effectiveBox, intervalDays } from '@/domain/leitner/scheduler'
 import { useDeck, useSettings } from '@/hooks/useDeck'
@@ -63,7 +63,18 @@ export function BoxDetailPage() {
       )}
 
       {entries.length === 0 ? (
-        <p className="py-8 text-center text-muted">This box is empty.</p>
+        <div className="py-8 text-center">
+          <p className="mx-auto max-w-sm text-muted">
+            {box === 0
+              ? `No new cards waiting. Cards you add start here, and up to ${settings.newPerDay} a day are introduced.`
+              : box === 1
+                ? 'This box is empty. Forgotten cards come back here.'
+                : `This box is empty. Cards you know in Box ${box - 1}${box === 2 ? ' (and new cards you already know)' : ''} move up here.`}
+          </p>
+          <Link to="/help?topic=boxes" className="mt-4 inline-block text-sm font-semibold text-accent">
+            How the boxes work →
+          </Link>
+        </div>
       ) : (
         <ul className="-mx-2">
           {entries.map(({ card, state }) => (

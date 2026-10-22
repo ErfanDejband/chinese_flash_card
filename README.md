@@ -7,6 +7,9 @@ send what they need to the AI services you configure, and sync stores a copy in 
 
 ## Features
 
+- **First-run help**: a welcome screen with a box shelf you can play with, three ways to start (import a textbook, type
+  your own words, or try 10 sample words with pictures), and a searchable Help page (the **?** on Home).
+  See [ADR 0010](docs/adr/0010-first-run-help.md)
 - **Cards**: characters, pinyin (type `lao3shi1` → `lǎoshī`, or auto-fill from the characters), meaning, image, notes
 - **Review**: three practice directions, each with its own boxes (Settings → Practice direction):
   picture → Chinese (fallback: meaning → Chinese), Chinese → pinyin + meaning + picture, or sound → Chinese

@@ -13,6 +13,7 @@ export type SettingsSectionId =
   | 'sync'
   | 'backup'
   | 'support'
+  | 'help'
   | 'app'
 
 export const SECTION_TITLES: Record<SettingsSectionId, string> = {
@@ -27,6 +28,7 @@ export const SECTION_TITLES: Record<SettingsSectionId, string> = {
   sync: 'Sync between devices',
   backup: 'Backup',
   support: 'Support this app',
+  help: 'Help & tips',
   app: 'App',
 }
 
@@ -52,7 +54,13 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   { id: 'display', title: 'Display & sound', icon: 'contrast', description: 'Light or dark, pronunciation voice', sections: ['appearance', 'voice'] },
   { id: 'ai', title: 'AI & pictures', icon: 'sparkle', description: 'AI for importing, pictures for cards, usage', sections: ['ai', 'pictures', 'usage'] },
   { id: 'sync', title: 'Sync & backup', icon: 'cloud', description: 'Google Drive sync, backup files', sections: ['sync', 'backup'] },
-  { id: 'about', title: 'About & support', icon: 'heart', description: 'Support this app, install, storage, privacy', sections: ['support', 'app'] },
+  {
+    id: 'about',
+    title: 'About & support',
+    icon: 'heart',
+    description: 'Help, support this app, install, storage, privacy',
+    sections: ['help', 'support', 'app'],
+  },
 ]
 
 export function findCategory(id: string | undefined): SettingsCategory | undefined {

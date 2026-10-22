@@ -6,7 +6,7 @@ describe('Simplified detection', () => {
     expect((await loadSimplifiedDetector())(text)).toBe(true)
   })
 
-  it.each(['台灣', '老師', '學生', '皇后', '公里', '游泳', '干擾', '茶几', '裡面', '我', '鴨子', '為什麼'])('accepts Traditional %s', async (text) => {
+  it.each(['台灣', '老師', '學生', '皇后', '公里', '游泳', '干擾', '茶几', '裡面', '我', '鴨子', '為什麼', '吃飯'])('accepts Traditional %s', async (text) => {
     expect((await loadSimplifiedDetector())(text)).toBe(false)
   })
 
