@@ -84,3 +84,53 @@ export async function openRouterFreeQuota(apiKey: string, fetchImpl: FetchLike =
   const remaining = typeof q.remaining === 'number' ? q.remaining : Math.max(0, q.limit - used)
   return { used, limit: q.limit, remaining }
 }
+
+/** OpenRouter's own numbers for one request (`GET /generation`), for the import trace. */
+export interface GenerationStats {
+  /**
+   * Time to the first token (queueing, upload, reading the prompt). OpenRouter's docs call it
+   * "total latency", but measured values are well below `generationMs` (0.4 s vs 43 s).
+   */
+  latencyMs?: number
+  /** Time the model spent generating, thinking included: nearly all of a non-streamed request. */
+  generationMs?: number
+  provider?: string
+  model?: string
+  promptTokens?: number
+  completionTokens?: number
+  reasoningTokens?: number
+  finishReason?: string
+  /** Every upstream attempt OpenRouter made (fallbacks included), with its HTTP status. */
+  upstream?: { provider?: string; status?: number; latencyMs?: number }[]
+}
+
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
+
+/** Stats of a finished request, by the `id` of its reply; OpenRouter has them a few seconds after it ends. */
+export async function openRouterGenerationStats(
+  apiKey: string,
+  id: string,
+  fetchImpl: FetchLike = defaultFetch,
+  signal?: AbortSignal,
+): Promise<GenerationStats> {
+  const body = (await requestJson(fetchImpl, `${OPENROUTER_BASE_URL}/generation?id=${encodeURIComponent(id)}`, {
+    headers: { authorization: `Bearer ${apiKey}` },
+    signal,
+  })) as { data?: Record<string, unknown> }
+  const d = body.data ?? {}
+  const upstream = Array.isArray(d.provider_responses)
+    ? (d.provider_responses as Record<string, unknown>[]).map((r) => ({ provider: str(r.provider_name), status: num(r.status), latencyMs: num(r.latency) }))
+    : undefined
+  return {
+    latencyMs: num(d.latency),
+    generationMs: num(d.generation_time),
+    provider: str(d.provider_name),
+    model: str(d.model),
+    promptTokens: num(d.native_tokens_prompt),
+    completionTokens: num(d.native_tokens_completion),
+    reasoningTokens: num(d.native_tokens_reasoning),
+    finishReason: str(d.finish_reason),
+    upstream,
+  }
+}

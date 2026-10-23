@@ -200,6 +200,32 @@ ${READING_JSON_SHAPE}`)
     expect(res.usage).toEqual({ inputTokens: 1500, outputTokens: 80, costUsd: 0.0012, costSource: 'reported' })
   })
 
+  it('reports what the service said about the request', async () => {
+    const { fetchImpl } = mockFetch(
+      json({
+        id: 'gen-123',
+        provider: 'Google AI Studio',
+        model: 'google/gemma-4-31b-it:free',
+        choices: [{ message: { content: '{"items":[]}' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 900, completion_tokens: 700, completion_tokens_details: { reasoning_tokens: 600 } },
+      }),
+    )
+    const res = await createOpenAICompatibleProvider({ baseUrl: base, apiKey: KEY, model: 'openrouter/free', fetchImpl }).extractPage(request)
+    expect(res.model).toBe('google/gemma-4-31b-it:free')
+    expect(res.meta).toEqual({ id: 'gen-123', provider: 'Google AI Studio', reasoningTokens: 600, finishReason: 'stop' })
+  })
+
+  it('marks a request sent again without JSON mode, and adds extra body fields', async () => {
+    const { fetchImpl, calls } = mockFetch(
+      json({ error: { message: 'response_format is not supported by this model' } }, 400),
+      json({ choices: [{ message: { content: '{"items":[]}' } }] }),
+    )
+    const provider = createOpenAICompatibleProvider({ baseUrl: base, apiKey: KEY, model: 'm', fetchImpl, extraBody: { reasoning: { effort: 'none' } } })
+    const res = await provider.extractPage(request)
+    expect(res.meta).toEqual({ jsonFallback: true })
+    expect(calls.map((c) => JSON.parse(c.init.body as string).reasoning)).toEqual([{ effort: 'none' }, { effort: 'none' }])
+  })
+
   it('reports network failures as ProviderError', async () => {
     const fetchImpl: FetchLike = async () => {
       throw new TypeError('Failed to fetch')

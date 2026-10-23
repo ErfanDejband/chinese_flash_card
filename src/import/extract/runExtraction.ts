@@ -3,7 +3,7 @@ import type { BBox } from '@/domain/types'
 import { parseModelJson, validateItems, validateReading } from '../ai/parse'
 import { READING_TASK, VOCAB_TASK } from '../ai/prompt'
 import { isAbort, withRetry } from '../ai/retry'
-import { ProviderError, type VisionProvider } from '../ai/types'
+import { ProviderError, type PageResponse, type VisionProvider } from '../ai/types'
 import { boxToPageUnits } from '../pdf/boxes'
 import type { DraftFields, ImportMode, NormBox, ReadingSentence } from '../types'
 import { postprocess, type PostprocessContext } from './postprocess'
@@ -45,6 +45,19 @@ export interface ExtractionStore {
   markError(page: number, message: string): Promise<void>
 }
 
+/**
+ * One model request, timed (diagnostics, see lib/importTrace). `error` is set when it failed: the
+ * request itself (no `response`), or its reply wasn't the expected JSON (`response` set).
+ */
+export interface AttemptEvent {
+  page: number
+  startedAt: number
+  ms: number
+  imageBytes: number
+  response?: PageResponse
+  error?: unknown
+}
+
 export type ExtractionEvent =
   | { type: 'page-start'; page: number }
   | { type: 'waiting'; page: number; ms: number; reason: string }
@@ -61,6 +74,8 @@ export interface ExtractionDeps {
   store: ExtractionStore
   context: PostprocessContext
   onEvent?(event: ExtractionEvent): void
+  /** Every model request with its timing, failed ones too. */
+  onAttempt?(event: AttemptEvent): void
   signal?: AbortSignal
   sleep?(ms: number, signal?: AbortSignal): Promise<void>
   /** Attempts per page for transient failures (default 4). */
@@ -82,12 +97,21 @@ export async function runExtraction(pages: number[], deps: ExtractionDeps): Prom
   let done = 0
   let failed = 0
 
-  async function extractWithRetry<T>(page: number, request: () => Promise<{ text: string; model: string }>, validate: (json: unknown) => T) {
+  async function extractWithRetry<T>(page: number, imageBytes: number, request: () => Promise<PageResponse>, validate: (json: unknown) => T) {
     try {
       return await withRetry(
         async () => {
-          const response = await request()
-          return { ...response, value: validate(parseModelJson(response.text)) }
+          const startedAt = Date.now()
+          let response: PageResponse | undefined
+          try {
+            response = await request()
+            const value = validate(parseModelJson(response.text))
+            deps.onAttempt?.({ page, startedAt, ms: Date.now() - startedAt, imageBytes, response })
+            return { ...response, value }
+          } catch (error) {
+            deps.onAttempt?.({ page, startedAt, ms: Date.now() - startedAt, imageBytes, response, error })
+            throw error
+          }
         },
         {
           maxAttempts: deps.maxAttempts,
@@ -122,12 +146,12 @@ export async function runExtraction(pages: number[], deps: ExtractionDeps): Prom
       const base = { rendered, promptVersion: task.version }
       let drafts: PageDraft[]
       if (reading) {
-        const result = await extractWithRetry(page, request, validateReading)
+        const result = await extractWithRetry(page, rendered.aiImage.size, request, validateReading)
         const { drafts: words, sentences } = readingDrafts(result.value.sentences, deps.context)
         drafts = words
         await deps.store.saveResult({ ...base, model: result.model, raw: result.text, drafts, reading: sentences })
       } else {
-        const result = await extractWithRetry(page, request, validateItems)
+        const result = await extractWithRetry(page, rendered.aiImage.size, request, validateItems)
         drafts = []
         for (const fields of postprocess(result.value.items, deps.context)) {
           const crop = fields.imageBox ? await deps.crop(rendered, fields.imageBox) : null

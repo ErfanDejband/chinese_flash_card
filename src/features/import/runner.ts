@@ -11,6 +11,7 @@ import {
 import { knownHanziSet } from '@/data/repositories/knownWords'
 import { createProvider } from '@/import/ai/createProvider'
 import { bytesToBase64 } from '@/import/ai/http'
+import { openRouterGenerationStats } from '@/import/ai/openrouterAuth'
 import type { ProviderConfig, VisionProvider } from '@/import/ai/types'
 import { FatalExtractionError, runExtraction } from '@/import/extract/runExtraction'
 import { loadSimplifiedDetector } from '@/import/extract/traditional'
@@ -18,6 +19,7 @@ import { cropFromImage } from '@/import/pdf/crop'
 import type { ImportSource } from '@/import/source/types'
 import { finishRun, recordUsage, startRun as startUsageRun } from '@/lib/aiUsage'
 import { setBusy } from '@/lib/busy'
+import { finishTrace, startTrace, traceAttempt, tracePageEnd, tracePageStart, traceStats, traceWait } from '@/lib/importTrace'
 
 /**
  * The extraction run lives outside React so it keeps going while the user navigates around
@@ -65,6 +67,18 @@ export function isRunning(importId?: string): boolean {
   return state.phase !== 'idle' && (importId === undefined || state.importId === importId)
 }
 
+/** OpenRouter has a request's stats a few seconds after it ends: fetch them in the background for the trace. */
+function fetchStatsLater(apiKey: string, id: string, delays = [4_000, 15_000]) {
+  const attempt = (i: number) =>
+    setTimeout(() => {
+      openRouterGenerationStats(apiKey, id).then(
+        (stats) => traceStats(id, stats),
+        () => i + 1 < delays.length && attempt(i + 1),
+      )
+    }, delays[i])
+  attempt(0)
+}
+
 /**
  * Extract all pending pages of an import. Resolves when the run ends (done, stopped or failed).
  * `provider` replaces the configured AI (the import demo); its requests are not counted as usage.
@@ -78,6 +92,10 @@ export async function startRun(importId: string, config: ProviderConfig, provide
   set({ importId, phase: 'running', page: undefined, fatal: undefined, waitingUntil: undefined })
   // A sign-in hop (full-page navigation) would stop the run.
   setBusy('import', true)
+  // Real runs are traced step by step (Settings → AI usage); the demo isn't.
+  const traced = !provider
+  const openRouter = config.provider === 'openai-compatible' && config.baseUrl.includes('openrouter.ai')
+  let stopped: string | undefined
 
   try {
     await requeueInterrupted(importId)
@@ -92,6 +110,11 @@ export async function startRun(importId: string, config: ProviderConfig, provide
     ])
     const pending = pages.filter((p) => p.status === 'pending').map((p) => p.page)
     const rotation = new Map(pages.map((p) => [p.page, p.rotation ?? 0]))
+    const labels = new Map(pages.map((p) => [p.page, p.label ?? `Page ${p.page}`]))
+    if (traced) {
+      const where = config.provider === 'openai-compatible' ? config.baseUrl.replace(/^https?:\/\//, '') : config.provider
+      startTrace({ fileName: record?.fileName ?? '', mode: record?.mode ?? 'vocabulary', service: `${where} · ${config.model}` })
+    }
     await runExtraction(pending, {
       provider: provider ?? withUsageTracking(createProvider(config), config),
       mode: record?.mode,
@@ -113,15 +136,30 @@ export async function startRun(importId: string, config: ProviderConfig, provide
       onEvent: (e) => {
         if (e.type === 'page-start') set({ phase: 'running', page: e.page, waitingUntil: undefined })
         else if (e.type === 'waiting') set({ phase: 'waiting', waitingUntil: Date.now() + e.ms, waitReason: e.reason })
+        if (!traced) return
+        if (e.type === 'page-start') tracePageStart(e.page, labels.get(e.page) ?? `Page ${e.page}`)
+        else if (e.type === 'waiting') traceWait(e.page, e.ms, e.reason)
+        else if (e.type === 'page-done') tracePageEnd(e.page, { items: e.items })
+        else tracePageEnd(e.page, { error: e.message })
       },
+      onAttempt: traced
+        ? (e) => {
+            traceAttempt(e)
+            const id = e.response?.meta?.id
+            if (id && openRouter) fetchStatsLater(config.apiKey, id)
+          }
+        : undefined,
     })
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') {
+      stopped = 'Paused'
       await requeueInterrupted(importId)
     } else {
-      set({ fatal: e instanceof FatalExtractionError || e instanceof Error ? e.message : String(e) })
+      stopped = e instanceof FatalExtractionError || e instanceof Error ? e.message : String(e)
+      set({ fatal: stopped })
     }
   } finally {
+    if (traced) finishTrace(stopped)
     if (!provider) finishRun()
     controller = undefined
     setBusy('import', false)

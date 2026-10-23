@@ -34,6 +34,11 @@ describe('classifyFiles', () => {
     expect(r.kind === 'images' && r.files.map((x) => x.name)).toEqual(['IMG_2.jpg', 'IMG_10.jpg', 'scan.HEIC'])
   })
 
+  it('accepts JPEGs saved from the web as .jfif, which come without a type', () => {
+    const r = classifyFiles([f('images (1).jfif'), f('photo.pjpeg'), f('a.jpg', 'image/jpeg')])
+    expect(r.kind === 'images' && r.files.length).toBe(3)
+  })
+
   it.each([
     [[f('a.pdf', 'application/pdf'), f('b.jpg', 'image/jpeg')], 'one PDF on its own'],
     [[f('a.pdf'), f('b.pdf')], 'one PDF on its own'],

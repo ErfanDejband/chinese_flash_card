@@ -10,10 +10,13 @@ interface ListedModel {
 }
 
 interface ChatResponse {
+  id?: string
+  /** OpenRouter: the provider that served the request. */
+  provider?: string
   choices?: { message?: { content?: string | { type?: string; text?: string }[] | null }; finish_reason?: string }[]
   model?: string
   /** `cost` is reported by some services (e.g. OpenRouter, in USD credits). */
-  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number }
+  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; completion_tokens_details?: { reasoning_tokens?: number } }
 }
 
 function messageText(content: string | { type?: string; text?: string }[] | null | undefined): string {
@@ -27,6 +30,8 @@ export function createOpenAICompatibleProvider(opts: {
   apiKey: string
   model: string
   fetchImpl?: FetchLike
+  /** Extra request fields, e.g. OpenRouter's `reasoning` (the free-model test uses it). */
+  extraBody?: Record<string, unknown>
 }): VisionProvider {
   const fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init))
   const base = opts.baseUrl.replace(/\/+$/, '')
@@ -43,6 +48,7 @@ export function createOpenAICompatibleProvider(opts: {
       model: opts.model,
       temperature: 0,
       ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+      ...opts.extraBody,
       messages: [
         { role: 'system', content: `${task.system}\n\n${task.jsonShape}` },
         { role: 'user', content: [{ type: 'text', text: task.user(req.textHint) }, ...image] },
@@ -76,11 +82,13 @@ export function createOpenAICompatibleProvider(opts: {
 
     async extractPage(req: PageRequest): Promise<PageResponse> {
       let res: ChatResponse
+      let jsonFallback = false
       try {
         res = await complete(req, true)
       } catch (e) {
         // Some models/endpoints reject response_format: retry once without it (the prompt still asks for JSON).
         if (e instanceof ProviderError && e.kind === 'bad-request' && /response_format|json/i.test(e.message)) {
+          jsonFallback = true
           res = await complete(req, false)
         } else {
           throw e
@@ -89,6 +97,8 @@ export function createOpenAICompatibleProvider(opts: {
       const text = messageText(res.choices?.[0]?.message?.content)
       if (!text) throw new ProviderError('bad-response', 'The model returned no text.')
       const u = res.usage
+      const reasoningTokens = u?.completion_tokens_details?.reasoning_tokens
+      const finishReason = res.choices?.[0]?.finish_reason
       return {
         text,
         model: res.model ?? opts.model,
@@ -96,6 +106,13 @@ export function createOpenAICompatibleProvider(opts: {
           inputTokens: u.prompt_tokens ?? 0,
           outputTokens: u.completion_tokens ?? 0,
           ...(typeof u.cost === 'number' ? { costUsd: u.cost, costSource: 'reported' as const } : {}),
+        },
+        meta: {
+          ...(res.id && { id: res.id }),
+          ...(res.provider && { provider: res.provider }),
+          ...(typeof reasoningTokens === 'number' && { reasoningTokens }),
+          ...(finishReason && { finishReason }),
+          ...(jsonFallback && { jsonFallback }),
         },
       }
     },

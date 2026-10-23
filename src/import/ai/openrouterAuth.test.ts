@@ -1,6 +1,14 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import { createPkce, exchangeOpenRouterCode, openRouterAuthUrl, openRouterFreeQuota, pkceChallenge, randomToken } from './openrouterAuth'
+import {
+  createPkce,
+  exchangeOpenRouterCode,
+  openRouterAuthUrl,
+  openRouterFreeQuota,
+  openRouterGenerationStats,
+  pkceChallenge,
+  randomToken,
+} from './openrouterAuth'
 import { ProviderError, type FetchLike } from './types'
 
 function mockFetch(...responses: Response[]) {
@@ -80,5 +88,50 @@ describe('OpenRouter free quota', () => {
     const { fetchImpl } = mockFetch(json({ data: { free_model_daily_requests: { used: 10, limit: 50 } } }), json({ data: { label: 'x' } }))
     expect(await openRouterFreeQuota('k', fetchImpl)).toEqual({ used: 10, limit: 50, remaining: 40 })
     expect(await openRouterFreeQuota('k', fetchImpl)).toBeUndefined()
+  })
+})
+
+describe('OpenRouter generation stats', () => {
+  it('reads timings, tokens and upstream attempts of a request', async () => {
+    const { fetchImpl, calls } = mockFetch(
+      json({
+        data: {
+          id: 'gen-1',
+          model: 'thinkingmachines/inkling:free',
+          provider_name: 'Thinking Machines',
+          latency: 95_000,
+          generation_time: 80_000,
+          native_tokens_prompt: 1800,
+          native_tokens_completion: 3200,
+          native_tokens_reasoning: 2500,
+          finish_reason: 'stop',
+          provider_responses: [
+            { provider_name: 'Thinking Machines', status: 429, latency: 300 },
+            { provider_name: 'Thinking Machines', status: 200, latency: 94_000 },
+          ],
+        },
+      }),
+    )
+    expect(await openRouterGenerationStats('k', 'gen-1 /x', fetchImpl)).toEqual({
+      latencyMs: 95_000,
+      generationMs: 80_000,
+      provider: 'Thinking Machines',
+      model: 'thinkingmachines/inkling:free',
+      promptTokens: 1800,
+      completionTokens: 3200,
+      reasoningTokens: 2500,
+      finishReason: 'stop',
+      upstream: [
+        { provider: 'Thinking Machines', status: 429, latencyMs: 300 },
+        { provider: 'Thinking Machines', status: 200, latencyMs: 94_000 },
+      ],
+    })
+    expect(calls[0]!.url).toBe('https://openrouter.ai/api/v1/generation?id=gen-1%20%2Fx')
+  })
+
+  it('leaves out what is not reported, and fails like any request while stats are not ready', async () => {
+    const { fetchImpl } = mockFetch(json({ data: { latency: 'soon', model: '' } }), json({ error: { message: 'Not found' } }, 404))
+    expect(await openRouterGenerationStats('k', 'g', fetchImpl)).toMatchObject({ latencyMs: undefined, model: undefined, upstream: undefined })
+    await expect(openRouterGenerationStats('k', 'g', fetchImpl)).rejects.toMatchObject({ status: 404 })
   })
 })

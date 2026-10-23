@@ -5,7 +5,8 @@ export interface PickedFile {
   type: string
 }
 
-const IMAGE_EXT = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i
+// .jfif / .pjp(eg): JPEGs as Chrome on Windows saves web images; the browser gives them no type.
+const IMAGE_EXT = /\.(jpe?g|jfif|pjpe?g|pjp|png|webp|gif|bmp|avif|heic|heif)$/i
 
 export const isPdf = (f: PickedFile) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
 export const isImage = (f: PickedFile) => f.type.startsWith('image/') || IMAGE_EXT.test(f.name)

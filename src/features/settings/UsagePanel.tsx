@@ -1,12 +1,16 @@
 import { useSyncExternalStore } from 'react'
+import { useAiSettings } from '@/hooks/useBrowser'
 import { getUsage, resetUsage, subscribeUsage, totalUsage } from '@/lib/aiUsage'
 import { Button } from '@/ui/Button'
 import { shortDateTime } from '@/ui/format'
 import { usageLine } from '@/ui/usageText'
+import { FreeModelTest } from './FreeModelTest'
+import { ImportDetails } from './ImportDetails'
 
-/** What the importer sent from this device: the last import and totals per model. */
+/** What the importer sent from this device: the last import (also step by step) and totals per model; the free-model test. */
 export function UsagePanel() {
   const usage = useSyncExternalStore(subscribeUsage, getUsage)
+  const freeMode = useAiSettings().mode === 'free'
   const total = totalUsage(usage)
   const models = Object.entries(usage.byModel).sort((a, b) => b[1].requests - a[1].requests)
 
@@ -25,6 +29,18 @@ export function UsagePanel() {
           <p className="text-muted">No import yet.</p>
         )}
       </div>
+
+      <div>
+        <h3 className="mb-1 font-semibold">Last import, step by step</h3>
+        <ImportDetails />
+      </div>
+
+      {freeMode && (
+        <div>
+          <h3 className="mb-1 font-semibold">Test the free models</h3>
+          <FreeModelTest />
+        </div>
+      )}
 
       <div>
         <h3 className="mb-1 font-semibold">Total since {shortDateTime(usage.since)}</h3>

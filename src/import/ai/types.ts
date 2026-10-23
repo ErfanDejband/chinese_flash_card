@@ -37,11 +37,24 @@ export interface PageRequest {
   signal?: AbortSignal
 }
 
+/** What the service said about one request, for the import trace (lib/importTrace). */
+export interface ResponseMeta {
+  /** The service's id for the request; on OpenRouter, the generation id behind its stats. */
+  id?: string
+  /** The provider that served the request (OpenRouter routes each one to a provider). */
+  provider?: string
+  reasoningTokens?: number
+  finishReason?: string
+  /** JSON mode was rejected, so the request was sent a second time without it. */
+  jsonFallback?: boolean
+}
+
 export interface PageResponse {
   /** Raw model text (expected to be JSON). */
   text: string
   model: string
   usage?: RequestUsage
+  meta?: ResponseMeta
 }
 
 export interface VisionProvider {

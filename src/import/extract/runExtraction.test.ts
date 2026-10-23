@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { BOOK2_P5_REPLY, BOOK3_P20_REPLY, READING_REPLY } from '../ai/fixtures'
+import { ModelOutputError } from '../ai/parse'
 import { PROMPT_VERSION, READING_PROMPT_VERSION, READING_TASK, VOCAB_TASK } from '../ai/prompt'
 import { ProviderError, type PageRequest, type VisionProvider } from '../ai/types'
-import { FatalExtractionError, runExtraction, type ExtractionDeps, type ExtractionEvent, type PageResult, type RenderedPage } from './runExtraction'
+import { FatalExtractionError, runExtraction, type AttemptEvent, type ExtractionDeps, type ExtractionEvent, type PageResult, type RenderedPage } from './runExtraction'
 
 type Reply = string | ProviderError
 
@@ -94,6 +95,21 @@ describe('runExtraction', () => {
     await runExtraction([20], t.deps)
     expect(t.sleeps).toEqual([5250])
     expect(t.events.map((e) => e.type)).toEqual(['page-start', 'waiting', 'page-done'])
+  })
+
+  it('reports every attempt, failed requests and malformed replies included', async () => {
+    const attempts: AttemptEvent[] = []
+    const t = setup(['not json', new ProviderError('rate-limit', 'slow down', { retryAfterMs: 10 }), BOOK3_P20_REPLY], {
+      onAttempt: (e) => attempts.push(e),
+    })
+    await runExtraction([20], t.deps)
+    const kind = (e: unknown) => (e instanceof ProviderError ? e.kind : e instanceof ModelOutputError ? 'bad-json' : e)
+    expect(attempts.map((a) => [a.page, a.imageBytes, a.response ? a.response.text === BOOK3_P20_REPLY : 'no reply', kind(a.error)])).toEqual([
+      [20, 2, false, 'bad-json'],
+      [20, 2, 'no reply', 'rate-limit'],
+      [20, 2, true, undefined],
+    ])
+    expect(attempts.every((a) => a.ms >= 0 && a.startedAt > 0)).toBe(true)
   })
 
   it('retries malformed output once, then records the page as failed and moves on', async () => {
