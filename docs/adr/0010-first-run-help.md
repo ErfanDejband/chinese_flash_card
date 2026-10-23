@@ -42,15 +42,36 @@ The user compared 13 options with mockups (`plans/13-first-run-help.md`).
   - reached from the "?" on Home, the Welcome footer and Settings → About & support → Help & tips.
 - **Empty screens:** Cards, an empty box and Progress each say what fills them and link to the next step or to Help.
 
-**Step 2: guidance while using the app** (planned in the same phase)
-- Just-in-time tips, each teaching one Chinese word.
-- A getting-started checklist.
-- A five-step spotlight tour.
-- An import demo with a self-drawn sample page and canned AI replies (no key, no network).
+**Step 2: guidance while using the app**
+- **Just-in-time tips** (`features/onboarding/tips.ts`, `Tip`):
+  - seven moments: the first card, the first reveal, the first finished session, the page picker, the import drafts,
+    Progress and pictures;
+  - a tip counts as seen as soon as it appears (✕ only hides it sooner), so it never nags;
+  - each teaches one Chinese word with "+ add";
+  - review tips have no "More" link, because leaving would end the session.
+- **Getting-started checklist** (`domain/onboarding.ts`, `Checklist`) on Home:
+  - five of your own words (sample cards don't count), the first review, a practice direction, installing, and sync or a
+    backup;
+  - it ticks itself and disappears once done or closed.
+- **Spotlight tour** (`Tour`):
+  - five steps over `data-tour` targets: the today card, Progress, Cards, Import, and the "?";
+  - the visible copy of each nav item is used, so it works on the phone's bottom bar and the laptop's top bar;
+  - the dimming is a large `box-shadow` around the cut-out, with an `outline` for its edge;
+  - Esc or Skip ends it, and it runs once, before the checklist appears.
+- **Import demo** (`import/demo/`):
+  - a "Lesson 1" page drawn on a canvas and a `VisionProvider` that returns a canned reply built from the same layout, so
+    the crops are right;
+  - two deliberate flags: characters filled in (咖啡, shown only as pinyin) and a Simplified spelling (电脑);
+  - `startRun(id, config, provider)` skips usage tracking, and `ImportRecord.demo` tags the added cards `sample`;
+  - resuming a paused demo redraws the page instead of asking for the file.
+- **Existing devices:** `initOnboarding` runs at start-up. Tips, the tour and the checklist wait for it.
 
 **State:**
 - Device-only, in localStorage `mandarin-leitner.onboarding` (`lib/onboarding.ts`): tips seen, tour done, checklist
   dismissed, direction chosen, backup saved.
+- When it is first created on a device that already has review history, everything is marked seen, so people who used
+  the app before (or arrive with synced history) get no tour or tips.
+- Settings → Help & tips can replay the tour or show the tips again.
 - Like the theme, it is neither synced nor backed up. Seeing a tip again on a second device is cheap; syncing UI state
   is not.
 

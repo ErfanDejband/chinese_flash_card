@@ -21,7 +21,7 @@ export function SampleBanner({ count }: { count: number }) {
   return (
     <section className="mb-4 rounded-2xl border border-line bg-surface p-4 text-sm">
       <p>
-        <span className="font-semibold">{plural(count, 'sample card')}</span> from “Just let me try it”. Keep them, or remove them and start with your own words.
+        <span className="font-semibold">{plural(count, 'sample card')}</span> from trying the app. Keep them, or remove them and start with your own words.
       </p>
       <div className="mt-3 flex gap-2">
         <Button

@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router'
 import { createImport, discardImport, findImportsByHash, listOpenImports } from '@/data/repositories/imports'
 import { configProblems } from '@/import/ai/createProvider'
 import { serviceFor } from '@/import/ai/detectKey'
+import { createDemoProvider, DEMO_MODEL } from '@/import/demo/demoProvider'
+import { createSamplePage } from '@/import/demo/samplePage'
 import { openSource, SourceError } from '@/import/source/openSource'
 import type { ImportSource } from '@/import/source/types'
 import type { ImportMode } from '@/import/types'
@@ -20,6 +22,8 @@ import { attachSource, startRun } from './runner'
 interface Picked {
   source: ImportSource
   warning?: string
+  /** The sample page of the import demo. */
+  demo?: boolean
 }
 
 export function ImportPage() {
@@ -35,19 +39,20 @@ export function ImportPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
 
-  async function onFiles(files: File[]) {
-    if (!files.length) return
+  async function onFiles(files: File[] | (() => Promise<File[]>), demo = false) {
     setLoading(true)
     setError(undefined)
     try {
-      const source = await openSource(files)
+      const list = typeof files === 'function' ? await files() : files
+      if (!list.length) return
+      const source = await openSource(list)
       const previous = await findImportsByHash(source.hash)
       const warning = previous.some((p) => p.status === 'committed')
         ? `You imported this file before (${shortDateTime(previous[0]!.createdAt)}). Duplicate cards will be marked in the review.`
         : previous.some((p) => p.status === 'draft')
           ? 'This file has an unfinished import below. You can continue it instead.'
           : undefined
-      setPicked({ source, warning })
+      setPicked({ source, warning, demo })
     } catch (e) {
       setError(e instanceof SourceError ? e.message : 'Could not open the file.')
     } finally {
@@ -57,19 +62,20 @@ export function ImportPage() {
 
   async function start(pages: PickedPage[], mode: ImportMode) {
     if (!picked) return
-    const { source } = picked
+    const { source, demo = false } = picked
     const record = await createImport({
       fileName: source.fileName,
       fileHash: source.hash,
       sourceKind: source.kind,
       pageCount: source.pages.length,
       pages: pages.map(({ page, rotation }) => ({ page, rotation, ...source.pages[page - 1]! })),
-      provider: config.provider,
-      model: config.model,
+      provider: demo ? DEMO_MODEL : config.provider,
+      model: demo ? DEMO_MODEL : config.model,
       mode,
+      demo,
     })
     attachSource(record.id, source)
-    void startRun(record.id, config)
+    void startRun(record.id, config, demo ? createDemoProvider() : undefined)
     navigate(`/import/${record.id}`)
   }
 
@@ -80,7 +86,8 @@ export function ImportPage() {
         <PagePicker
           source={picked.source}
           warning={picked.warning}
-          blockedReason={problems.length ? `AI not ready: ${problems.join(' ')}` : undefined}
+          demo={picked.demo}
+          blockedReason={problems.length && !picked.demo ? `AI not ready: ${problems.join(' ')}` : undefined}
           onCancel={() => {
             picked.source.destroy()
             setPicked(undefined)
@@ -143,6 +150,13 @@ export function ImportPage() {
           }}
         />
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="text-sm font-medium">Not sure yet?</p>
+          <Button variant="secondary" className="mt-2 w-full" onClick={() => void onFiles(async () => [await createSamplePage()], true)} disabled={loading}>
+            ▶ Try with a sample page
+          </Button>
+          <p className="mt-1 text-xs text-muted">No AI or sign-in needed: see what an import looks like, with ready-made answers.</p>
+        </div>
       </section>
 
       {openImports && openImports.length > 0 && (

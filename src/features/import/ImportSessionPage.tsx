@@ -14,7 +14,10 @@ import {
   queuePages,
   setDraftsSelected,
 } from '@/data/repositories/imports'
+import { Tip } from '@/features/onboarding/Tip'
 import { configProblems } from '@/import/ai/createProvider'
+import { createDemoProvider } from '@/import/demo/demoProvider'
+import { createSamplePage } from '@/import/demo/samplePage'
 import { openSource, SourceError } from '@/import/source/openSource'
 import type { NormBox } from '@/import/types'
 import { useAiSettings } from '@/hooks/useBrowser'
@@ -43,10 +46,11 @@ function useCountdown(until: number | undefined): number {
   return until ? Math.max(0, Math.ceil((until - now) / 1000)) : 0
 }
 
-function Progress({ importId, fileHash, pages }: { importId: string; fileHash: string; pages: ImportPageRecord[] }) {
+function Progress({ importId, fileHash, pages, demo }: { importId: string; fileHash: string; pages: ImportPageRecord[]; demo: boolean }) {
   const run = useSyncExternalStore(runStore.subscribe, runStore.get)
   const config = activeProviderConfig(useAiSettings())
-  const problems = configProblems(config)
+  // The demo answers itself: no AI settings needed.
+  const problems = demo ? [] : configProblems(config)
   const fileInput = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string>()
   const running = isRunning(importId)
@@ -63,10 +67,13 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
     setError(undefined)
     if (retryFailed) await queuePages(importId, failed.map((p) => p.page))
     if (!hasSource(importId)) {
-      fileInput.current?.click()
-      return
+      if (!demo) {
+        fileInput.current?.click()
+        return
+      }
+      attachSource(importId, await openSource([await createSamplePage()]))
     }
-    void startRun(importId, config)
+    void startRun(importId, config, demo ? createDemoProvider() : undefined)
   }
 
   async function reattach(files: File[]) {
@@ -135,7 +142,7 @@ function Progress({ importId, fileHash, pages }: { importId: string; fileHash: s
               </Button>
             )}
           </div>
-          {!hasSource(importId) && (remaining > 0 || failed.length > 0) && (
+          {!demo && !hasSource(importId) && (remaining > 0 || failed.length > 0) && (
             <p className="text-xs text-muted">You will be asked to choose the PDF or images again to continue.</p>
           )}
         </div>
@@ -327,8 +334,9 @@ export function ImportSessionPage() {
 
   return (
     <>
-      <PageHeader title="Review import" subtitle={record.fileName} back="/import" />
-      <Progress importId={importId} fileHash={record.fileHash} pages={pages} />
+      <PageHeader title="Review import" subtitle={record.demo ? 'Sample page · ready-made answers, no AI' : record.fileName} back="/import" />
+      <Progress importId={importId} fileHash={record.fileHash} pages={pages} demo={record.demo === true} />
+      {drafts.length > 0 && <Tip id="import-drafts" className="mb-4" />}
 
       {reading && readingPages.length > 0 ? (
         <>

@@ -23,7 +23,9 @@ export const DEFAULT_ONBOARDING: OnboardingState = {
 }
 
 let cache: OnboardingState | undefined
+let ready = false
 const listeners = new Set<() => void>()
+const notify = () => listeners.forEach((l) => l())
 
 function parse(raw: string | null): OnboardingState {
   const value = JSON.parse(raw ?? 'null') as Partial<Record<keyof OnboardingState, unknown>> | null
@@ -55,11 +57,16 @@ function save(next: OnboardingState): void {
   } catch {
     // Storage unavailable: lasts for this session only.
   }
-  listeners.forEach((l) => l())
+  notify()
 }
 
 export function updateOnboarding(patch: Partial<OnboardingState>): void {
   save({ ...getOnboarding(), ...patch })
+}
+
+export function markTipSeen(id: string): void {
+  const { seenTips } = getOnboarding()
+  if (!seenTips.includes(id)) updateOnboarding({ seenTips: [...seenTips, id] })
 }
 
 /** Show the tips, the tour and the checklist again. What the learner did (direction, backup) stays. */
@@ -72,15 +79,43 @@ export function subscribeOnboarding(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+/** False until `initOnboarding` has run: tips, the tour and the checklist wait for it. */
+export function isOnboardingReady(): boolean {
+  return ready
+}
+
+/**
+ * Called once at start-up. A device that already has review history when this state is first
+ * created (used before first-run help existed, or filled by sync or a restore) skips the tips, the
+ * tour and the checklist. A fresh device writes nothing until something is seen or chosen.
+ */
+export async function initOnboarding(tipIds: readonly string[], hasHistory: () => Promise<boolean>): Promise<void> {
+  try {
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem(STORAGE_KEY)
+    } catch {
+      // Storage unavailable: nothing to migrate.
+    }
+    if (stored === null && (await hasHistory().catch(() => false))) {
+      save({ ...getOnboarding(), seenTips: [...tipIds], tourDone: true, checklistDismissed: true, directionChosen: true })
+    }
+  } finally {
+    ready = true
+    notify()
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key !== STORAGE_KEY && e.key !== null) return
     cache = undefined
-    listeners.forEach((l) => l())
+    notify()
   })
 }
 
-/** Forget the cached state (tests). */
+/** Forget the cached state and the start-up check (tests). */
 export function _resetOnboardingCache(): void {
   cache = undefined
+  ready = false
 }

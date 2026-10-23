@@ -65,8 +65,11 @@ export function isRunning(importId?: string): boolean {
   return state.phase !== 'idle' && (importId === undefined || state.importId === importId)
 }
 
-/** Extract all pending pages of an import. Resolves when the run ends (done, stopped or failed). */
-export async function startRun(importId: string, config: ProviderConfig): Promise<void> {
+/**
+ * Extract all pending pages of an import. Resolves when the run ends (done, stopped or failed).
+ * `provider` replaces the configured AI (the import demo); its requests are not counted as usage.
+ */
+export async function startRun(importId: string, config: ProviderConfig, provider?: VisionProvider): Promise<void> {
   const source = sources.get(importId)
   if (!source) throw new Error('Select the file(s) again to continue.')
   if (state.phase !== 'idle') return
@@ -79,7 +82,7 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
   try {
     await requeueInterrupted(importId)
     const record = await getImport(importId)
-    startUsageRun({ importId, fileName: record?.fileName ?? '', provider: config.provider, model: config.model })
+    if (!provider) startUsageRun({ importId, fileName: record?.fileName ?? '', provider: config.provider, model: config.model })
     const [pages, cards, drafts, knownHanzi, isSimplified] = await Promise.all([
       listImportPages(importId),
       listActiveCards(),
@@ -90,7 +93,7 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
     const pending = pages.filter((p) => p.status === 'pending').map((p) => p.page)
     const rotation = new Map(pages.map((p) => [p.page, p.rotation ?? 0]))
     await runExtraction(pending, {
-      provider: withUsageTracking(createProvider(config), config),
+      provider: provider ?? withUsageTracking(createProvider(config), config),
       mode: record?.mode,
       render: (page) => source.renderPage(page, rotation.get(page) ?? 0),
       crop: (rendered, box) => cropFromImage(rendered.image, box),
@@ -119,7 +122,7 @@ export async function startRun(importId: string, config: ProviderConfig): Promis
       set({ fatal: e instanceof FatalExtractionError || e instanceof Error ? e.message : String(e) })
     }
   } finally {
-    finishRun()
+    if (!provider) finishRun()
     controller = undefined
     setBusy('import', false)
     set({ phase: 'idle', page: undefined, waitingUntil: undefined })

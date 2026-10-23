@@ -33,6 +33,8 @@ export interface ImportRecord {
   /** AI provider and model used for extraction. */
   provider?: string
   model?: string
+  /** The import demo's sample page: no AI, and its cards are tagged as sample cards. */
+  demo?: boolean
   createdAt: Timestamp
   updatedAt: Timestamp
 }

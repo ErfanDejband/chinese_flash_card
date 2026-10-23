@@ -141,6 +141,11 @@ export async function removeTag(tag: string, now = Date.now()): Promise<number> 
   })
 }
 
+/** True when an active card has exactly these characters. */
+export async function hasCard(hanzi: string): Promise<boolean> {
+  return (await db.cards.where('hanzi').equals(hanzi).filter((c) => c.deletedAt === undefined).count()) > 0
+}
+
 export async function getCard(id: Id): Promise<Card | undefined> {
   const card = await db.cards.get(id)
   return card?.deletedAt === undefined ? card : undefined

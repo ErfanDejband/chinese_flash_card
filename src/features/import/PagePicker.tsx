@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Tip } from '@/features/onboarding/Tip'
 import { nextRotation, type Rotation } from '@/import/render'
 import type { ImportSource } from '@/import/source/types'
 import type { ImportMode } from '@/import/types'
@@ -18,6 +19,8 @@ interface Props {
   warning?: string
   /** Why extraction cannot start (e.g. AI not configured). */
   blockedReason?: string
+  /** The import demo's sample page: always a vocabulary page, no AI. */
+  demo?: boolean
   onStart(pages: PickedPage[], mode: ImportMode): void
   onCancel(): void
 }
@@ -39,7 +42,7 @@ const MODES: { mode: ImportMode; label: string; hint: string }[] = [
 ]
 
 /** Thumbnails of every page (PDF page, image, or part of a long screenshot); the user picks and rotates. */
-export function PagePicker({ source, warning, blockedReason, onStart, onCancel }: Props) {
+export function PagePicker({ source, warning, blockedReason, demo = false, onStart, onCancel }: Props) {
   const count = source.pages.length
   const [selected, setSelected] = useState<Set<number>>(() => new Set(Array.from({ length: count }, (_, i) => i + 1)))
   const [rotations, setRotations] = useState<Record<number, Rotation>>({})
@@ -102,26 +105,37 @@ export function PagePicker({ source, warning, blockedReason, onStart, onCancel }
     <div>
       <div className="mb-4">
         <h2 className="truncate text-lg font-semibold">{source.fileName}</h2>
-        <p className="text-sm text-muted">
-          {plural(count, isPdf ? 'page' : 'image page')} · choose the ones with vocabulary; ↻ turns a page that is sideways. Each page is one AI
-          request.
-        </p>
+        {demo ? (
+          <p className="text-sm text-muted">
+            A vocabulary page drawn by the app. No AI is used: the answers are ready-made, including two things worth a second look.
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            {plural(count, isPdf ? 'page' : 'image page')} · choose the ones with vocabulary; ↻ turns a page that is sideways. Each page is one AI
+            request.
+          </p>
+        )}
         {warning && <p className="mt-2 rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{warning}</p>}
-        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-sunken p-1" role="radiogroup" aria-label="What the pages hold">
-          {MODES.map((m) => (
-            <button
-              key={m.mode}
-              type="button"
-              role="radio"
-              aria-checked={mode === m.mode}
-              onClick={() => setMode(m.mode)}
-              className={cn('h-9 rounded-lg text-sm font-semibold transition', mode === m.mode ? 'bg-ink text-paper shadow-sm' : 'text-muted')}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-1.5 text-xs text-muted">{MODES.find((m) => m.mode === mode)!.hint}</p>
+        {!demo && (
+          <>
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-sunken p-1" role="radiogroup" aria-label="What the pages hold">
+              {MODES.map((m) => (
+                <button
+                  key={m.mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m.mode}
+                  onClick={() => setMode(m.mode)}
+                  className={cn('h-9 rounded-lg text-sm font-semibold transition', mode === m.mode ? 'bg-ink text-paper shadow-sm' : 'text-muted')}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted">{MODES.find((m) => m.mode === mode)!.hint}</p>
+            <Tip id="import-pages" className="mt-3" />
+          </>
+        )}
         {source.skipped.length > 0 && (
           <ul className="mt-2 rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
             {source.skipped.map((s) => (
@@ -210,14 +224,16 @@ export function PagePicker({ source, warning, blockedReason, onStart, onCancel }
             className="flex-1"
             disabled={!pages.length || Boolean(blockedReason)}
             onClick={() => {
-              try {
-                localStorage.setItem(MODE_KEY, mode)
-              } catch {
-                // Remembering the choice is only a convenience.
+              if (!demo) {
+                try {
+                  localStorage.setItem(MODE_KEY, mode)
+                } catch {
+                  // Remembering the choice is only a convenience.
+                }
               }
               onStart(
                 pages.map((page) => ({ page, rotation: rotations[page] ?? 0 })),
-                mode,
+                demo ? 'vocabulary' : mode,
               )
             }}
           >

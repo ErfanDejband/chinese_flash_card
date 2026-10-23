@@ -20,6 +20,7 @@ import {
   startSession,
 } from '@/domain/session/reducer'
 import type { AppSettings, ReviewResult } from '@/domain/types'
+import { Tip } from '@/features/onboarding/Tip'
 import { speak, speechSupported } from '@/lib/speech'
 import { requestSync } from '@/lib/syncRunner'
 import { Button, ButtonLink } from '@/ui/Button'
@@ -202,6 +203,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
               </div>
             ))}
           </dl>
+          <Tip id="review-done" className="mb-4 w-full max-w-sm" />
           {hardest.length > 0 && (
             <section className="mb-4 w-full max-w-sm text-left">
               <h2 className="mb-2 text-sm font-bold tracking-wide text-muted uppercase">Hardest cards</h2>
@@ -294,18 +296,24 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
       <div className="pb-safe sticky bottom-0 bg-paper pt-2">
         <div className="pb-4">
           {!state.revealed ? (
-            <Button size="lg" className="h-16 w-full text-xl" onClick={() => dispatch({ type: 'reveal' })}>
-              Show answer
-            </Button>
+            <>
+              <Tip id="review-start" className="mb-3" />
+              <Button size="lg" className="h-16 w-full text-xl" onClick={() => dispatch({ type: 'reveal' })}>
+                Show answer
+              </Button>
+            </>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="forgot" size="lg" className="h-16 text-xl" disabled={busy} onClick={() => void answer('forgot')}>
-                <Icon name="x" /> Forgot
-              </Button>
-              <Button variant="knew" size="lg" className="h-16 text-xl" disabled={busy} onClick={() => void answer('knew')}>
-                <Icon name="check" /> Knew
-              </Button>
-            </div>
+            <>
+              <Tip id="review-answer" className="mb-3" />
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="forgot" size="lg" className="h-16 text-xl" disabled={busy} onClick={() => void answer('forgot')}>
+                  <Icon name="x" /> Forgot
+                </Button>
+                <Button variant="knew" size="lg" className="h-16 text-xl" disabled={busy} onClick={() => void answer('knew')}>
+                  <Icon name="check" /> Knew
+                </Button>
+              </div>
+            </>
           )}
           <p className="mt-2 hidden text-center text-xs text-muted md:block">
             {state.revealed ? '← or 1: forgot · → or 2: knew · U: undo' : 'Space: show answer'}

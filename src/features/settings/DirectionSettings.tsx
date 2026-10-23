@@ -2,6 +2,7 @@ import { saveSettings } from '@/data/repositories/settings'
 import { REVIEW_MODES } from '@/domain/leitner/config'
 import type { AppSettings } from '@/domain/types'
 import { useVoices } from '@/hooks/useBrowser'
+import { updateOnboarding } from '@/lib/onboarding'
 import { speechSupported } from '@/lib/speech'
 import { cn } from '@/ui/cn'
 import { reviewModeInfo } from '@/ui/reviewModes'
@@ -21,6 +22,7 @@ export function DirectionSettings({ settings }: { settings: AppSettings }) {
   async function choose(reviewMode: AppSettings['reviewMode']) {
     const { updatedAt: _updatedAt, ...rest } = settings
     await saveSettings({ ...rest, reviewMode })
+    updateOnboarding({ directionChosen: true })
   }
 
   return (

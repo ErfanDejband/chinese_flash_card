@@ -2,8 +2,11 @@ import type { ReactNode } from 'react'
 import { nextDueDate, summarizeDeck } from '@/domain/deck'
 import { SAMPLE_TAG } from '@/domain/sampleDeck'
 import { BoxesView } from '@/features/boxes/BoxesView'
+import { Checklist } from '@/features/onboarding/Checklist'
 import { SampleBanner } from '@/features/onboarding/SampleBanner'
+import { Tour } from '@/features/onboarding/Tour'
 import { Welcome } from '@/features/onboarding/Welcome'
+import { useOnboarding, useOnboardingReady } from '@/hooks/useBrowser'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { useStatsData } from '@/hooks/useStats'
 import { useToday } from '@/hooks/useToday'
@@ -46,6 +49,8 @@ export function DashboardPage() {
   const deck = useDeck()
   const settings = useSettings()
   const today = useToday()
+  const onboarding = useOnboarding()
+  const onboardingReady = useOnboardingReady()
   if (!deck || !settings) return <Loading />
   if (deck.length === 0) return <Welcome settings={settings} />
 
@@ -71,7 +76,13 @@ export function DashboardPage() {
         actions={
           <div className="-mr-2 flex">
             <SupportButton />
-            <Link to="/help" className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="Help" title="Help">
+            <Link
+              to="/help"
+              data-tour="help"
+              className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken"
+              aria-label="Help"
+              title="Help"
+            >
               <Icon name="help" />
             </Link>
             <ThemeToggle />
@@ -80,9 +91,10 @@ export function DashboardPage() {
       />
 
       <SampleBanner count={samples} />
+      {onboardingReady && onboarding.tourDone && <Checklist ownCards={deck.length - samples} />}
       <StreakStrip />
 
-      <section className="rounded-3xl border border-line bg-surface p-5 shadow-sm">
+      <section data-tour="today" className="rounded-3xl border border-line bg-surface p-5 shadow-sm">
         {toStudy > 0 ? (
           <>
             <div className="text-6xl font-bold tracking-tight tabular-nums">{toStudy}</div>
@@ -124,6 +136,7 @@ export function DashboardPage() {
       </section>
 
       <AddCardFab />
+      {onboardingReady && !onboarding.tourDone && <Tour />}
     </>
   )
 }

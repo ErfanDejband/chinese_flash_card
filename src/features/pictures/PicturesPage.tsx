@@ -12,6 +12,7 @@ import {
   setPictureJobStatus,
   updatePictureDraft,
 } from '@/data/repositories/pictures'
+import { Tip } from '@/features/onboarding/Tip'
 import { cropFromImage } from '@/import/pdf/crop'
 import type { NormBox } from '@/import/types'
 import { useAiSettings, useBlobUrl, useNow } from '@/hooks/useBrowser'
@@ -361,6 +362,7 @@ function Results({ job, drafts, sheets }: { job: PictureJobRecord; drafts: Pictu
         {run.jobId === job.id && run.fatal && <p className="mt-2 text-red-600">Stopped: {run.fatal}</p>}
         {runUsage && runUsage.requests > 0 && <p className="mt-2 text-xs text-muted">AI usage: {usageLine(runUsage)}</p>}
       </section>
+      {kept > 0 && <Tip id="pictures" className="mb-4" />}
 
       <ul className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
         {shown.map((d) => (

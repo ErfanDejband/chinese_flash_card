@@ -1,4 +1,5 @@
 import { newId } from '@/domain/ids'
+import { SAMPLE_TAG } from '@/domain/sampleDeck'
 import type { Id } from '@/domain/types'
 import type { Rotation } from '@/import/render'
 import type { PageResult } from '@/import/extract/runExtraction'
@@ -25,6 +26,8 @@ export interface NewImport {
   model: string
   /** Vocabulary pages by default. */
   mode?: ImportMode
+  /** The import demo (sample page, no AI). */
+  demo?: boolean
 }
 
 /** Create an import with its selected pages queued as pending. */
@@ -41,6 +44,7 @@ export async function createImport(input: NewImport, now = Date.now()): Promise<
     rejectedCount: 0,
     provider: input.provider,
     model: input.model,
+    ...(input.demo && { demo: true }),
     createdAt: now,
     updatedAt: now,
   }
@@ -187,7 +191,7 @@ export async function commitImport(importId: Id, now = Date.now()): Promise<{ cr
       meaning: d.meaning,
       notes: d.notes,
       example: d.example,
-      tags: d.kind === 'sentence' ? ['sentence'] : [],
+      tags: [...(d.kind === 'sentence' ? ['sentence'] : []), ...(record.demo ? [SAMPLE_TAG] : [])],
       image: d.crop,
       source:
         record.sourceKind === 'images'

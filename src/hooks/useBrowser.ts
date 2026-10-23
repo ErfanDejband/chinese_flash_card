@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { openRouterFreeQuota, type FreeQuota } from '@/import/ai/openrouterAuth'
 import { getAiSettings, subscribeAiSettings, type AiSettingsState } from '@/lib/aiConfig'
 import { canInstall, subscribeInstall } from '@/lib/install'
+import { getOnboarding, isOnboardingReady, subscribeOnboarding, type OnboardingState } from '@/lib/onboarding'
 import { getSignInStatus, subscribeSignInStatus, type SignInStatus } from '@/lib/openrouterSignIn'
 import { mandarinVoices, speechSupported } from '@/lib/speech'
 import { getDeviceSync, subscribeDeviceSync, type DeviceSync } from '@/lib/syncConfig'
@@ -30,6 +31,16 @@ export function useDeviceSync(): DeviceSync {
 
 export function useSyncStatus(): SyncStatus {
   return useSyncExternalStore(subscribeSyncStatus, getSyncStatus)
+}
+
+/** First-run help on this device: tips seen, tour, checklist. */
+export function useOnboarding(): OnboardingState {
+  return useSyncExternalStore(subscribeOnboarding, getOnboarding)
+}
+
+/** False until the start-up check has run (see `initOnboarding`). */
+export function useOnboardingReady(): boolean {
+  return useSyncExternalStore(subscribeOnboarding, isOnboardingReady, () => false)
 }
 
 /** Appearance setting of this device: System, Light or Dark. */

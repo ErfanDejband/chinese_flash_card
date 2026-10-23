@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { BackupFormatError, exportBackup, restoreBackup } from '@/data/backup/backup'
 import { toLocalDate } from '@/domain/dates'
+import { updateOnboarding } from '@/lib/onboarding'
 import { downloadFile } from '@/lib/storage'
 import { Button } from '@/ui/Button'
 import { plural } from '@/ui/format'
@@ -19,6 +20,7 @@ export function BackupSettings() {
       const bytes = await exportBackup()
       downloadFile(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `mandarin-leitner-${toLocalDate(new Date())}.zip`)
       setStatus({ kind: 'done', message: 'Backup downloaded.' })
+      updateOnboarding({ backedUp: true })
     } catch (e) {
       setStatus({ kind: 'error', message: e instanceof Error ? e.message : 'Export failed' })
     }

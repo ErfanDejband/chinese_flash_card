@@ -168,6 +168,19 @@ describe('imports repository', () => {
     ])
   })
 
+  it('tags the cards of the import demo as sample cards', async () => {
+    const pages = [{ page: 1, label: 'Sample page.png', rotation: 0 as const }]
+    const demo = await createImport({ fileName: 'Sample page.png', fileHash: 'd', sourceKind: 'images', pageCount: 1, pages, provider: 'sample', model: 'sample', demo: true })
+    expect(demo.demo).toBe(true)
+    await savePageResult(demo.id, result(1, [draft('學校'), draft('我們好', { kind: 'sentence' })]))
+    await commitImport(demo.id)
+    expect((await loadDeck()).map((e) => [e.card.hanzi, e.card.tags]).sort()).toEqual([
+      ['學校', ['sample']],
+      ['我們好', ['sentence', 'sample']],
+    ])
+    expect((await setupImport()).demo).toBeUndefined()
+  })
+
   it('discards an import and its work tables', async () => {
     const { id } = await setupImport()
     await savePageResult(id, result(20, [draft('老師')]))

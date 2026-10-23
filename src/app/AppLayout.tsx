@@ -13,6 +13,9 @@ const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
 
+/** `nav-progress`, `nav-cards`…: what the tour points at (see features/onboarding/Tour). */
+const tourId = (to: string) => `nav-${to.slice(1) || 'home'}`
+
 function useTodayCount(): number {
   const deck = useDeck()
   const settings = useSettings()
@@ -51,6 +54,7 @@ export function AppLayout() {
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                data-tour={tourId(item.to)}
                 className={({ isActive }) =>
                   cn('relative rounded-lg px-3 py-2 font-medium', isActive ? 'bg-sunken text-ink' : 'text-muted hover:text-ink')
                 }
@@ -77,6 +81,7 @@ export function AppLayout() {
               key={item.to}
               to={item.to}
               end={item.end}
+              data-tour={tourId(item.to)}
               className={({ isActive }) =>
                 cn('relative flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium', isActive ? 'text-accent' : 'text-muted')
               }

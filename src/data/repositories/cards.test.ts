@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ALL_TABLES, db } from '../db'
-import { createCard, createCards, deleteCard, deleteCardsByTag, getCard, loadDeck, removeTag, updateCard } from './cards'
+import { createCard, createCards, deleteCard, deleteCardsByTag, getCard, hasCard, loadDeck, removeTag, updateCard } from './cards'
 
 const image = (text: string) => ({ blob: new Blob([text], { type: 'image/webp' }), mime: 'image/webp', width: 10, height: 10 })
 
@@ -50,6 +50,14 @@ describe('card repository', () => {
     expect(await getCard(card.id)).toBeUndefined()
     expect(await loadDeck()).toHaveLength(0)
     expect((await db.cards.get(card.id))!.deletedAt).toBe(9999)
+  })
+
+  it('tells whether a word is already a card', async () => {
+    const card = await createCard({ hanzi: '想', pinyin: 'xiǎng' }, 1000)
+    expect(await hasCard('想')).toBe(true)
+    expect(await hasCard('想法')).toBe(false)
+    await deleteCard(card.id, 2000)
+    expect(await hasCard('想')).toBe(false)
   })
 
   it('removes or keeps the cards with a tag', async () => {

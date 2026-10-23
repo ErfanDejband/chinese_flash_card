@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { checkPinyin } from '@/domain/pinyin/suggest'
 import { SAMPLE_WORDS } from '@/domain/sampleDeck'
 import { loadSimplifiedDetector } from '@/import/extract/traditional'
+import { CHECKLIST_WORD, TIP_WORD, TIPS } from './tips'
 
 /** The words the app itself teaches must be right: Traditional characters and their dictionary reading. */
-describe.each([['sample deck', SAMPLE_WORDS]])('%s', (_, words) => {
+describe.each([
+  ['sample deck', SAMPLE_WORDS],
+  ['help words', [...Object.values(TIPS).map((t) => t.word), TIP_WORD, CHECKLIST_WORD]],
+])('%s', (_, words) => {
   it.each(words.map((w) => [w.hanzi, w.pinyin]))('%s is read %s', (hanzi, pinyin) => {
     expect(checkPinyin(hanzi, pinyin)).toBe('match')
   })

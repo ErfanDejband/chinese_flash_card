@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { summarizeDeck } from '@/domain/deck'
 import { boxHistory, mostForgotten, periodSummary, type PeriodStats } from '@/domain/stats'
+import { Tip } from '@/features/onboarding/Tip'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { useStatsData } from '@/hooks/useStats'
 import { useToday } from '@/hooks/useToday'
@@ -126,6 +127,7 @@ export function StatsPage() {
   return (
     <>
       {header}
+      <Tip id="progress" className="mt-4" />
 
       <section className="mt-6 rounded-3xl border border-line bg-surface p-5 shadow-sm">
         <div className="flex flex-wrap items-end justify-between gap-3">

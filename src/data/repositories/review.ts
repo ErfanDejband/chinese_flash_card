@@ -48,6 +48,11 @@ export function listReviewLog(cardId: Id): Promise<ReviewLogEntry[]> {
   return db.reviewLog.where('cardId').equals(cardId).sortBy('at')
 }
 
+/** Answers ever recorded on this device (synced ones included). */
+export function countReviews(): Promise<number> {
+  return db.reviewLog.count()
+}
+
 /** Everything the stats screen derives from: the whole log, and all cards (deleted ones too, for history). */
 export async function loadStatsData(): Promise<{ log: ReviewLogEntry[]; cards: Card[] }> {
   const [log, cards] = await Promise.all([db.reviewLog.toArray(), db.cards.toArray()])
