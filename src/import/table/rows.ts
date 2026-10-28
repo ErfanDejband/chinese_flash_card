@@ -139,8 +139,12 @@ export function buildDrafts(table: ParsedTable, roles: readonly ColumnRole[], op
     const toTraditional = options.convertSimplified ? ctx.toTraditional : undefined
     if (containsHan(hanzi) && ctx.isSimplified?.(hanzi)) {
       if (toTraditional) {
-        hanzi = toTraditional(hanzi)
-        issues.push('converted')
+        // The detector also flags characters Taiwan writes the same way (床): only a real change counts.
+        const converted = toTraditional(hanzi)
+        if (converted !== hanzi) {
+          hanzi = converted
+          issues.push('converted')
+        }
       } else issues.push('simplified')
     }
     if (toTraditional && exampleHanzi && ctx.isSimplified?.(exampleHanzi)) exampleHanzi = toTraditional(exampleHanzi)

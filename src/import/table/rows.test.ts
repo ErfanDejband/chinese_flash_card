@@ -108,6 +108,15 @@ describe('buildDrafts', () => {
     expect(off.drafts[0]!.hanzi).toBe('老师')
   })
 
+  it('does not count a word as converted when Taiwan writes it the same way', async () => {
+    const isSimplified = await loadSimplifiedDetector()
+    const toTraditional = await loadToTraditional()
+    const { drafts, rows, counts } = build('床\tchuáng\tbed\n', {}, { isSimplified, toTraditional })
+    expect(drafts[0]!.hanzi).toBe('床')
+    expect(rows[0]!.issues).not.toContain('converted')
+    expect(counts.converted).toBe(0)
+  })
+
   it('fills in missing pinyin when asked', () => {
     const filled = build('老師\t\tteacher\n學生\txuésheng\tstudent\n')
     expect(filled.drafts[0]!.pinyin).toBe('lǎoshī')
