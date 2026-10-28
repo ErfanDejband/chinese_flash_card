@@ -8,6 +8,7 @@ import { mandarinVoices, speechSupported } from '@/lib/speech'
 import { getDeviceSync, subscribeDeviceSync, type DeviceSync } from '@/lib/syncConfig'
 import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '@/lib/syncRunner'
 import { getResolvedTheme, getThemePref, subscribeTheme, type Theme, type ThemePref } from '@/lib/theme'
+import { getLastSeenRelease, isWhatsNewReady, subscribeWhatsNew } from '@/lib/whatsNew'
 
 /** AI provider settings of this device. */
 export function useAiSettings(): AiSettingsState {
@@ -41,6 +42,16 @@ export function useOnboarding(): OnboardingState {
 /** False until the start-up check has run (see `initOnboarding`). */
 export function useOnboardingReady(): boolean {
   return useSyncExternalStore(subscribeOnboarding, isOnboardingReady, () => false)
+}
+
+/** Id of the newest "What's new" note seen on this device (`''` = none). */
+export function useLastSeenRelease(): string {
+  return useSyncExternalStore(subscribeWhatsNew, getLastSeenRelease)
+}
+
+/** False until the start-up check has run (see `initWhatsNew`). */
+export function useWhatsNewReady(): boolean {
+  return useSyncExternalStore(subscribeWhatsNew, isWhatsNewReady, () => false)
 }
 
 /** Appearance setting of this device: System, Light or Dark. */

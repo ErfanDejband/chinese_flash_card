@@ -1,5 +1,6 @@
 import { NavLink, Outlet, ScrollRestoration } from 'react-router'
 import { summarizeDeck } from '@/domain/deck'
+import { WhatsNewSheet } from '@/features/whatsNew/WhatsNewSheet'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { useToday } from '@/hooks/useToday'
 import { cn } from '@/ui/cn'
@@ -93,6 +94,7 @@ export function AppLayout() {
           ))}
         </div>
       </nav>
+      <WhatsNewSheet />
       <ScrollRestoration />
     </div>
   )

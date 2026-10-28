@@ -22,6 +22,7 @@ import { SupportSettings } from './SupportSettings'
 import { SyncSettings } from './SyncSettings'
 import { UsagePanel } from './UsagePanel'
 import { VoiceSettings } from './VoiceSettings'
+import { WhatsNewSettings } from './WhatsNewSettings'
 
 const SECTION_CONTENT: Record<SettingsSectionId, (settings: AppSettings) => ReactNode> = {
   direction: (s) => <DirectionSettings settings={s} />,
@@ -36,6 +37,7 @@ const SECTION_CONTENT: Record<SettingsSectionId, (settings: AppSettings) => Reac
   backup: () => <BackupSettings />,
   support: () => <SupportSettings />,
   help: () => <HelpSettings />,
+  whatsNew: () => <WhatsNewSettings />,
   app: () => <AppInfoSettings />,
 }
 

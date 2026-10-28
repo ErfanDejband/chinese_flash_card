@@ -20,6 +20,11 @@ export function longDate(date: LocalDate): string {
   return localDay(date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
+/** "Oct 28, 2026". */
+export function mediumDate(date: LocalDate): string {
+  return localDay(date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 /** "Fri, Sep 25". */
 export function shortDay(date: LocalDate): string {
   return localDay(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })

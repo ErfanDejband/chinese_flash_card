@@ -14,6 +14,7 @@ export type SettingsSectionId =
   | 'backup'
   | 'support'
   | 'help'
+  | 'whatsNew'
   | 'app'
 
 export const SECTION_TITLES: Record<SettingsSectionId, string> = {
@@ -29,6 +30,7 @@ export const SECTION_TITLES: Record<SettingsSectionId, string> = {
   backup: 'Backup',
   support: 'Support this app',
   help: 'Help & tips',
+  whatsNew: 'What’s new',
   app: 'App',
 }
 
@@ -58,8 +60,8 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     id: 'about',
     title: 'About & support',
     icon: 'heart',
-    description: 'Help, support this app, install, storage, privacy',
-    sections: ['help', 'support', 'app'],
+    description: 'Help, what’s new, support this app, install, privacy',
+    sections: ['help', 'whatsNew', 'support', 'app'],
   },
 ]
 

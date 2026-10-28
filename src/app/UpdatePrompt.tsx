@@ -11,7 +11,7 @@ export function UpdatePrompt() {
   if (!needRefresh) return null
   return (
     <div className="fixed inset-x-4 top-4 z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-line bg-surface p-3 pl-4 shadow-xl">
-      <span className="flex-1 text-sm">A new version is available.</span>
+      <span className="flex-1 text-sm">A new version is available. Reload to see what’s new.</span>
       <Button size="sm" variant="ghost" onClick={() => setNeedRefresh(false)}>
         Later
       </Button>
