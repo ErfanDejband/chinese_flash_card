@@ -16,12 +16,12 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
-    id: '2026-10-28',
+    id: '2026-10-29',
     title: 'Word lists and a clearer import',
     items: [
       {
         text: 'Import word lists from Anki, Pleco, Quizlet or any CSV/TSV file, and export your deck as a TSV file.',
-        to: '/import',
+        to: '/import/list',
       },
       { text: 'Importing pages now shows each step: the AI thinking, and the words as they arrive.', to: '/import' },
       { text: 'After each update, this note shows what changed. All updates are in Settings → About.', to: '/settings/about' },
