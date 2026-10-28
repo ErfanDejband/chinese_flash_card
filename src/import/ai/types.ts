@@ -27,6 +27,15 @@ export interface ModelInfo {
   free?: boolean
 }
 
+/** A reply still arriving: the model is reasoning (no visible text yet), or writing `text`. */
+export interface StreamProgress {
+  phase: 'thinking' | 'writing'
+  /** Reasoning tokens so far, when the service reports them or they can be estimated. */
+  reasoningTokens?: number
+  /** The visible reply so far. */
+  text: string
+}
+
 export interface PageRequest {
   /** Base64 page image (no data: prefix). Omitted for text-only requests. */
   imageBase64?: string
@@ -35,6 +44,8 @@ export interface PageRequest {
   /** What to ask for; the vocabulary prompt by default. */
   task?: JsonTask
   signal?: AbortSignal
+  /** Streams the reply and reports it as it arrives; without it the request is a plain one. */
+  onProgress?(progress: StreamProgress): void
 }
 
 /** What the service said about one request, for the import trace (lib/importTrace). */

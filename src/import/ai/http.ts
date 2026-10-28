@@ -43,33 +43,129 @@ function errorMessage(body: unknown, fallback: string): string {
   return typeof m === 'string' && m ? m : fallback
 }
 
-/** POST/GET JSON; maps HTTP and network failures to ProviderError. */
-export async function requestJson(fetchImpl: FetchLike, url: string, init: RequestInit): Promise<unknown> {
-  let res: Response
+async function send(fetchImpl: FetchLike, url: string, init: RequestInit): Promise<Response> {
   try {
-    res = await fetchImpl(url, init)
+    return await fetchImpl(url, init)
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e
     throw new ProviderError('network', 'Could not reach the AI service (offline, blocked, or the service does not allow browser requests).')
   }
-  const text = await res.text()
-  let body: unknown
+}
+
+function parseJson(text: string): unknown {
   try {
-    body = text ? JSON.parse(text) : undefined
+    return text ? JSON.parse(text) : undefined
   } catch {
-    body = undefined
+    return undefined
   }
-  if (res.ok) {
-    if (body === undefined) throw new ProviderError('bad-response', 'The AI service returned an empty or non-JSON reply.', { status: res.status })
-    return body
-  }
+}
+
+function okBody(res: Response, body: unknown): unknown {
+  if (body === undefined) throw new ProviderError('bad-response', 'The AI service returned an empty or non-JSON reply.', { status: res.status })
+  return body
+}
+
+function httpError(res: Response, body: unknown): ProviderError {
   const message = errorMessage(body, `${res.status} ${res.statusText}`.trim())
   const status = res.status
-  if (status === 401 || status === 403) throw new ProviderError('auth', `The API key was rejected: ${message}`, { status })
-  if (status === 429 && isDailyLimit(res, message)) throw new ProviderError('quota', `Daily limit reached: ${message}`, { status })
-  if (status === 429) throw new ProviderError('rate-limit', `Rate limit or quota reached: ${message}`, { status, retryAfterMs: retryAfterMs(res, body) })
-  if (status >= 500) throw new ProviderError('server', `The AI service had a problem: ${message}`, { status })
-  throw new ProviderError('bad-request', message, { status })
+  if (status === 401 || status === 403) return new ProviderError('auth', `The API key was rejected: ${message}`, { status })
+  if (status === 429 && isDailyLimit(res, message)) return new ProviderError('quota', `Daily limit reached: ${message}`, { status })
+  if (status === 429) return new ProviderError('rate-limit', `Rate limit or quota reached: ${message}`, { status, retryAfterMs: retryAfterMs(res, body) })
+  if (status >= 500) return new ProviderError('server', `The AI service had a problem: ${message}`, { status })
+  return new ProviderError('bad-request', message, { status })
+}
+
+/** POST/GET JSON; maps HTTP and network failures to ProviderError. */
+export async function requestJson(fetchImpl: FetchLike, url: string, init: RequestInit): Promise<unknown> {
+  const res = await send(fetchImpl, url, init)
+  const body = parseJson(await res.text())
+  if (res.ok) return okBody(res, body)
+  throw httpError(res, body)
+}
+
+export interface StreamHandlers {
+  /** The service accepted the request and is answering. */
+  onOpen?(): void
+  /** One event's `data`, parsed as JSON. */
+  onData(data: unknown): void
+}
+
+/**
+ * POST a request answered with Server-Sent Events and pass each event's JSON `data` on. Comment
+ * lines (OpenRouter's `: OPENROUTER PROCESSING`) and `[DONE]` are skipped. Failures before the
+ * stream are mapped as in requestJson. A reply that isn't an event stream (a local server or a
+ * mock that ignores `stream`) is returned as `{ json }`; a streamed one returns undefined.
+ */
+export async function requestStream(fetchImpl: FetchLike, url: string, init: RequestInit, handlers: StreamHandlers): Promise<{ json: unknown } | undefined> {
+  const res = await send(fetchImpl, url, init)
+  if (!res.ok) throw httpError(res, parseJson(await res.text()))
+  if (!res.body || !res.headers.get('content-type')?.includes('text/event-stream')) return { json: okBody(res, parseJson(await res.text())) }
+  handlers.onOpen?.()
+
+  const signal = init.signal ?? undefined
+  const aborted = () => signal?.reason ?? new DOMException('Aborted', 'AbortError')
+  const reader = res.body.getReader()
+  const stop = () => void reader.cancel().catch(() => {})
+  signal?.addEventListener('abort', stop, { once: true })
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let data: string[] = []
+  let finished = false
+  const dispatch = () => {
+    const payload = data.join('\n')
+    data = []
+    if (!payload || payload.trim() === '[DONE]') return
+    const json = parseJson(payload)
+    if (json !== undefined) handlers.onData(json)
+  }
+  const line = (l: string) => {
+    if (l === '') return dispatch()
+    if (l.startsWith(':')) return
+    const colon = l.indexOf(':')
+    if ((colon < 0 ? l : l.slice(0, colon)) === 'data') data.push(colon < 0 ? '' : l.slice(colon + 1).replace(/^ /, ''))
+  }
+  try {
+    for (;;) {
+      let chunk: ReadableStreamReadResult<Uint8Array>
+      try {
+        chunk = await reader.read()
+      } catch (e) {
+        if (signal?.aborted) throw aborted()
+        if (e instanceof DOMException && e.name === 'AbortError') throw e
+        throw new ProviderError('network', 'The connection to the AI service broke off while it was answering.')
+      }
+      if (signal?.aborted) throw aborted()
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+      // A trailing \r may be the first half of \r\n: keep it for the next chunk.
+      const end = buffer.endsWith('\r') ? buffer.length - 1 : buffer.length
+      const lines = buffer.slice(0, end).split(/\r\n|\r|\n/)
+      buffer = lines.pop()! + buffer.slice(end)
+      lines.forEach(line)
+    }
+    finished = true
+    buffer += decoder.decode()
+    buffer.split(/\r\n|\r|\n/).forEach(line)
+    dispatch()
+  } finally {
+    signal?.removeEventListener('abort', stop)
+    // An error in the middle (thrown by onData, say): stop downloading the rest.
+    if (!finished) stop()
+  }
+  return undefined
+}
+
+/** An error sent inside a stream (`{"error": {...}}`, as OpenRouter and Gemini do), as a ProviderError. */
+export function streamedError(data: unknown): ProviderError | undefined {
+  const e = (data as { error?: unknown } | undefined)?.error
+  if (!e) return undefined
+  const message = errorMessage(data, 'The AI service stopped while answering.')
+  const code = Number((e as { code?: unknown }).code)
+  const status = Number.isInteger(code) && code >= 400 ? code : undefined
+  if (status === 401 || status === 403) return new ProviderError('auth', `The API key was rejected: ${message}`, { status })
+  if (/per[- ]?day/i.test(message)) return new ProviderError('quota', `Daily limit reached: ${message}`, { status })
+  if (status === 429 || /rate.?limit/i.test(message)) return new ProviderError('rate-limit', `Rate limit or quota reached: ${message}`, { status })
+  return new ProviderError('server', `The AI service had a problem: ${message}`, { status })
 }
 
 /** Base64 without data: prefix; chunked so large images don't overflow the call stack. */

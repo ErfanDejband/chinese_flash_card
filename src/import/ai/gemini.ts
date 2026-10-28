@@ -1,6 +1,6 @@
-import { requestJson } from './http'
+import { requestJson, requestStream, streamedError } from './http'
 import { VOCAB_TASK } from './prompt'
-import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type VisionProvider } from './types'
+import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type StreamProgress, type VisionProvider } from './types'
 
 export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta'
 
@@ -29,6 +29,38 @@ const BLOCKING_FINISH = new Set(['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITE
 export function createGeminiProvider(opts: { apiKey: string; model: string; fetchImpl?: FetchLike }): VisionProvider {
   const fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init))
   const headers = { 'x-goog-api-key': opts.apiKey, 'content-type': 'application/json' }
+
+  /**
+   * A streamed reply, put back together as one response. Each event carries the next text parts;
+   * the last one has the finish reason and the usage. Gemini sends nothing while it thinks.
+   */
+  async function streamContent(url: string, init: RequestInit, onProgress: (p: StreamProgress) => void): Promise<GeminiResponse> {
+    let text = ''
+    const res: GeminiResponse = {}
+    let finishReason: string | undefined
+    const plain = await requestStream(fetchImpl, url, init, {
+      onOpen: () => onProgress({ phase: 'thinking', text: '' }),
+      onData(data) {
+        const error = streamedError(data)
+        if (error) throw error
+        const chunk = data as GeminiResponse
+        res.promptFeedback ??= chunk.promptFeedback
+        res.modelVersion ??= chunk.modelVersion
+        res.usageMetadata = chunk.usageMetadata ?? res.usageMetadata
+        finishReason = chunk.candidates?.[0]?.finishReason ?? finishReason
+        const parts = chunk.candidates?.[0]?.content?.parts ?? []
+        const added = parts.filter((p) => !p.thought && typeof p.text === 'string').map((p) => p.text).join('')
+        if (added) {
+          text += added
+          onProgress({ phase: 'writing', text })
+        } else if (!text && parts.some((p) => p.thought)) {
+          onProgress({ phase: 'thinking', text })
+        }
+      },
+    })
+    if (plain) return plain.json as GeminiResponse
+    return { ...res, candidates: [{ content: { parts: text ? [{ text }] : [] }, ...(finishReason && { finishReason }) }] }
+  }
 
   return {
     label: 'Google Gemini',
@@ -62,13 +94,11 @@ export function createGeminiProvider(opts: { apiKey: string; model: string; fetc
           responseSchema: task.geminiSchema,
         },
       }
-      const url = `${GEMINI_API}/models/${encodeURIComponent(opts.model)}:generateContent`
-      const res = (await requestJson(fetchImpl, url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: req.signal,
-      })) as GeminiResponse
+      const model = encodeURIComponent(opts.model)
+      const init = { method: 'POST', headers, body: JSON.stringify(body), signal: req.signal }
+      const res = req.onProgress
+        ? await streamContent(`${GEMINI_API}/models/${model}:streamGenerateContent?alt=sse`, init, req.onProgress)
+        : ((await requestJson(fetchImpl, `${GEMINI_API}/models/${model}:generateContent`, init)) as GeminiResponse)
 
       if (res.promptFeedback?.blockReason) {
         throw new ProviderError('blocked', `Gemini refused the page (${res.promptFeedback.blockReason}).`)

@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { estimateClaudeCostUsd } from './pricing'
 import { VOCAB_TASK } from './prompt'
-import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type VisionProvider } from './types'
+import { ProviderError, type FetchLike, type ModelInfo, type PageRequest, type PageResponse, type StreamProgress, type VisionProvider } from './types'
 
 export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5'
 
@@ -9,6 +9,15 @@ export const DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5'
 const FALLBACK_MODELS = /^claude-(opus-5|fable-5|sonnet-5-5)/
 
 type ImageMime = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+
+/** An error event inside a stream has no HTTP status: the status its type stands for. */
+const STREAM_ERROR_STATUS: Partial<Record<string, number>> = {
+  authentication_error: 401,
+  permission_error: 403,
+  rate_limit_error: 429,
+  api_error: 500,
+  overloaded_error: 529,
+}
 
 /** Map SDK errors to the pipeline's ProviderError (our runner owns retries and shows the waiting). */
 async function mapErrors<T>(call: () => Promise<T>): Promise<T> {
@@ -22,7 +31,7 @@ async function mapErrors<T>(call: () => Promise<T>): Promise<T> {
       throw new ProviderError('network', 'Could not reach the Claude API (offline or blocked).')
     }
     if (e instanceof AnthropicSdk.APIError) {
-      const status = e.status
+      const status = e.status ?? (e.type ? STREAM_ERROR_STATUS[e.type] : undefined)
       // The SDK message embeds the raw JSON body; show the API's own message instead.
       const apiMessage = (e.error as { error?: { message?: unknown } } | undefined)?.error?.message
       const message = typeof apiMessage === 'string' ? apiMessage : e.message
@@ -37,8 +46,35 @@ async function mapErrors<T>(call: () => Promise<T>): Promise<T> {
       if (status !== undefined && status >= 500) throw new ProviderError('server', `The Claude API had a problem: ${message}`, { status })
       throw new ProviderError('bad-request', message, { status })
     }
+    // A stream that broke off or ended without a message.
+    if (e instanceof AnthropicSdk.AnthropicError) throw new ProviderError('server', `The Claude API stopped while answering: ${e.message}`)
     throw e
   }
+}
+
+/**
+ * The same request, streamed. The API accepting it, and thinking blocks, read as "thinking"; text
+ * as "writing". Current models omit the thinking text by default, so there is no count to show.
+ */
+function streamMessage(
+  anthropic: Anthropic,
+  params: Anthropic.Beta.MessageCreateParamsNonStreaming,
+  signal: AbortSignal | undefined,
+  onProgress: (p: StreamProgress) => void,
+) {
+  const stream = anthropic.beta.messages.stream(params, { signal })
+  let text = ''
+  stream.on('connect', () => onProgress({ phase: 'thinking', text }))
+  stream.on('streamEvent', (event) => {
+    if (event.type === 'content_block_start' && !text && (event.content_block.type === 'thinking' || event.content_block.type === 'redacted_thinking')) {
+      onProgress({ phase: 'thinking', text })
+    }
+  })
+  stream.on('text', (delta) => {
+    text += delta
+    onProgress({ phase: 'writing', text })
+  })
+  return stream.finalMessage()
 }
 
 /**
@@ -83,18 +119,17 @@ export function createAnthropicProvider(opts: { apiKey: string; model: string; f
       const image = req.imageBase64
         ? [{ type: 'image' as const, source: { type: 'base64' as const, media_type: (req.mime ?? 'image/jpeg') as ImageMime, data: req.imageBase64 } }]
         : []
-      const message = await mapErrors(() =>
-        anthropic.beta.messages.create(
-          {
-            model: opts.model,
-            max_tokens: 16000,
-            system: task.system,
-            messages: [{ role: 'user', content: [...image, { type: 'text', text: task.user(req.textHint) }] }],
-            output_config: { format: { type: 'json_schema', schema: task.jsonSchema } },
-            ...(fallbacks ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
-          },
-          { signal: req.signal },
-        ),
+      const params: Anthropic.Beta.MessageCreateParamsNonStreaming = {
+        model: opts.model,
+        max_tokens: 16000,
+        system: task.system,
+        messages: [{ role: 'user', content: [...image, { type: 'text', text: task.user(req.textHint) }] }],
+        output_config: { format: { type: 'json_schema', schema: task.jsonSchema } },
+        ...(fallbacks ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
+      }
+      const onProgress = req.onProgress
+      const message = await mapErrors<Anthropic.Beta.BetaMessage>(() =>
+        onProgress ? streamMessage(anthropic, params, req.signal, onProgress) : anthropic.beta.messages.create(params, { signal: req.signal }),
       )
 
       if (message.stop_reason === 'refusal') {
