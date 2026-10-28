@@ -16,6 +16,8 @@ const importSessionPage = async () => ({ Component: (await import('@/features/im
 const wordListImport = async () => ({ Component: (await import('@/features/import/WordListImport')).WordListImport })
 const picturesPage = async () => ({ Component: (await import('@/features/pictures/PicturesPage')).PicturesPage })
 const helpPage = async () => ({ Component: (await import('@/features/help/HelpPage')).HelpPage })
+// Test page for the camera tab; Transformers.js loads only when its model is loaded.
+const objectsLab = async () => ({ Component: (await import('@/features/lab/ObjectsLab')).ObjectsLab })
 
 /**
  * Hash routing: works on static hosting (GitHub Pages) without server rewrites,
@@ -47,6 +49,7 @@ export const router = createHashRouter([
       },
       { path: 'progress', element: <StatsPage /> },
       { path: 'help', lazy: helpPage },
+      { path: 'lab/objects', lazy: objectsLab },
       { path: 'stats', element: <Navigate to="/progress" replace /> },
       { path: '*', element: <NotFound /> },
     ],
