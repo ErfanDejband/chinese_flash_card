@@ -13,6 +13,7 @@ import { NotFound, RouteError } from './RouteError'
 const cardEditPage = async () => ({ Component: (await import('@/features/cards/CardEditPage')).CardEditPage })
 const importPage = async () => ({ Component: (await import('@/features/import/ImportPage')).ImportPage })
 const importSessionPage = async () => ({ Component: (await import('@/features/import/ImportSessionPage')).ImportSessionPage })
+const wordListImport = async () => ({ Component: (await import('@/features/import/WordListImport')).WordListImport })
 const picturesPage = async () => ({ Component: (await import('@/features/pictures/PicturesPage')).PicturesPage })
 const helpPage = async () => ({ Component: (await import('@/features/help/HelpPage')).HelpPage })
 
@@ -33,6 +34,7 @@ export const router = createHashRouter([
       { path: 'cards/:id', lazy: cardEditPage },
       { path: 'boxes/:box', element: <BoxDetailPage /> },
       { path: 'import', lazy: importPage },
+      { path: 'import/list', lazy: wordListImport },
       { path: 'import/:importId', lazy: importSessionPage },
       { path: 'pictures/:jobId', lazy: picturesPage },
       {

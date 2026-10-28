@@ -18,6 +18,7 @@ import { Icon } from '@/ui/icons'
 import { PageHeader } from '@/ui/PageHeader'
 import { PagePicker, type PickedPage } from './PagePicker'
 import { attachSource, startRun } from './runner'
+import { isWordListFile, setWordListFile, WORD_LIST_ACCEPT } from './wordListFile'
 
 interface Picked {
   source: ImportSource
@@ -57,6 +58,19 @@ export function ImportPage() {
       setError(e instanceof SourceError ? e.message : 'Could not open the file.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  /** A word list (CSV, TSV, an Anki/Pleco/Quizlet export) goes to its own screen; PDFs and images to the AI. */
+  function onChosen(files: File[]) {
+    const list = files.find(isWordListFile)
+    if (!list) {
+      void onFiles(files)
+    } else if (files.length > 1) {
+      setError('Choose a word list on its own.')
+    } else {
+      setWordListFile(list)
+      navigate('/import/list')
     }
   }
 
@@ -141,15 +155,21 @@ export function ImportPage() {
         <input
           ref={fileInput}
           type="file"
-          accept="application/pdf,.pdf,image/*"
+          accept={`application/pdf,.pdf,image/*,${WORD_LIST_ACCEPT}`}
           multiple
           hidden
           onChange={(e) => {
-            void onFiles([...(e.target.files ?? [])])
+            onChosen([...(e.target.files ?? [])])
             e.target.value = ''
           }}
         />
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        <p className="mt-4 text-sm">
+          <Link to="/import/list" className="font-semibold text-accent">
+            Import a word list (Anki, Pleco, Quizlet, CSV) →
+          </Link>
+          <span className="mt-0.5 block text-xs text-muted">A text file from another flashcard app or a spreadsheet. No AI needed.</span>
+        </p>
         <div className="mt-4 border-t border-line pt-4">
           <p className="text-sm font-medium">Not sure yet?</p>
           <Button variant="secondary" className="mt-2 w-full" onClick={() => void onFiles(async () => [await createSamplePage()], true)} disabled={loading}>

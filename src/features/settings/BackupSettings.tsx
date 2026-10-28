@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { BackupFormatError, exportBackup, restoreBackup } from '@/data/backup/backup'
+import { listActiveCards } from '@/data/repositories/cards'
 import { toLocalDate } from '@/domain/dates'
+import { isWordListFile, setWordListFile, WORD_LIST_ACCEPT } from '@/features/import/wordListFile'
+import { wordListTsv } from '@/import/table/export'
 import { updateOnboarding } from '@/lib/onboarding'
 import { downloadFile } from '@/lib/storage'
 import { Button } from '@/ui/Button'
@@ -10,6 +14,7 @@ import { Icon } from '@/ui/icons'
 type Status = { kind: 'idle' } | { kind: 'working' } | { kind: 'done'; message: string } | { kind: 'error'; message: string }
 
 export function BackupSettings() {
+  const navigate = useNavigate()
   const input = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<File>()
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
@@ -24,6 +29,28 @@ export function BackupSettings() {
     } catch (e) {
       setStatus({ kind: 'error', message: e instanceof Error ? e.message : 'Export failed' })
     }
+  }
+
+  async function doExportWords() {
+    setStatus({ kind: 'working' })
+    try {
+      const cards = await listActiveCards()
+      downloadFile(new Blob([wordListTsv(cards)], { type: 'text/tab-separated-values;charset=utf-8' }), `mandarin-leitner-words-${toLocalDate(new Date())}.tsv`)
+      setStatus({ kind: 'done', message: `Word list with ${plural(cards.length, 'card')} downloaded.` })
+    } catch (e) {
+      setStatus({ kind: 'error', message: e instanceof Error ? e.message : 'Export failed' })
+    }
+  }
+
+  /** A backup .zip restores here; a word list (CSV, TSV, Anki/Pleco/Quizlet export) opens the word-list import. */
+  function onFile(file: File | undefined) {
+    if (file && isWordListFile(file)) {
+      setWordListFile(file)
+      navigate('/import/list', { state: { from: '/settings/sync' } })
+      return
+    }
+    setPending(file)
+    setStatus({ kind: 'idle' })
   }
 
   async function doRestore(mode: 'merge' | 'replace') {
@@ -62,11 +89,10 @@ export function BackupSettings() {
         <input
           ref={input}
           type="file"
-          accept=".zip,application/zip"
+          accept={`.zip,application/zip,${WORD_LIST_ACCEPT}`}
           hidden
           onChange={(e) => {
-            setPending(e.target.files?.[0])
-            setStatus({ kind: 'idle' })
+            onFile(e.target.files?.[0])
             e.target.value = ''
           }}
         />
@@ -93,6 +119,16 @@ export function BackupSettings() {
           </p>
         </div>
       )}
+
+      <div className="border-t border-line pt-4">
+        <Button variant="secondary" onClick={() => void doExportWords()} disabled={working}>
+          <Icon name="download" className="size-5" /> Export word list (TSV)
+        </Button>
+        <p className="mt-2 text-xs text-muted">
+          Characters, pinyin, meanings, notes, examples and tags as a tab-separated text file that Anki and Pleco can import (no pictures or progress).
+          Restore from file also opens word lists from Anki, Pleco, Quizlet or a spreadsheet.
+        </p>
+      </div>
 
       {status.kind === 'working' && <p className="text-sm text-muted">Working…</p>}
       {status.kind === 'done' && <p className="text-sm text-emerald-700 dark:text-emerald-400">{status.message}</p>}

@@ -18,6 +18,7 @@ describe('help topics', () => {
     expect(ids('Google Drive')).toContain('sync')
     expect(ids('openrouter')).toEqual(expect.arrayContaining(['ai']))
     expect(ids('tapped the wrong')).toEqual(['routine'])
+    expect(ids('pleco csv')).toEqual(['word-lists'])
   })
 
   it('needs every word of the query', () => {

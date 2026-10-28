@@ -81,6 +81,29 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     links: [{ label: 'Import', to: '/import' }],
   },
   {
+    id: 'word-lists',
+    title: 'Importing a word list (Anki, Pleco, Quizlet, CSV)',
+    keywords: 'anki pleco quizlet csv tsv txt excel spreadsheet google sheets export text file columns big5 move switch',
+    blocks: [
+      'Import → Import a word list reads the text files other apps export. No AI is needed, and nothing leaves your device. Choosing such a file under Import or Settings → Sync & backup → Restore from file opens it too.',
+      {
+        list: [
+          'Anki: File → Export → Notes in Plain Text (.txt).',
+          'Pleco: export your flashcards as a text file.',
+          'Quizlet: open a set → Export, copy the text and save it as a .txt file.',
+          'Excel, Numbers or Google Sheets: save as CSV or tab-separated text. UTF-8, UTF-16 and Big5 files all work.',
+        ],
+      },
+      'The app guesses what each column holds (characters, pinyin, meaning, example, notes, tags); change any column with its menu. A preview shows the first cards and what needs a look.',
+      'Options: skip words already in your deck or in your known words, convert Simplified characters to Traditional (only when you tick it), fill in missing pinyin from the dictionary, and a tag for the new cards. Pleco categories and Anki tags are kept as tags too.',
+      'Settings → Sync & backup → Export word list (TSV) saves your cards as a tab-separated file that Anki and Pleco can import.',
+    ],
+    links: [
+      { label: 'Import a word list', to: '/import/list' },
+      { label: 'Export', to: '/settings/sync' },
+    ],
+  },
+  {
     id: 'ai',
     title: 'Free AI or your own key',
     keywords: 'openrouter gemini claude openai groq api key free quota model sign in',

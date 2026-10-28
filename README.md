@@ -24,6 +24,9 @@ send what they need to the AI services you configure, and sync stores a copy in 
   in your own Google Drive — no server, nothing stored anywhere else. Pictures follow in a later update. See
   [ADR 0007](docs/adr/0007-sync-google-drive-appdata.md)
 - **Backup**: zip export / import (merge or replace)
+- **Word lists from other apps**: Import → *Import a word list* reads Anki (*Notes in Plain Text*), Pleco and Quizlet exports
+  and CSV/TSV files from a spreadsheet (UTF-8, UTF-16 or Big5), no AI needed: it guesses the columns, shows a preview and skips
+  words you already have. Settings → Sync & backup → *Export word list (TSV)* writes a file Anki and Pleco can import
 - **PWA**: installable on Android, works offline
 - **AI import from PDFs, photos or screenshots** (several images at once; rotate sideways pages; long screenshots
   are split automatically): pick pages → a vision model finds the vocabulary (and infers characters shown only as
