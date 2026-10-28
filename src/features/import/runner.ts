@@ -9,16 +9,19 @@ import {
   savePageResult,
 } from '@/data/repositories/imports'
 import { knownHanziSet } from '@/data/repositories/knownWords'
-import { createProvider } from '@/import/ai/createProvider'
+import { createProvider, serviceLabel } from '@/import/ai/createProvider'
 import { bytesToBase64 } from '@/import/ai/http'
 import { openRouterGenerationStats } from '@/import/ai/openrouterAuth'
+import { READING_TASK, VOCAB_TASK, type JsonTask } from '@/import/ai/prompt'
 import type { ProviderConfig, VisionProvider } from '@/import/ai/types'
-import { FatalExtractionError, runExtraction } from '@/import/extract/runExtraction'
+import { liveReply, type LiveWord } from '@/import/extract/partial'
+import { FatalExtractionError, runExtraction, type ExtractionEvent, type ExtractionStage } from '@/import/extract/runExtraction'
 import { loadSimplifiedDetector } from '@/import/extract/traditional'
 import { cropFromImage } from '@/import/pdf/crop'
 import type { ImportSource } from '@/import/source/types'
 import { finishRun, recordUsage, startRun as startUsageRun } from '@/lib/aiUsage'
 import { setBusy } from '@/lib/busy'
+import { recordPageTime, timingKey, typicalPageMs } from '@/lib/importTiming'
 import { finishTrace, startTrace, traceAttempt, tracePageEnd, tracePageStart, traceStats, traceWait } from '@/lib/importTrace'
 
 /**
@@ -29,14 +32,52 @@ export interface RunState {
   importId?: string
   phase: 'idle' | 'running' | 'waiting' | 'stopping'
   page?: number
+  /** "Page 3", or the file name of a photo. */
+  pageLabel?: string
+  pageStartedAt?: number
+  /** What is happening to the page (see ExtractionStage), and since when. */
+  stage?: ExtractionStage
+  stageSince?: number
+  /** The current try at the model, of `maxAttempts`. */
+  attempt?: number
+  maxAttempts?: number
+  /** Object URL of the image sent to the model; revoked when replaced and when the page ends. */
+  preview?: string
+  /** Reasoning tokens so far, when the service reports them or they can be estimated. */
+  reasoningTokens?: number
+  /** Words of the reply so far (hanzi and pinyin of its finished items), and how many items or sentences that is. */
+  liveItems?: LiveWord[]
+  liveCount?: number
+  /** Who reads the pages, for "Sent to …". */
+  service?: string
+  /** The usual time per page with this service and model, from earlier runs on this device. */
+  typicalPageMs?: number
   waitingUntil?: number
   waitReason?: string
   /** Error that stopped the last run (bad key, quota exhausted, …). */
   fatal?: string
 }
 
+/** Everything about the page being read, cleared between pages. */
+const NO_PAGE: Partial<RunState> = {
+  page: undefined,
+  pageLabel: undefined,
+  pageStartedAt: undefined,
+  stage: undefined,
+  stageSince: undefined,
+  attempt: undefined,
+  preview: undefined,
+  reasoningTokens: undefined,
+  liveItems: undefined,
+  liveCount: undefined,
+  waitingUntil: undefined,
+  waitReason: undefined,
+}
+
 let state: RunState = { phase: 'idle' }
 let controller: AbortController | undefined
+/** The blob behind `state.preview`. */
+let previewBlob: Blob | undefined
 const listeners = new Set<() => void>()
 /** Open sources (PDF or images) by import id; lost on reload (the user re-selects the files to continue). */
 const sources = new Map<string, ImportSource>()
@@ -44,6 +85,37 @@ const sources = new Map<string, ImportSource>()
 function set(next: Partial<RunState>) {
   state = { ...state, ...next }
   listeners.forEach((l) => l())
+}
+
+/** An object URL for the page image, made once per image. */
+function previewUrl(blob: Blob | undefined): string | undefined {
+  if (blob === previewBlob) return state.preview
+  if (state.preview) URL.revokeObjectURL(state.preview)
+  previewBlob = blob
+  return blob ? URL.createObjectURL(blob) : undefined
+}
+
+/** Follow the page's steps (streamed text becomes the "words so far"). */
+function onStage(e: Extract<ExtractionEvent, { type: 'page-stage' }>, task: JsonTask) {
+  const newTry = e.attempt !== state.attempt
+  const next: Partial<RunState> = {
+    phase: state.phase === 'stopping' ? 'stopping' : 'running',
+    stage: e.stage,
+    attempt: e.attempt,
+    waitingUntil: undefined,
+    waitReason: undefined,
+  }
+  if (e.stage !== state.stage) next.stageSince = Date.now()
+  if (e.preview) next.preview = previewUrl(e.preview)
+  // A new try starts from nothing.
+  if (newTry) Object.assign(next, { reasoningTokens: undefined, liveItems: undefined, liveCount: undefined })
+  if (e.reasoningTokens !== undefined) next.reasoningTokens = e.reasoningTokens
+  if ((e.stage === 'writing' || e.stage === 'checking') && e.text) {
+    const live = liveReply(e.text, task)
+    next.liveItems = live.words
+    next.liveCount = live.count
+  }
+  set(next)
 }
 
 export const runStore = {
@@ -89,11 +161,20 @@ export async function startRun(importId: string, config: ProviderConfig, provide
   if (state.phase !== 'idle') return
   controller = new AbortController()
   const signal = controller.signal
-  set({ importId, phase: 'running', page: undefined, fatal: undefined, waitingUntil: undefined })
+  // Real runs are traced step by step (Settings → AI usage) and timed for estimates; the demo isn't.
+  const traced = !provider
+  const timing = timingKey(config)
+  set({
+    ...NO_PAGE,
+    importId,
+    phase: 'running',
+    fatal: undefined,
+    service: provider ? 'the demo AI' : serviceLabel(config),
+    typicalPageMs: traced ? typicalPageMs(timing) : undefined,
+    maxAttempts: undefined,
+  })
   // A sign-in hop (full-page navigation) would stop the run.
   setBusy('import', true)
-  // Real runs are traced step by step (Settings → AI usage); the demo isn't.
-  const traced = !provider
   const openRouter = config.provider === 'openai-compatible' && config.baseUrl.includes('openrouter.ai')
   let stopped: string | undefined
 
@@ -111,6 +192,7 @@ export async function startRun(importId: string, config: ProviderConfig, provide
     const pending = pages.filter((p) => p.status === 'pending').map((p) => p.page)
     const rotation = new Map(pages.map((p) => [p.page, p.rotation ?? 0]))
     const labels = new Map(pages.map((p) => [p.page, p.label ?? `Page ${p.page}`]))
+    const task = record?.mode === 'reading' ? READING_TASK : VOCAB_TASK
     if (traced) {
       const where = config.provider === 'openai-compatible' ? config.baseUrl.replace(/^https?:\/\//, '') : config.provider
       startTrace({ fileName: record?.fileName ?? '', mode: record?.mode ?? 'vocabulary', service: `${where} · ${config.model}` })
@@ -134,13 +216,37 @@ export async function startRun(importId: string, config: ProviderConfig, provide
       },
       signal,
       onEvent: (e) => {
-        if (e.type === 'page-start') set({ phase: 'running', page: e.page, waitingUntil: undefined })
-        else if (e.type === 'waiting') set({ phase: 'waiting', waitingUntil: Date.now() + e.ms, waitReason: e.reason })
+        const label = labels.get(e.page) ?? `Page ${e.page}`
+        if (e.type === 'page-start') {
+          previewUrl(undefined)
+          set({ ...NO_PAGE, phase: state.phase === 'stopping' ? 'stopping' : 'running', page: e.page, pageLabel: label, pageStartedAt: Date.now() })
+        } else if (e.type === 'page-stage') {
+          onStage(e, task)
+        } else if (e.type === 'waiting') {
+          // The try that failed showed nothing worth keeping.
+          set({
+            ...(state.phase !== 'stopping' && { phase: 'waiting' as const }),
+            waitingUntil: Date.now() + e.ms,
+            waitReason: e.reason,
+            attempt: e.attempt,
+            maxAttempts: e.maxAttempts,
+            reasoningTokens: undefined,
+            liveItems: undefined,
+            liveCount: undefined,
+          })
+        } else {
+          if (e.type === 'page-done' && traced && state.pageStartedAt) {
+            recordPageTime(timing, Date.now() - state.pageStartedAt)
+            set({ typicalPageMs: typicalPageMs(timing) })
+          }
+          previewUrl(undefined)
+          set({ ...NO_PAGE })
+        }
         if (!traced) return
-        if (e.type === 'page-start') tracePageStart(e.page, labels.get(e.page) ?? `Page ${e.page}`)
+        if (e.type === 'page-start') tracePageStart(e.page, label)
         else if (e.type === 'waiting') traceWait(e.page, e.ms, e.reason)
         else if (e.type === 'page-done') tracePageEnd(e.page, { items: e.items })
-        else tracePageEnd(e.page, { error: e.message })
+        else if (e.type === 'page-error') tracePageEnd(e.page, { error: e.message })
       },
       onAttempt: traced
         ? (e) => {
@@ -163,7 +269,8 @@ export async function startRun(importId: string, config: ProviderConfig, provide
     if (!provider) finishRun()
     controller = undefined
     setBusy('import', false)
-    set({ phase: 'idle', page: undefined, waitingUntil: undefined })
+    previewUrl(undefined)
+    set({ ...NO_PAGE, phase: 'idle' })
   }
 }
 

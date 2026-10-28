@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { serviceLabel } from './createProvider'
 import { BOOK3_P20_REPLY } from './fixtures'
 import { createGeminiProvider, pickDefaultGeminiModel } from './gemini'
 import { bytesToBase64 } from './http'
@@ -233,6 +234,23 @@ ${READING_JSON_SHAPE}`)
     await expect(createOpenAICompatibleProvider({ baseUrl: base, apiKey: KEY, model: 'm', fetchImpl }).listModels()).rejects.toMatchObject({
       kind: 'network',
     })
+  })
+})
+
+describe('serviceLabel', () => {
+  const openai = (baseUrl: string, model = 'm') => ({ provider: 'openai-compatible' as const, baseUrl, apiKey: '', model })
+  it.each([
+    [{ provider: 'gemini' as const, baseUrl: '', apiKey: '', model: 'gemini-3.8-flash' }, 'Gemini'],
+    [{ provider: 'anthropic' as const, baseUrl: '', apiKey: '', model: 'claude-opus-5-5' }, 'Claude'],
+    [openai('https://openrouter.ai/api/v1', 'openrouter/free'), 'OpenRouter (free)'],
+    [openai('https://openrouter.ai/api/v1', 'google/gemma-4-31b-it'), 'OpenRouter'],
+    [openai('https://api.groq.com/openai/v1'), 'Groq'],
+    [openai('https://api.openai.com/v1'), 'OpenAI'],
+    [openai('http://127.0.0.1:8799/v1'), 'your local AI server'],
+    [openai('http://localhost:1234/v1'), 'your local AI server'],
+    [openai('https://llm.example.org/v1'), 'llm.example.org'],
+  ])('%o → %s', (config, label) => {
+    expect(serviceLabel(config)).toBe(label)
   })
 })
 

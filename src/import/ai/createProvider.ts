@@ -1,6 +1,7 @@
 import { createAnthropicProvider } from './anthropic'
 import { createGeminiProvider } from './gemini'
 import { createOpenAICompatibleProvider } from './openaiCompatible'
+import { FREE_ROUTER_MODEL } from './openrouterAuth'
 import type { FetchLike, ProviderConfig, VisionProvider } from './types'
 
 export function createProvider(config: ProviderConfig, fetchImpl?: FetchLike): VisionProvider {
@@ -12,6 +13,18 @@ export function createProvider(config: ProviderConfig, fetchImpl?: FetchLike): V
     case 'openai-compatible':
       return createOpenAICompatibleProvider({ baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model, fetchImpl })
   }
+}
+
+/** Who reads the pages, for "Sent to …": Gemini, Claude, OpenRouter (free), Groq, a local server… */
+export function serviceLabel(config: ProviderConfig): string {
+  if (config.provider === 'gemini') return 'Gemini'
+  if (config.provider === 'anthropic') return 'Claude'
+  const host = config.baseUrl.replace(/^https?:\/\//, '').split(/[/:]/)[0] ?? ''
+  if (host.endsWith('openrouter.ai')) return config.model === FREE_ROUTER_MODEL ? 'OpenRouter (free)' : 'OpenRouter'
+  if (host.endsWith('groq.com')) return 'Groq'
+  if (host.endsWith('openai.com')) return 'OpenAI'
+  if (/^(localhost|127\.0\.0\.1|\[)/.test(host)) return 'your local AI server'
+  return host || 'the AI service'
 }
 
 /** Missing pieces that prevent an import from starting. */

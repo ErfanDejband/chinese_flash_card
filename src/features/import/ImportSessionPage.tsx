@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import type { ImportDraftRecord, ImportPageRecord } from '@/data/db'
 import { listActiveCards } from '@/data/repositories/cards'
@@ -28,25 +28,29 @@ import { Button } from '@/ui/Button'
 import { plural } from '@/ui/format'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
+import { ProgressBar, type SegmentState } from '@/ui/ProgressBar'
 import { CropEditor } from './CropEditor'
 import { DraftCard } from './DraftCard'
+import { CurrentPage, LivePageGroup, TimeLeft } from './LiveProgress'
 import { formatPageRanges } from './pageRanges'
 import { attachSource, hasSource, isRunning, runStore, startRun, stopRun } from './runner'
 import { SentenceReader } from './SentenceReader'
 
 const pageLabel = (p: ImportPageRecord) => p.label ?? `Page ${p.page}`
 
-function useCountdown(until: number | undefined): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!until) return
-    const t = setInterval(() => setNow(Date.now()), 500)
-    return () => clearInterval(t)
-  }, [until])
-  return until ? Math.max(0, Math.ceil((until - now) / 1000)) : 0
-}
-
-function Progress({ importId, fileHash, pages, demo }: { importId: string; fileHash: string; pages: ImportPageRecord[]; demo: boolean }) {
+function Progress({
+  importId,
+  fileHash,
+  pages,
+  demo,
+  reading,
+}: {
+  importId: string
+  fileHash: string
+  pages: ImportPageRecord[]
+  demo: boolean
+  reading: boolean
+}) {
   const run = useSyncExternalStore(runStore.subscribe, runStore.get)
   const config = activeProviderConfig(useAiSettings())
   // The demo answers itself: no AI settings needed.
@@ -54,7 +58,6 @@ function Progress({ importId, fileHash, pages, demo }: { importId: string; fileH
   const fileInput = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string>()
   const running = isRunning(importId)
-  const seconds = useCountdown(running && run.phase === 'waiting' ? run.waitingUntil : undefined)
   const usage = useSyncExternalStore(subscribeUsage, getUsage)
   const runUsage = usage.lastRun?.importId === importId ? usage.lastRun : undefined
 
@@ -62,6 +65,9 @@ function Progress({ importId, fileHash, pages, demo }: { importId: string; fileH
   const failed = pages.filter((p) => p.status === 'error')
   const remaining = pages.filter((p) => p.status === 'pending' || (p.status === 'running' && !running)).length
   const total = pages.length
+  const segments = pages.map((p): SegmentState =>
+    p.status === 'done' ? 'done' : p.status === 'error' ? 'failed' : running && p.page === run.page ? 'current' : 'pending',
+  )
 
   async function resume(retryFailed: boolean) {
     setError(undefined)
@@ -98,33 +104,31 @@ function Progress({ importId, fileHash, pages, demo }: { importId: string; fileH
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <span className="font-semibold">
           {done} of {plural(total, 'page')} read
+          {running && <TimeLeft run={run} pagesWaiting={pages.filter((p) => p.status === 'pending').length} />}
         </span>
-        {failed.length > 0 && <span className="text-sm text-red-600">{failed.length} failed</span>}
+        {failed.length > 0 && <span className="shrink-0 text-sm text-red-600 dark:text-red-400">{failed.length} failed</span>}
       </div>
-      <div className="mb-3 h-2 overflow-hidden rounded-full bg-sunken">
-        <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
-      </div>
+      <ProgressBar
+        segments={segments}
+        label="Pages read"
+        valueText={`${done} of ${plural(total, 'page')} read${failed.length > 0 ? `, ${failed.length} failed` : ''}`}
+        className="mb-3"
+      />
       {runUsage && runUsage.requests > 0 && <p className="-mt-1 mb-3 text-xs text-muted">AI usage: {usageLine(runUsage)}</p>}
 
       {running ? (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-muted">
-              {run.phase === 'waiting'
-                ? `Page ${run.page}: ${run.waitReason === 'rate limit' ? 'rate limit reached' : 'retrying'}, trying again in ${seconds} s…`
-                : run.phase === 'stopping'
-                  ? 'Stopping after this step…'
-                  : `Reading page ${run.page ?? '…'}…`}
-            </p>
+          <CurrentPage run={run} reading={reading} />
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted">Keep the app open: phones pause apps in the background.</p>
             <Button size="sm" variant="secondary" onClick={stopRun} disabled={run.phase === 'stopping'}>
               Pause
             </Button>
           </div>
-          <p className="mt-1 text-xs text-muted">Keep the app open: phones pause apps in the background.</p>
         </>
       ) : (
         <div className="flex flex-col gap-2">
-          {run.importId === importId && run.fatal && <p className="text-sm text-red-600">Stopped: {run.fatal}</p>}
+          {run.importId === importId && run.fatal && <p className="text-sm text-red-600 dark:text-red-400">Stopped: {run.fatal}</p>}
           {problems.length > 0 && (remaining > 0 || failed.length > 0) && (
             <p className="text-sm text-amber-700 dark:text-amber-400">
               AI not ready: {problems.join(' ')} <Link to="/settings/ai" className="underline">Settings</Link>
@@ -159,7 +163,7 @@ function Progress({ importId, fileHash, pages, demo }: { importId: string; fileH
           </ul>
         </details>
       )}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
       <input
         ref={fileInput}
         type="file"
@@ -237,6 +241,13 @@ function ReadingGroup({
       )}
     </section>
   )
+}
+
+/** The page being read, at the end of the list: placeholder cards until its drafts are saved. */
+function LiveGroup({ importId, shown, reading, nothingYet }: { importId: string; shown: ReadonlySet<number>; reading: boolean; nothingYet: boolean }) {
+  const run = useSyncExternalStore(runStore.subscribe, runStore.get)
+  if (run.importId === importId && run.page !== undefined && !shown.has(run.page)) return <LivePageGroup run={run} reading={reading} />
+  return nothingYet ? <p className="py-8 text-center text-muted">Cards appear here as pages are read.</p> : null
 }
 
 /** After "Add cards": offer pictures for the new cards that have none (e.g. words from a reading page). */
@@ -335,7 +346,7 @@ export function ImportSessionPage() {
   return (
     <>
       <PageHeader title="Review import" subtitle={record.demo ? 'Sample page · ready-made answers, no AI' : record.fileName} back="/import" />
-      <Progress importId={importId} fileHash={record.fileHash} pages={pages} demo={record.demo === true} />
+      <Progress importId={importId} fileHash={record.fileHash} pages={pages} demo={record.demo === true} reading={reading} />
       {drafts.length > 0 && <Tip id="import-drafts" className="mb-4" />}
 
       {reading && readingPages.length > 0 ? (
@@ -347,12 +358,20 @@ export function ImportSessionPage() {
             <ReadingGroup key={p.id} page={p} drafts={byPage.get(p.page) ?? []} allDrafts={byHanzi} existing={existing} />
           ))}
         </>
-      ) : drafts.length === 0 ? (
-        <p className="py-8 text-center text-muted">{running ? 'Cards appear here as pages are read.' : 'No vocabulary found yet.'}</p>
-      ) : (
+      ) : drafts.length > 0 ? (
         [...byPage.entries()].map(([page, list]) => (
           <PageGroup key={page} label={labelOf.get(page) ?? `Page ${page}`} drafts={list} onEditImage={setEditing} />
         ))
+      ) : (
+        !running && <p className="py-8 text-center text-muted">No vocabulary found yet.</p>
+      )}
+      {running && (
+        <LiveGroup
+          importId={importId}
+          shown={new Set(reading ? readingPages.map((p) => p.page) : byPage.keys())}
+          reading={reading}
+          nothingYet={drafts.length === 0 && readingPages.length === 0}
+        />
       )}
       {empty.length > 0 && <p className="mb-6 text-sm text-muted">Nothing to learn on {emptyText}.</p>}
 

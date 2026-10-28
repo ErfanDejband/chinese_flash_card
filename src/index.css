@@ -25,6 +25,17 @@
       transform: translateY(8px);
     }
   }
+
+  /* A light band sweeping across something that is loading (ui/Skeleton, the current page in ui/ProgressBar). */
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  @keyframes shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
 }
 
 :root.dark {

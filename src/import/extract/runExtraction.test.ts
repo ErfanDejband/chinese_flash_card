@@ -94,7 +94,59 @@ describe('runExtraction', () => {
     const t = setup([new ProviderError('rate-limit', 'slow down', { retryAfterMs: 5000 }), BOOK3_P20_REPLY])
     await runExtraction([20], t.deps)
     expect(t.sleeps).toEqual([5250])
-    expect(t.events.map((e) => e.type)).toEqual(['page-start', 'waiting', 'page-done'])
+    expect(t.events.filter((e) => e.type !== 'page-stage').map((e) => e.type)).toEqual(['page-start', 'waiting', 'page-done'])
+  })
+
+  it('reports each step of a page, and the try after a wait (sending again ends the wait)', async () => {
+    const t = setup(['not json', new ProviderError('server', 'oops', { status: 502 }), BOOK3_P20_REPLY])
+    await runExtraction([20], t.deps)
+    const steps = t.events.map((e) =>
+      e.type === 'page-stage' ? `${e.stage} ${e.attempt}` : e.type === 'waiting' ? `wait → ${e.attempt} of ${e.maxAttempts}` : e.type,
+    )
+    expect(steps).toEqual([
+      'page-start',
+      'preparing 1',
+      'sending 1',
+      'checking 1',
+      'wait → 2 of 4',
+      'sending 2',
+      'wait → 3 of 4',
+      'sending 3',
+      'checking 3',
+      'saving 3',
+      'page-done',
+    ])
+    const sent = t.events.filter((e) => e.type === 'page-stage' && e.stage === 'sending')
+    expect(sent.every((e) => e.type === 'page-stage' && e.preview?.type === 'image/jpeg')).toBe(true)
+  })
+
+  it('streams the reply when someone follows the events, a few updates a second at most', async () => {
+    const t = setup([])
+    t.deps.provider = {
+      label: 'streaming',
+      listModels: async () => [],
+      extractPage: async (req) => {
+        for (let i = 1; i <= 50; i++) req.onProgress?.({ phase: 'thinking', reasoningTokens: i * 10, text: '' })
+        for (let i = 1; i <= 50; i++) req.onProgress?.({ phase: 'writing', reasoningTokens: 500, text: BOOK3_P20_REPLY.slice(0, i) })
+        return { text: BOOK3_P20_REPLY, model: 'fake-model' }
+      },
+    }
+    await runExtraction([20], t.deps)
+    const streamed = t.events.filter((e) => e.type === 'page-stage' && (e.stage === 'thinking' || e.stage === 'writing'))
+    // Within the same 200 ms only a new phase goes through.
+    expect(streamed).toEqual([
+      { type: 'page-stage', page: 20, stage: 'thinking', attempt: 1, reasoningTokens: 10, text: '' },
+      { type: 'page-stage', page: 20, stage: 'writing', attempt: 1, reasoningTokens: 500, text: BOOK3_P20_REPLY.slice(0, 1) },
+    ])
+  })
+
+  it('asks for a streamed reply only when someone follows the events', async () => {
+    const followed = setup([BOOK3_P20_REPLY])
+    await runExtraction([20], followed.deps)
+    expect(followed.requests[0]!.onProgress).toBeTypeOf('function')
+    const unfollowed = setup([BOOK3_P20_REPLY], { onEvent: undefined })
+    await runExtraction([20], unfollowed.deps)
+    expect(unfollowed.requests[0]!.onProgress).toBeUndefined()
   })
 
   it('reports every attempt, failed requests and malformed replies included', async () => {

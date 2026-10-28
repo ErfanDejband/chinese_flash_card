@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { parseModelJson, validateItems } from '../ai/parse'
+import type { StreamProgress } from '../ai/types'
 import { postprocess } from '../extract/postprocess'
 import { loadSimplifiedDetector } from '../extract/traditional'
-import { createDemoProvider } from './demoProvider'
-import { SAMPLE_ITEMS, samplePictureBox } from './samplePage'
+import { createDemoProvider, DEMO_MODEL } from './demoProvider'
+import { SAMPLE_ITEMS, sampleReply, samplePictureBox } from './samplePage'
 
 async function demoDrafts() {
   const response = await createDemoProvider(0).extractPage({ textHint: '' })
@@ -38,6 +39,30 @@ describe('import demo', () => {
     const controller = new AbortController()
     const pending = createDemoProvider(10_000).extractPage({ textHint: '', signal: controller.signal })
     controller.abort(new DOMException('Stopped by the user', 'AbortError'))
+    await expect(pending).rejects.toThrow('Stopped by the user')
+  })
+
+  it('acts like a streaming model when progress is followed: thinking with a rising count, then the reply in pieces', async () => {
+    const progress: StreamProgress[] = []
+    const response = await createDemoProvider(0).extractPage({ textHint: '', onProgress: (p) => progress.push(p) })
+    expect(response).toEqual({ text: sampleReply(), model: DEMO_MODEL })
+    const thinking = progress.filter((p) => p.phase === 'thinking')
+    const writing = progress.filter((p) => p.phase === 'writing')
+    expect(progress.indexOf(writing[0]!)).toBe(thinking.length)
+    const counts = thinking.map((p) => p.reasoningTokens ?? 0)
+    expect(counts).toEqual([...counts].sort((a, b) => a - b))
+    expect(counts.at(-1)).toBeGreaterThan(0)
+    writing.forEach((p, i) => i > 0 && expect(p.text.startsWith(writing[i - 1]!.text)).toBe(true))
+    expect(writing.at(-1)!.text).toBe(sampleReply())
+  })
+
+  it('stops streaming when the run is paused', async () => {
+    const controller = new AbortController()
+    const pending = createDemoProvider(10_000).extractPage({
+      textHint: '',
+      signal: controller.signal,
+      onProgress: () => controller.abort(new DOMException('Stopped by the user', 'AbortError')),
+    })
     await expect(pending).rejects.toThrow('Stopped by the user')
   })
 })
