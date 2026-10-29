@@ -16,8 +16,23 @@ export interface DetectRun {
   dtype: string
   ms: number
   candidates: number
-  shown: number
-  threshold: number
+  /** Boxes offered on the photo, and big things listed apart. */
+  suggested: number
+  big: number
+  /** The best score: near 0 means this setup's numbers are broken on the device (fp16 on some GPUs). */
+  best: number
+}
+
+/** One setup measured by the lab's benchmark on the same photo. */
+export interface BenchmarkRow {
+  backend: string
+  dtype: string
+  load?: LoadReport
+  /** Detection times in order: the first includes warm-up. */
+  times: number[]
+  suggested: number
+  best: number
+  error?: string
 }
 
 /** Everything the objects lab measured in one session, for the copyable report. */
@@ -28,7 +43,9 @@ export interface LabReport {
   loads: LoadReport[]
   photo?: { width: number; height: number }
   detects: DetectRun[]
-  selection?: { detector: number; tapped: number; drawn: number }
+  /** How each chosen object was picked; `adjusted` counts boxes moved afterwards. */
+  selection?: { detector: number; big: number; tapped: number; empty: number; drawn: number; adjusted: number }
+  benchmark?: BenchmarkRow[]
   naming?: AiRun & { mosaic: { width: number; height: number }; names: string[] }
   findAll?: AiRun & { image: { width: number; height: number }; found: string[] }
 }
@@ -54,11 +71,25 @@ export function reportText(r: LabReport): string {
   }
   if (r.photo) lines.push(`Photo: ${r.photo.width}×${r.photo.height}`)
   for (const d of r.detects) {
-    lines.push(`Detect: ${d.ms} ms on ${d.backend} (${d.dtype}) · ${d.shown} shown at ≥ ${d.threshold} · ${d.candidates} candidates`)
+    lines.push(`Detect: ${d.ms} ms on ${d.backend} (${d.dtype}) · ${d.suggested} suggested + ${d.big} big · best ${d.best.toFixed(2)} · ${d.candidates} candidates`)
+  }
+  if (r.benchmark?.length) {
+    lines.push('Benchmark (same photo):')
+    for (const b of r.benchmark) {
+      if (b.error) {
+        lines.push(`  ${b.backend} ${b.dtype}: failed (${b.error})`)
+        continue
+      }
+      const load = b.load ? `load ${seconds(b.load.ms)}${b.load.cached ? ' (cache)' : ` (${mb(b.load.bytes)})`} · ` : ''
+      lines.push(`  ${b.backend} ${b.dtype}: ${load}detect ${b.times.join(' / ')} ms · ${b.suggested} suggested · best ${b.best.toFixed(2)}`)
+    }
   }
   if (r.selection) {
     const s = r.selection
-    lines.push(`Chosen: ${s.detector + s.tapped + s.drawn} (${s.detector} from boxes, ${s.tapped} by tapping, ${s.drawn} drawn)`)
+    const total = s.detector + s.big + s.tapped + s.empty + s.drawn
+    lines.push(
+      `Chosen: ${total} (${s.detector} suggested, ${s.big} big, ${s.tapped} tapped weaker guesses, ${s.empty} tapped empty spots, ${s.drawn} drawn; ${s.adjusted} adjusted)`,
+    )
   }
   if (r.naming) {
     lines.push(`Name with AI (mosaic ${r.naming.mosaic.width}×${r.naming.mosaic.height}): ${aiLine(r.naming)}`)

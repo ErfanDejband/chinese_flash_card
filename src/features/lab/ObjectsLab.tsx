@@ -13,14 +13,16 @@ import { versionLabel } from '@/lib/appBuild'
 import { BoxEditor } from '@/ui/BoxEditor'
 import { Button } from '@/ui/Button'
 import { PageHeader } from '@/ui/PageHeader'
-import { area, iou, pickAt, visibleDetections, type Detection } from '@/vision/detections'
+import { area, defaultBoxAt, iou, pickAt, suggestObjects, visibleDetections, type Detection } from '@/vision/detections'
 import { loadDetector, webGpuInfo, type Detector, type DetectorBackend, type DetectorDtype, type GpuInfo } from '@/vision/detector'
 import { drawMosaic, MOSAIC_MAX, mosaicLayout } from '@/vision/mosaic'
-import { reportText, type AiRun, type LabReport } from '@/vision/report'
+import { reportText, type AiRun, type BenchmarkRow, type LabReport } from '@/vision/report'
 import { nameInput, OBJECT_FIND_TASK, OBJECT_NAME_TASK, validateFound, validateNames, type FoundObject, type NamedObject } from '@/vision/tasks'
 
 /** Long side of the photo the lab works on (the import sends the same size to the AI). */
 const PHOTO_SIZE = 1536
+/** Boxes covering more of the photo than this are "big things" (desk, TV): chips, not boxes. */
+const BIG_AREA = 0.35
 
 interface Photo {
   canvas: HTMLCanvasElement
@@ -29,19 +31,31 @@ interface Photo {
   key: string
 }
 
+type Source = 'detector' | 'big' | 'tapped' | 'empty' | 'drawn'
+
 interface Chosen {
   box: NormBox
   /** The detector's guess, sent to the AI as a hint. */
   label?: string
-  source: 'detector' | 'tapped' | 'drawn'
+  source: Source
+  adjusted?: boolean
+}
+
+const SOURCE_TEXT: Record<Source, string> = {
+  detector: 'suggested',
+  big: 'big thing',
+  tapped: 'tapped',
+  empty: 'tapped spot',
+  drawn: 'drawn',
 }
 
 const selectClass = 'h-10 rounded-xl border border-line bg-paper px-2 text-sm outline-none focus:border-accent'
 const sectionClass = 'mb-4 rounded-3xl border border-line bg-surface p-4'
 
 const boxStyle = (b: NormBox) => ({ top: `${b[0] / 10}%`, left: `${b[1] / 10}%`, height: `${(b[2] - b[0]) / 10}%`, width: `${(b[3] - b[1]) / 10}%` })
-
 const contains = (b: NormBox, x: number, y: number) => y >= b[0] && y <= b[2] && x >= b[1] && x <= b[3]
+const backendName = (b: DetectorBackend) => (b === 'webgpu' ? 'WebGPU' : 'WASM (CPU)')
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 /**
  * Test page for the coming camera tab (/lab/objects, not in the menu): detect objects in a photo on
@@ -53,21 +67,23 @@ export function ObjectsLab() {
   const [backend, setBackend] = useState<'auto' | DetectorBackend>('auto')
   const [dtype, setDtype] = useState<'auto' | DetectorDtype>('auto')
   const [detector, setDetector] = useState<Detector>()
-  const [loaded, setLoaded] = useState<string>()
   const [loading, setLoading] = useState<{ loaded: number; total: number }>()
   const [error, setError] = useState<string>()
   const [photo, setPhoto] = useState<Photo>()
   const [all, setAll] = useState<Detection[]>([])
   const [detecting, setDetecting] = useState(false)
-  const [threshold, setThreshold] = useState(0.35)
+  const [threshold, setThreshold] = useState<number>()
+  const [showLabels, setShowLabels] = useState(false)
   const [chosen, setChosen] = useState<Chosen[]>([])
-  const [drawing, setDrawing] = useState(false)
+  // The box being edited: an index into `chosen`, or 'new' for a drawn one.
+  const [editing, setEditing] = useState<number | 'new'>()
   const [note, setNote] = useState<string>()
   const [mosaicUrl, setMosaicUrl] = useState<string>()
   const [names, setNames] = useState<Map<number, NamedObject>>()
   const [found, setFound] = useState<FoundObject[]>()
   const [showFound, setShowFound] = useState(true)
   const [busy, setBusy] = useState<'name' | 'find'>()
+  const [benchmarking, setBenchmarking] = useState<string>()
   const [report, setReport] = useState<LabReport>({ build: versionLabel(), userAgent: navigator.userAgent, webgpu: { available: false }, loads: [], detects: [] })
   const [copied, setCopied] = useState(false)
   const camera = useRef<HTMLInputElement>(null)
@@ -77,7 +93,9 @@ export function ObjectsLab() {
   const config = activeProviderConfig(getAiSettings())
   const aiProblems = configProblems(config)
   const service = serviceLabel(config)
-  const visible = visibleDetections(all, threshold)
+  const suggestions = suggestObjects(all, { bigArea: BIG_AREA })
+  const shown = threshold === undefined ? suggestions.small : visibleDetections(all, threshold).filter((d) => area(d.box) <= BIG_AREA)
+  const best = all[0]?.score ?? 0
 
   useEffect(() => {
     void webGpuInfo().then((info) => {
@@ -89,14 +107,12 @@ export function ObjectsLab() {
 
   // The model holds GPU/WASM memory: free it when it is replaced or the page closes.
   useEffect(() => () => void detector?.dispose(), [detector])
-
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   useEffect(() => () => void (mosaicUrl && URL.revokeObjectURL(mosaicUrl)), [mosaicUrl])
 
   const chosenBackend: DetectorBackend = backend === 'auto' ? (gpu?.available ? 'webgpu' : 'wasm') : backend
-  // fp16 suits a GPU that has half-precision shaders (fp32 otherwise); the quantised model is
-  // smaller and quicker on the CPU.
-  const autoDtype: DetectorDtype = chosenBackend === 'webgpu' ? (gpu?.fp16 ? 'fp16' : 'fp32') : 'q8'
+  // fp16 gave no detections at all on an Adreno GPU (2026-10-29), so Auto never picks it.
+  const autoDtype: DetectorDtype = chosenBackend === 'webgpu' ? 'fp32' : 'q8'
   const chosenDtype: DetectorDtype = dtype === 'auto' ? autoDtype : dtype
 
   async function detect(d: Detector, p: Photo) {
@@ -105,31 +121,66 @@ export function ObjectsLab() {
     try {
       const result = await d.detect(p.canvas)
       setAll(result.detections)
-      const shown = visibleDetections(result.detections, threshold).length
-      setReport((r) => ({ ...r, detects: [...r.detects, { backend: d.backend, dtype: d.dtype, ms: result.ms, candidates: result.detections.length, shown, threshold }] }))
+      const s = suggestObjects(result.detections, { bigArea: BIG_AREA })
+      const run = { backend: d.backend, dtype: d.dtype, ms: result.ms, candidates: result.detections.length, suggested: s.small.length, big: s.big.length, best: result.detections[0]?.score ?? 0 }
+      setReport((r) => ({ ...r, detects: [...r.detects, run] }))
     } catch (e) {
-      setError(`Detection failed: ${e instanceof Error ? e.message : String(e)}`)
+      setError(`Detection failed: ${message(e)}`)
     } finally {
       setDetecting(false)
     }
   }
 
-  async function load() {
+  async function load(target: { backend: DetectorBackend; dtype: DetectorDtype } = { backend: chosenBackend, dtype: chosenDtype }) {
     setError(undefined)
     setLoading({ loaded: 0, total: 0 })
     try {
       setDetector(undefined)
-      setLoaded(undefined)
-      const { detector: d, report: r } = await loadDetector(chosenBackend, chosenDtype, (l, t) => setLoading({ loaded: l, total: t }))
+      const { detector: d, report: r } = await loadDetector(target.backend, target.dtype, (l, t) => setLoading({ loaded: l, total: t }))
       setDetector(d)
-      setLoaded(`${d.dtype} on ${d.backend === 'webgpu' ? 'WebGPU' : 'WASM (CPU)'}`)
       setReport((rep) => ({ ...rep, loads: [...rep.loads, r] }))
       if (photo) await detect(d, photo)
     } catch (e) {
-      setError(`Loading the model failed: ${e instanceof Error ? e.message : String(e)}`)
+      setError(`Loading the model failed: ${message(e)}`)
     } finally {
       setLoading(undefined)
     }
+  }
+
+  /** Every setup on the current photo: load, then 3 detections (the first includes warm-up). */
+  async function benchmark() {
+    if (!photo) return
+    setError(undefined)
+    setDetector(undefined)
+    const setups: (readonly [DetectorBackend, DetectorDtype])[] = [
+      ...(gpu?.available ? ([['webgpu', 'fp32'], ['webgpu', 'q8']] as const) : []),
+      ['wasm', 'q8'],
+      ['wasm', 'fp32'],
+    ]
+    const rows: BenchmarkRow[] = []
+    for (const [i, [b, d]] of setups.entries()) {
+      setBenchmarking(`${backendName(b)} ${d} (${i + 1} of ${setups.length})…`)
+      let tested: Detector | undefined
+      try {
+        const { detector: det, report: loadReport } = await loadDetector(b, d)
+        tested = det
+        const times: number[] = []
+        let last: Detection[] = []
+        for (let k = 0; k < 3; k++) {
+          const result = await det.detect(photo.canvas)
+          times.push(result.ms)
+          last = result.detections
+        }
+        rows.push({ backend: b, dtype: d, load: loadReport, times, suggested: suggestObjects(last, { bigArea: BIG_AREA }).small.length, best: last[0]?.score ?? 0 })
+      } catch (e) {
+        rows.push({ backend: b, dtype: d, times: [], suggested: 0, best: 0, error: message(e) })
+      } finally {
+        await tested?.dispose()
+      }
+      setReport((r) => ({ ...r, benchmark: [...rows] }))
+    }
+    setBenchmarking(undefined)
+    await load()
   }
 
   async function onFile(file: File | undefined) {
@@ -151,7 +202,7 @@ export function ObjectsLab() {
       setNames(undefined)
       setFound(undefined)
       setMosaicUrl(undefined)
-      setReport((r) => ({ ...r, photo: { width: canvas.width, height: canvas.height }, selection: undefined, naming: undefined, findAll: undefined }))
+      setReport((r) => ({ ...r, photo: { width: canvas.width, height: canvas.height }, selection: undefined, naming: undefined, findAll: undefined, benchmark: undefined }))
       if (detector) await detect(detector, next)
     } catch {
       setError('This photo could not be read (HEIC photos need a browser that can open them).')
@@ -161,29 +212,37 @@ export function ObjectsLab() {
   function choose(next: Chosen[]) {
     setChosen(next)
     setNames(undefined)
-    const count = (s: Chosen['source']) => next.filter((c) => c.source === s).length
-    setReport((r) => ({ ...r, selection: { detector: count('detector'), tapped: count('tapped'), drawn: count('drawn') } }))
+    const count = (s: Source) => next.filter((c) => c.source === s).length
+    const selection = { detector: count('detector'), big: count('big'), tapped: count('tapped'), empty: count('empty'), drawn: count('drawn'), adjusted: next.filter((c) => c.adjusted).length }
+    setReport((r) => ({ ...r, selection }))
+  }
+
+  const isChosen = (b: NormBox) => chosen.some((c) => iou(c.box, b) > 0.8)
+
+  function add(items: Chosen[]) {
+    const room = MOSAIC_MAX - chosen.length
+    if (room <= 0) return setNote(`One mosaic holds up to ${MOSAIC_MAX} objects.`)
+    choose([...chosen, ...items.slice(0, room)])
   }
 
   function onTap(e: MouseEvent<HTMLDivElement>) {
+    if (!photo) return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 1000
     const y = ((e.clientY - rect.top) / rect.height) * 1000
     setNote(undefined)
-    // Whatever is smallest under the finger wins: a chosen box (tap = drop it), a drawn box, or
-    // one of the detector's weaker guesses. So a tap on a remote inside a chosen cat adds the remote.
-    const isChosen = (b: NormBox) => chosen.some((c) => iou(c.box, b) > 0.8)
-    const weak = pickAt(all, x, y)
+    // Whatever is smallest under the finger wins: a chosen box (tap = drop it), a suggested box,
+    // or one of the detector's weaker guesses. So a tap on a remote inside a chosen cat adds the remote.
+    const weak = pickAt(all, x, y, undefined, BIG_AREA)
     const options: { box: NormBox; drop?: Chosen; add?: Chosen }[] = [
       ...chosen.filter((c) => contains(c.box, x, y)).map((c) => ({ box: c.box, drop: c })),
-      ...visible.filter((d) => contains(d.box, x, y) && !isChosen(d.box)).map((d) => ({ box: d.box, add: { box: d.box, label: d.label, source: 'detector' as const } })),
-      ...(weak && !isChosen(weak.box) && !visible.includes(weak) ? [{ box: weak.box, add: { box: weak.box, label: weak.label, source: 'tapped' as const } }] : []),
+      ...shown.filter((d) => contains(d.box, x, y) && !isChosen(d.box)).map((d) => ({ box: d.box, add: { box: d.box, label: d.label, source: 'detector' as const } })),
+      ...(weak && !isChosen(weak.box) && !shown.includes(weak) ? [{ box: weak.box, add: { box: weak.box, label: weak.label, source: 'tapped' as const } }] : []),
     ]
     const target = options.sort((a, b) => area(a.box) - area(b.box))[0]
     if (target?.drop) return choose(chosen.filter((c) => c !== target.drop))
-    if (!target?.add) return setNote(all.length ? 'Nothing found there: draw a box around it instead.' : 'Load the model first, or draw a box.')
-    if (chosen.length >= MOSAIC_MAX) return setNote(`One mosaic holds up to ${MOSAIC_MAX} objects.`)
-    choose([...chosen, target.add])
+    // Nothing there: a box around the finger, to adjust if needed.
+    add([target?.add ?? { box: defaultBoxAt(x, y, photo.canvas.width / photo.canvas.height), source: 'empty' }])
   }
 
   async function ask(task: JsonTask, image: Blob, textHint: string): Promise<{ res?: PageResponse; run: AiRun }> {
@@ -202,7 +261,7 @@ export function ObjectsLab() {
       const run = { service, model: res.model || config.model, ms: Math.round(performance.now() - started), inputTokens: res.usage?.inputTokens, outputTokens: res.usage?.outputTokens, costUsd: res.usage?.costUsd }
       return { res, run }
     } catch (e) {
-      return { run: { service, model: config.model, ms: Math.round(performance.now() - started), error: e instanceof Error ? e.message : String(e) } }
+      return { run: { service, model: config.model, ms: Math.round(performance.now() - started), error: message(e) } }
     }
   }
 
@@ -219,12 +278,13 @@ export function ObjectsLab() {
       try {
         const named = validateNames(parseModelJson(res.text), chosen.length)
         setNames(named)
-        list = chosen.map((_, i) => {
+        list = chosen.map((c, i) => {
           const n = named.get(i + 1)
-          return n ? `${i + 1} ${n.hanzi || '?'} ${n.pinyin} ${n.meaning} (${n.confidence})` : `${i + 1} (no answer)`
+          const hint = c.label ? ` [detector: ${c.label}]` : ''
+          return n ? `${i + 1} ${n.hanzi || '?'} ${n.pinyin} ${n.meaning} (${n.confidence})${hint}` : `${i + 1} (no answer)${hint}`
         })
       } catch (e) {
-        run.error = e instanceof Error ? e.message : 'unreadable reply'
+        run.error = message(e)
       }
     }
     setReport((r) => ({ ...r, naming: { ...run, mosaic: { width: mosaic.width, height: mosaic.height }, names: list } }))
@@ -242,7 +302,7 @@ export function ObjectsLab() {
         objects = validateFound(parseModelJson(res.text))
         setFound(objects)
       } catch (e) {
-        run.error = e instanceof Error ? e.message : 'unreadable reply'
+        run.error = message(e)
       }
     }
     const image = { width: photo.canvas.width, height: photo.canvas.height }
@@ -251,6 +311,8 @@ export function ObjectsLab() {
   }
 
   const text = reportText(report)
+  const loaded = detector && `${detector.dtype} on ${backendName(detector.backend)}`
+  const lastRun = report.detects.at(-1)
 
   return (
     <div>
@@ -259,7 +321,7 @@ export function ObjectsLab() {
       <section className={sectionClass}>
         <h2 className="mb-1 font-semibold">1 · Object detector on this device</h2>
         <p className="mb-3 text-sm text-muted">
-          D-FINE-S (365 kinds of everyday things). The first load downloads 15–45 MB from Hugging Face and jsDelivr; later loads come from the browser cache.
+          D-FINE-S (365 kinds of everyday things). The first load downloads 11–45 MB from Hugging Face and jsDelivr; later loads come from the browser cache.
           WebGPU: {gpu === undefined ? 'checking…' : gpu.available ? `yes${gpu.adapter ? ` (${gpu.adapter})` : ''}${gpu.fp16 ? ', fp16' : ', no fp16'}` : 'not available'}.
         </p>
         <div className="flex flex-wrap items-center gap-2">
@@ -272,11 +334,11 @@ export function ObjectsLab() {
             <option value="auto">Auto ({autoDtype === 'q8' ? 'int8' : autoDtype})</option>
             <option value="q8">int8 · 11 MB</option>
             <option value="fp16" disabled={chosenBackend === 'webgpu' && gpu?.fp16 === false}>
-              fp16 · 21 MB
+              fp16 · 21 MB (broken on some phones)
             </option>
             <option value="fp32">fp32 · 42 MB</option>
           </select>
-          <Button size="sm" onClick={() => void load()} disabled={Boolean(loading)}>
+          <Button size="sm" onClick={() => void load()} disabled={Boolean(loading) || Boolean(benchmarking)}>
             {loaded ? 'Load again' : 'Load the model'}
           </Button>
         </div>
@@ -289,6 +351,11 @@ export function ObjectsLab() {
           </div>
         )}
         {loaded && !loading && <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">Loaded: {loaded}.</p>}
+        {lastRun && lastRun.best < 0.1 && (
+          <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+            This setting found nothing on this device (fp16 does this on some phones). Try fp32 or int8.
+          </p>
+        )}
       </section>
 
       <section className={sectionClass}>
@@ -301,7 +368,7 @@ export function ObjectsLab() {
             Choose a photo
           </Button>
           {photo && (
-            <Button size="sm" variant="ghost" onClick={() => detector && void detect(detector, photo)} disabled={!detector || detecting}>
+            <Button size="sm" variant="ghost" onClick={() => detector && void detect(detector, photo)} disabled={!detector || detecting || Boolean(benchmarking)}>
               Detect again
             </Button>
           )}
@@ -313,11 +380,13 @@ export function ObjectsLab() {
           <>
             <div className="relative mt-3 cursor-crosshair touch-manipulation overflow-hidden rounded-xl" onClick={onTap}>
               <img src={photo.url} alt="Your photo" className="block w-full select-none" draggable={false} />
-              {visible.map((d, i) => (
-                <div key={`d${i}`} className="pointer-events-none absolute border border-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.5)]" style={boxStyle(d.box)}>
-                  <span className="absolute top-0 left-0 bg-black/60 px-1 text-[10px] leading-4 text-white">{d.label}</span>
-                </div>
-              ))}
+              {shown
+                .filter((d) => !isChosen(d.box))
+                .map((d, i) => (
+                  <div key={`d${i}`} className="pointer-events-none absolute rounded-md border-2 border-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.45)]" style={boxStyle(d.box)}>
+                    {showLabels && <span className="absolute top-0 left-0 bg-black/60 px-1 text-[10px] leading-4 text-white">{d.label}</span>}
+                  </div>
+                ))}
               {showFound &&
                 found?.map((f, i) => (
                   <div key={`f${i}`} className="pointer-events-none absolute border-2 border-dashed border-sky-400" style={boxStyle(f.box)}>
@@ -325,26 +394,98 @@ export function ObjectsLab() {
                   </div>
                 ))}
               {chosen.map((c, i) => (
-                <div key={`c${i}`} className="pointer-events-none absolute border-[3px] border-accent" style={boxStyle(c.box)}>
-                  <span className="absolute -top-px -left-px grid size-6 place-items-center bg-accent text-xs font-bold text-on-accent">{i + 1}</span>
+                <div key={`c${i}`} className="pointer-events-none absolute rounded-md border-[3px] border-accent" style={boxStyle(c.box)}>
+                  <span className="absolute -top-px -left-px grid size-6 place-items-center rounded-br-md bg-accent text-xs font-bold text-on-accent">{i + 1}</span>
                 </div>
               ))}
               {detecting && <div className="absolute inset-0 grid place-items-center bg-black/30 text-sm font-semibold text-white">Detecting…</div>}
             </div>
             <p className="mt-2 text-sm text-muted">
-              Tap a box to choose it (tap again to drop it). Tap anything else to try the detector’s weaker guesses there.
-              {all.length > 0 && ` ${visible.length} shown of ${all.length} candidates.`}
+              Tap an object to choose it, tap again to drop it. Where no box is shown, a tap adds a small box you can adjust below.
+              {all.length > 0 && ` ${shown.length} suggested.`}
             </p>
+            {suggestions.big.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted">Also in the photo:</span>
+                {suggestions.big.map((d, i) => {
+                  const picked = chosen.find((c) => iou(c.box, d.box) > 0.8)
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => (picked ? choose(chosen.filter((c) => c !== picked)) : add([{ box: d.box, label: d.label, source: 'big' }]))}
+                      className={`flex items-center gap-1 rounded-full border py-0.5 pr-2.5 pl-0.5 ${picked ? 'border-accent bg-accent/10' : 'border-line bg-paper'}`}
+                    >
+                      <CropThumb photo={photo.canvas} box={d.box} size={28} />
+                      {picked ? '✓' : '+'}
+                      {showLabels && <span className="text-xs text-muted">{d.label}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             {note && <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">{note}</p>}
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className="flex flex-1 items-center gap-2 text-sm">
-                Show from {threshold.toFixed(2)}
-                <input type="range" min={0.05} max={0.9} step={0.05} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} className="flex-1 accent-accent" />
-              </label>
-              <Button size="sm" variant="secondary" onClick={() => setDrawing(true)} disabled={chosen.length >= MOSAIC_MAX}>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => add(shown.filter((d) => !isChosen(d.box)).map((d) => ({ box: d.box, label: d.label, source: 'detector' as const })))}
+                disabled={!shown.some((d) => !isChosen(d.box))}
+              >
+                Choose all suggested
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setEditing('new')} disabled={chosen.length >= MOSAIC_MAX}>
                 Draw a box
               </Button>
+              {chosen.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={() => choose([])}>
+                  Clear
+                </Button>
+              )}
             </div>
+
+            {chosen.length > 0 && (
+              <ol className="mt-3 space-y-2">
+                {chosen.map((c, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-md bg-accent text-xs font-bold text-on-accent">{i + 1}</span>
+                    <CropThumb photo={photo.canvas} box={c.box} size={40} />
+                    <span className="min-w-0 flex-1 truncate text-muted">
+                      {SOURCE_TEXT[c.source]}
+                      {c.adjusted ? ', adjusted' : ''}
+                      {showLabels && c.label ? ` · ${c.label}` : ''}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => setEditing(i)}>
+                      Adjust
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => choose(chosen.filter((_, j) => j !== i))}>
+                      Remove
+                    </Button>
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            <details className="mt-4 rounded-2xl border border-line p-3 text-sm">
+              <summary className="cursor-pointer font-medium">Advanced (for testing)</summary>
+              <label className="mt-3 flex items-center gap-2">
+                <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /> Show the detector’s guesses (often wrong; the AI names objects itself)
+              </label>
+              <label className="mt-2 flex items-center gap-2">
+                <input type="checkbox" checked={threshold !== undefined} onChange={(e) => setThreshold(e.target.checked ? 0.35 : undefined)} /> Use a score threshold instead of the best 12
+              </label>
+              {threshold !== undefined && (
+                <label className="mt-2 flex items-center gap-2">
+                  Show from {threshold.toFixed(2)}
+                  <input type="range" min={0.05} max={0.9} step={0.05} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} className="flex-1 accent-accent" />
+                </label>
+              )}
+              <p className="mt-2 text-xs text-muted">Best score in this photo: {best.toFixed(2)} · {all.length} candidates.</p>
+              <Button size="sm" variant="secondary" className="mt-3" onClick={() => void benchmark()} disabled={Boolean(benchmarking) || Boolean(loading)}>
+                {benchmarking ? `Benchmark: ${benchmarking}` : 'Benchmark every setup on this photo'}
+              </Button>
+              <p className="mt-1 text-xs text-muted">Loads each model setup in turn (up to ~110 MB the first time) and detects 3 times with each.</p>
+            </details>
           </>
         )}
       </section>
@@ -384,7 +525,7 @@ export function ObjectsLab() {
                               {n.pinyin} · {n.meaning} <span className="text-muted">({n.confidence})</span>
                             </span>
                           ) : (
-                            <span className="text-muted">{busy === 'name' ? '…' : (c.label ?? 'drawn')}</span>
+                            <span className="text-muted">{busy === 'name' ? '…' : SOURCE_TEXT[c.source]}</span>
                           )}
                         </li>
                       )
@@ -424,23 +565,50 @@ export function ObjectsLab() {
         </Button>
       </section>
 
-      {drawing && photo && (
+      {editing !== undefined && photo && (
         <BoxEditor
           image={photo.blob}
           imageKey={photo.key}
           aspectRatio={`${photo.canvas.width} / ${photo.canvas.height}`}
           imageLabel="Your photo"
-          title="Draw a box around the object"
-          initialBox={null}
-          otherBoxes={chosen.map((c) => c.box)}
+          title={editing === 'new' ? 'Draw a box around the object' : `Adjust object ${editing + 1}`}
+          initialBox={editing === 'new' ? null : chosen[editing]!.box}
+          otherBoxes={chosen.filter((_, j) => j !== editing).map((c) => c.box)}
           onSave={async (box) => {
-            choose([...chosen, { box, source: 'drawn' }])
-            setDrawing(false)
+            if (editing === 'new') add([{ box, source: 'drawn' }])
+            else choose(chosen.map((c, j) => (j === editing ? { ...c, box, adjusted: true } : c)))
+            setEditing(undefined)
             return undefined
           }}
-          onClose={() => setDrawing(false)}
+          onRemove={
+            editing === 'new'
+              ? undefined
+              : async () => {
+                  choose(chosen.filter((_, j) => j !== editing))
+                  setEditing(undefined)
+                }
+          }
+          removeLabel="Remove this object"
+          onClose={() => setEditing(undefined)}
         />
       )}
     </div>
   )
+}
+
+/** A small preview of one box of the photo. */
+function CropThumb({ photo, box, size }: { photo: HTMLCanvasElement; box: NormBox; size: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const [y0, x0, y1, x1] = box.map((v, k) => (v / 1000) * (k % 2 ? photo.width : photo.height))
+    const w = x1! - x0!
+    const h = y1! - y0!
+    const scale = Math.min(size / w, size / h)
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, size, size)
+    ctx.drawImage(photo, x0!, y0!, w, h, (size - w * scale) / 2, (size - h * scale) / 2, w * scale, h * scale)
+  }, [photo, box, size])
+  return <canvas ref={ref} width={size} height={size} className="shrink-0 rounded-md bg-sunken" style={{ width: size, height: size }} />
 }

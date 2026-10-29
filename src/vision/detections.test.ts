@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NormBox } from '@/import/types'
-import { decodeDetections, type Detection, iou, padBox, pickAt, visibleDetections } from './detections'
+import { decodeDetections, defaultBoxAt, type Detection, iou, padBox, pickAt, suggestObjects, visibleDetections } from './detections'
 
 const logit = (p: number) => Math.log(p / (1 - p))
 
@@ -37,17 +37,58 @@ describe('visibleDetections', () => {
 describe('pickAt', () => {
   const desk = det([400, 0, 1000, 1000], 0.8, 'Desk')
   const cup = det([450, 450, 550, 550], 0.5, 'Cup')
-  const faint = det([450, 450, 550, 550], 0.02, 'Faint')
+  const faint = det([450, 450, 550, 550], 0.08, 'Faint') // junk: what a blank wall scores
 
   it('prefers the smallest box under the finger among the likely ones', () => {
     expect(pickAt([desk, cup], 500, 500)?.label).toBe('Cup')
     expect(pickAt([desk, cup], 100, 900)?.label).toBe('Desk')
   })
 
+  it('can leave out big boxes', () => {
+    expect(pickAt([desk], 100, 900, undefined, 0.35)).toBeUndefined()
+  })
+
   it('ignores much weaker boxes and empty spots', () => {
     expect(pickAt([desk, det([450, 450, 550, 550], 0.1)], 500, 500)?.label).toBe('Desk')
     expect(pickAt([faint], 500, 500)).toBeUndefined()
     expect(pickAt([cup], 50, 50)).toBeUndefined()
+  })
+})
+
+describe('suggestObjects', () => {
+  it('merges overlapping boxes across labels and keeps nested different things', () => {
+    const all = [
+      det([400, 0, 1000, 1000], 0.9, 'Desk'),
+      det([450, 450, 550, 560], 0.8, 'Mouse'),
+      det([455, 455, 555, 565], 0.6, 'Remote'), // the same controller, another guess
+      det([440, 440, 540, 530], 0.5, 'Glasses'), // mostly inside the controller box, similar size
+      det([600, 100, 700, 200], 0.4, 'Cup'), // on the desk: kept
+      det([0, 0, 300, 300], 0.7, 'Person'),
+      det([800, 800, 850, 850], 0.1, 'Pen'), // too weak
+    ]
+    const { small, big } = suggestObjects(all)
+    expect(small.map((d) => d.label)).toEqual(['Mouse', 'Cup'])
+    expect(big.map((d) => d.label)).toEqual(['Desk'])
+  })
+
+  it('keeps at most `max` small suggestions, best first', () => {
+    const all = Array.from({ length: 20 }, (_, i) => det([i * 40, 0, i * 40 + 30, 30], 0.9 - i * 0.01))
+    expect(suggestObjects(all, { max: 5 }).small).toHaveLength(5)
+    expect(suggestObjects(all, { max: 5 }).small[0]!.score).toBeCloseTo(0.9)
+  })
+})
+
+describe('defaultBoxAt', () => {
+  it('makes a box square in pixels around the tap', () => {
+    expect(defaultBoxAt(500, 500)).toEqual([390, 390, 610, 610])
+    // A portrait photo (3:4): the box is narrower in height units.
+    expect(defaultBoxAt(500, 500, 0.75)).toEqual([418, 390, 583, 610])
+    // A landscape photo (4:3).
+    expect(defaultBoxAt(500, 500, 4 / 3)).toEqual([390, 418, 610, 583])
+  })
+
+  it('moves the box inside the photo near an edge', () => {
+    expect(defaultBoxAt(10, 990)).toEqual([780, 0, 1000, 220])
   })
 })
 
