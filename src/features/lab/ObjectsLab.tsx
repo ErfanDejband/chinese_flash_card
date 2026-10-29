@@ -74,6 +74,9 @@ export function ObjectsLab() {
   const [detecting, setDetecting] = useState(false)
   const [threshold, setThreshold] = useState<number>()
   const [showLabels, setShowLabels] = useState(false)
+  // How suggestions look: a dot per object (box once chosen), or boxes; and how many to offer.
+  const [view, setView] = useState<'dots' | 'boxes'>('dots')
+  const [maxSuggest, setMaxSuggest] = useState(6)
   const [chosen, setChosen] = useState<Chosen[]>([])
   // The box being edited: an index into `chosen`, or 'new' for a drawn one.
   const [editing, setEditing] = useState<number | 'new'>()
@@ -93,7 +96,7 @@ export function ObjectsLab() {
   const config = activeProviderConfig(getAiSettings())
   const aiProblems = configProblems(config)
   const service = serviceLabel(config)
-  const suggestions = suggestObjects(all, { bigArea: BIG_AREA })
+  const suggestions = suggestObjects(all, { bigArea: BIG_AREA, max: maxSuggest })
   const shown = threshold === undefined ? suggestions.small : visibleDetections(all, threshold).filter((d) => area(d.box) <= BIG_AREA)
   const best = all[0]?.score ?? 0
 
@@ -121,7 +124,7 @@ export function ObjectsLab() {
     try {
       const result = await d.detect(p.canvas)
       setAll(result.detections)
-      const s = suggestObjects(result.detections, { bigArea: BIG_AREA })
+      const s = suggestObjects(result.detections, { bigArea: BIG_AREA, max: maxSuggest })
       const run = { backend: d.backend, dtype: d.dtype, ms: result.ms, candidates: result.detections.length, suggested: s.small.length, big: s.big.length, best: result.detections[0]?.score ?? 0 }
       setReport((r) => ({ ...r, detects: [...r.detects, run] }))
     } catch (e) {
@@ -171,7 +174,7 @@ export function ObjectsLab() {
           times.push(result.ms)
           last = result.detections
         }
-        rows.push({ backend: b, dtype: d, load: loadReport, times, suggested: suggestObjects(last, { bigArea: BIG_AREA }).small.length, best: last[0]?.score ?? 0 })
+        rows.push({ backend: b, dtype: d, load: loadReport, times, suggested: suggestObjects(last, { bigArea: BIG_AREA, max: maxSuggest }).small.length, best: last[0]?.score ?? 0 })
       } catch (e) {
         rows.push({ backend: b, dtype: d, times: [], suggested: 0, best: 0, error: message(e) })
       } finally {
@@ -231,6 +234,15 @@ export function ObjectsLab() {
     const x = ((e.clientX - rect.left) / rect.width) * 1000
     const y = ((e.clientY - rect.top) / rect.height) * 1000
     setNote(undefined)
+    // Dots are small targets: a tap near one (within ~36 px) chooses it.
+    if (view === 'dots') {
+      const near = shown
+        .filter((d) => !isChosen(d.box))
+        .map((d) => ({ d, px: Math.hypot((((d.box[1] + d.box[3]) / 2 - x) / 1000) * rect.width, (((d.box[0] + d.box[2]) / 2 - y) / 1000) * rect.height) }))
+        .filter((o) => o.px <= 36)
+        .sort((a, b) => a.px - b.px)[0]
+      if (near) return add([{ box: near.d.box, label: near.d.label, source: 'detector' }])
+    }
     // Whatever is smallest under the finger wins: a chosen box (tap = drop it), a suggested box,
     // or one of the detector's weaker guesses. So a tap on a remote inside a chosen cat adds the remote.
     const weak = pickAt(all, x, y, undefined, BIG_AREA)
@@ -310,7 +322,7 @@ export function ObjectsLab() {
     setBusy(undefined)
   }
 
-  const text = reportText(report)
+  const text = reportText({ ...report, view: { style: view, max: maxSuggest } })
   const loaded = detector && `${detector.dtype} on ${backendName(detector.backend)}`
   const lastRun = report.detects.at(-1)
 
@@ -382,11 +394,21 @@ export function ObjectsLab() {
               <img src={photo.url} alt="Your photo" className="block w-full select-none" draggable={false} />
               {shown
                 .filter((d) => !isChosen(d.box))
-                .map((d, i) => (
-                  <div key={`d${i}`} className="pointer-events-none absolute rounded-md border-2 border-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.45)]" style={boxStyle(d.box)}>
-                    {showLabels && <span className="absolute top-0 left-0 bg-black/60 px-1 text-[10px] leading-4 text-white">{d.label}</span>}
-                  </div>
-                ))}
+                .map((d, i) =>
+                  view === 'dots' ? (
+                    <div
+                      key={`d${i}`}
+                      className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent shadow-[0_0_0_1.5px_rgba(0,0,0,0.5)]"
+                      style={{ top: `${(d.box[0] + d.box[2]) / 20}%`, left: `${(d.box[1] + d.box[3]) / 20}%` }}
+                    >
+                      {showLabels && <span className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 px-1 text-[10px] leading-4 whitespace-nowrap text-white">{d.label}</span>}
+                    </div>
+                  ) : (
+                    <div key={`d${i}`} className="pointer-events-none absolute rounded-md border-2 border-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.45)]" style={boxStyle(d.box)}>
+                      {showLabels && <span className="absolute top-0 left-0 bg-black/60 px-1 text-[10px] leading-4 text-white">{d.label}</span>}
+                    </div>
+                  ),
+                )}
               {showFound &&
                 found?.map((f, i) => (
                   <div key={`f${i}`} className="pointer-events-none absolute border-2 border-dashed border-sky-400" style={boxStyle(f.box)}>
@@ -401,9 +423,28 @@ export function ObjectsLab() {
               {detecting && <div className="absolute inset-0 grid place-items-center bg-black/30 text-sm font-semibold text-white">Detecting…</div>}
             </div>
             <p className="mt-2 text-sm text-muted">
-              Tap an object to choose it, tap again to drop it. Where no box is shown, a tap adds a small box you can adjust below.
+              Tap {view === 'dots' ? 'a dot or an object' : 'an object'} to choose it, tap again to drop it. Where nothing is suggested, a tap adds a small box you can adjust below.
               {all.length > 0 && ` ${shown.length} suggested.`}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <div className="flex overflow-hidden rounded-xl border border-line" role="group" aria-label="How suggestions look">
+                {(['dots', 'boxes'] as const).map((v) => (
+                  <button key={v} type="button" onClick={() => setView(v)} className={`px-3 py-1.5 ${view === v ? 'bg-accent text-on-accent' : 'bg-paper'}`} aria-pressed={view === v}>
+                    {v === 'dots' ? 'Dots' : 'Boxes'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted">Suggest</span>
+                <Button size="sm" variant="ghost" onClick={() => setMaxSuggest((n) => Math.max(1, n - 1))} disabled={maxSuggest <= 1} aria-label="Fewer suggestions">
+                  −
+                </Button>
+                <span className="w-6 text-center font-semibold">{maxSuggest}</span>
+                <Button size="sm" variant="ghost" onClick={() => setMaxSuggest((n) => Math.min(MOSAIC_MAX, n + 1))} disabled={maxSuggest >= MOSAIC_MAX} aria-label="More suggestions">
+                  +
+                </Button>
+              </div>
+            </div>
             {suggestions.big.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-muted">Also in the photo:</span>
@@ -472,7 +513,7 @@ export function ObjectsLab() {
                 <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /> Show the detector’s guesses (often wrong; the AI names objects itself)
               </label>
               <label className="mt-2 flex items-center gap-2">
-                <input type="checkbox" checked={threshold !== undefined} onChange={(e) => setThreshold(e.target.checked ? 0.35 : undefined)} /> Use a score threshold instead of the best 12
+                <input type="checkbox" checked={threshold !== undefined} onChange={(e) => setThreshold(e.target.checked ? 0.35 : undefined)} /> Use a score threshold instead of the suggestions
               </label>
               {threshold !== undefined && (
                 <label className="mt-2 flex items-center gap-2">

@@ -42,6 +42,8 @@ export interface LabReport {
   webgpu: { available: boolean; adapter?: string; fp16?: boolean }
   loads: LoadReport[]
   photo?: { width: number; height: number }
+  /** How suggestions were shown, and how many were offered. */
+  view?: { style: string; max: number }
   detects: DetectRun[]
   /** How each chosen object was picked; `adjusted` counts boxes moved afterwards. */
   selection?: { detector: number; big: number; tapped: number; empty: number; drawn: number; adjusted: number }
@@ -70,6 +72,7 @@ export function reportText(r: LabReport): string {
     lines.push(`Model load: ${l.dtype} on ${l.backend} · ${seconds(l.ms)} · ${from}`)
   }
   if (r.photo) lines.push(`Photo: ${r.photo.width}×${r.photo.height}`)
+  if (r.view) lines.push(`View: ${r.view.style} · suggest up to ${r.view.max}`)
   for (const d of r.detects) {
     lines.push(`Detect: ${d.ms} ms on ${d.backend} (${d.dtype}) · ${d.suggested} suggested + ${d.big} big · best ${d.best.toFixed(2)} · ${d.candidates} candidates`)
   }

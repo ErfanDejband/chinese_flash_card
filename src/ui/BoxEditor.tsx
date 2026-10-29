@@ -137,18 +137,21 @@ export function BoxEditor({ image, imageKey, aspectRatio, imageLabel, title, sub
             onPointerDown={(e) => begin(e, { mode: 'move', startX: point(e).x, startY: point(e).y, box })}
           >
             {corners.map((c) => (
+              // A small visible handle (it shouldn't hide small objects) inside a larger touch target.
               <span
                 key={c}
                 onPointerDown={(e) => begin(e, { mode: 'resize', corner: c, startX: point(e).x, startY: point(e).y, box })}
-                className="absolute size-7 rounded-full border-[3px] border-accent bg-white"
+                className="absolute grid size-6 place-items-center"
                 style={{
-                  top: c.includes('n') ? -14 : undefined,
-                  bottom: c.includes('s') ? -14 : undefined,
-                  left: c.includes('w') ? -14 : undefined,
-                  right: c.includes('e') ? -14 : undefined,
+                  top: c.includes('n') ? -12 : undefined,
+                  bottom: c.includes('s') ? -12 : undefined,
+                  left: c.includes('w') ? -12 : undefined,
+                  right: c.includes('e') ? -12 : undefined,
                   cursor: c === 'nw' || c === 'se' ? 'nwse-resize' : 'nesw-resize',
                 }}
-              />
+              >
+                <span className="pointer-events-none size-3.5 rounded-full border-2 border-accent bg-white" />
+              </span>
             ))}
           </div>
         </div>

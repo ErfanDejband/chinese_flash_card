@@ -12,6 +12,7 @@ describe('reportText', () => {
         { backend: 'wasm', dtype: 'q8', ms: 900, bytes: 0, cached: true },
       ],
       photo: { width: 1536, height: 1152 },
+      view: { style: 'dots', max: 6 },
       detects: [{ backend: 'webgpu', dtype: 'fp16', ms: 420, candidates: 300, suggested: 9, big: 2, best: 0.93 }],
       benchmark: [
         { backend: 'webgpu', dtype: 'fp32', load: { backend: 'webgpu', dtype: 'fp32', ms: 1300, bytes: 0, cached: true }, times: [1435, 282, 274], suggested: 9, best: 0.93 },
@@ -24,6 +25,7 @@ describe('reportText', () => {
     expect(text).toContain('WebGPU: yes (qualcomm adreno-7xx), fp16')
     expect(text).toContain('Model load: fp16 on webgpu · 8.2 s · downloaded 21.3 MB')
     expect(text).toContain('Model load: q8 on wasm · 0.9 s · from the browser cache')
+    expect(text).toContain('View: dots · suggest up to 6')
     expect(text).toContain('Detect: 420 ms on webgpu (fp16) · 9 suggested + 2 big · best 0.93 · 300 candidates')
     expect(text).toContain('  webgpu fp32: load 1.3 s (cache) · detect 1435 / 282 / 274 ms · 9 suggested · best 0.93')
     expect(text).toContain('  webgpu q8: failed (unsupported)')
