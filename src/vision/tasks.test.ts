@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ModelOutputError } from '@/import/ai/parse'
 import { cellPosition, mosaicLayout } from './mosaic'
-import { nameInput, validateFound, validateNames } from './tasks'
+import { defaultChoice, nameInput, validateFound, validateNames } from './tasks'
 
 describe('mosaicLayout', () => {
   it('lays pictures out in a near-square grid, at most 4 × 4', () => {
@@ -27,26 +27,67 @@ describe('nameInput', () => {
   })
 })
 
+const word = (hanzi: string, pinyin: string, meaning: string, kind: string, level: string) => ({ hanzi, pinyin, meaning, kind, level })
+
 describe('validateNames', () => {
-  it('maps names by picture number and normalises pinyin', () => {
+  it('maps word choices by picture number, everyday words first, pinyin normalised', () => {
     const names = validateNames(
       {
         objects: [
-          { index: 2, hanzi: ' 檯燈 ', pinyin: 'tai2deng1', meaning: 'desk lamp', confidence: 0.8 },
-          { index: 1, hanzi: '杯子', pinyin: 'bēizi', meaning: 'cup', confidence: 2 },
-          { index: 2, hanzi: '燈', pinyin: 'dēng', meaning: 'lamp', confidence: 0.5 },
-          { index: 7, hanzi: '書', pinyin: 'shū', meaning: 'book', confidence: 0.9 },
+          {
+            index: 2,
+            words: [word('球鞋', 'qiu2xie2', 'sneakers', 'specific', 'a2'), word(' 鞋子 ', 'xiézi', 'shoes', 'everyday', 'A1'), word('鞋子', 'xiézi', 'shoes', 'everyday', 'A1')],
+            category: { hanzi: '衣物', pinyin: 'yīwù', meaning: 'clothing' },
+            confidence: 0.8,
+          },
+          { index: 1, words: [word('杯子', 'bēizi', 'cup', 'everyday', 'Z9')], category: null, confidence: 2 },
+          { index: 2, words: [word('燈', 'dēng', 'lamp', 'everyday', 'A2')], category: null, confidence: 0.5 },
+          { index: 7, words: [word('書', 'shū', 'book', 'everyday', 'A1')], category: null, confidence: 0.9 },
         ],
       },
       3,
     )
     expect([...names.keys()]).toEqual([2, 1])
-    expect(names.get(2)).toEqual({ hanzi: '檯燈', pinyin: 'táidēng', meaning: 'desk lamp', confidence: 0.8 })
-    expect(names.get(1)!.confidence).toBe(1)
+    expect(names.get(2)).toEqual({
+      words: [
+        { hanzi: '鞋子', pinyin: 'xiézi', meaning: 'shoes', kind: 'everyday', level: 'A1' },
+        { hanzi: '球鞋', pinyin: 'qiúxié', meaning: 'sneakers', kind: 'specific', level: 'A2' },
+      ],
+      category: { hanzi: '衣物', pinyin: 'yīwù', meaning: 'clothing' },
+      confidence: 0.8,
+    })
+    expect(names.get(1)).toMatchObject({ words: [{ hanzi: '杯子', level: undefined }], category: undefined, confidence: 1 })
+  })
+
+  it('treats the first word as the everyday one when none is marked so', () => {
+    const names = validateNames({ objects: [{ index: 1, words: [word('馬克杯', 'mǎkèbēi', 'mug', 'specific', 'B1')], confidence: 0.9 }] }, 1)
+    expect(names.get(1)!.words[0]!.kind).toBe('everyday')
   })
 
   it('rejects a reply without an objects list', () => {
     expect(() => validateNames({ items: [] }, 2)).toThrow(ModelOutputError)
+  })
+})
+
+describe('defaultChoice', () => {
+  const shoes = [
+    { hanzi: '鞋子', pinyin: 'xiézi', meaning: 'shoes', kind: 'everyday' as const, level: 'A1' as const },
+    { hanzi: '球鞋', pinyin: 'qiúxié', meaning: 'sneakers', kind: 'specific' as const, level: 'A2' as const },
+    { hanzi: '慢跑鞋', pinyin: 'mànpǎoxié', meaning: 'running shoes', kind: 'specific' as const, level: 'B2' as const },
+  ]
+
+  it('gives beginners the everyday word', () => {
+    expect(defaultChoice(shoes, 'beginner')).toBe(0)
+  })
+
+  it('gives intermediate learners an early specific word, advanced learners the first specific one', () => {
+    expect(defaultChoice(shoes, 'intermediate')).toBe(1)
+    expect(defaultChoice([shoes[0]!, shoes[2]!], 'intermediate')).toBe(0)
+    expect(defaultChoice([shoes[0]!, shoes[2]!], 'advanced')).toBe(1)
+  })
+
+  it('falls back to the everyday word when there is no specific one', () => {
+    expect(defaultChoice([shoes[0]!], 'advanced')).toBe(0)
   })
 })
 

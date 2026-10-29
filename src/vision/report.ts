@@ -44,6 +44,8 @@ export interface LabReport {
   photo?: { width: number; height: number }
   /** How suggestions were shown, and how many were offered. */
   view?: { style: string; max: number }
+  /** The "My level" setting that preselects words. */
+  learner?: string
   detects: DetectRun[]
   /** How each chosen object was picked; `adjusted` counts boxes moved afterwards. */
   selection?: { detector: number; big: number; tapped: number; empty: number; drawn: number; adjusted: number }
@@ -96,6 +98,7 @@ export function reportText(r: LabReport): string {
   }
   if (r.naming) {
     lines.push(`Name with AI (mosaic ${r.naming.mosaic.width}×${r.naming.mosaic.height}): ${aiLine(r.naming)}`)
+    if (r.learner) lines.push(`  My level: ${r.learner} (✓ = kept)`)
     r.naming.names.forEach((n) => lines.push(`  ${n}`))
   }
   if (r.findAll) {

@@ -17,7 +17,17 @@ import { area, defaultBoxAt, iou, pickAt, suggestObjects, visibleDetections, typ
 import { loadDetector, webGpuInfo, type Detector, type DetectorBackend, type DetectorDtype, type GpuInfo } from '@/vision/detector'
 import { drawMosaic, MOSAIC_MAX, mosaicLayout } from '@/vision/mosaic'
 import { reportText, type AiRun, type BenchmarkRow, type LabReport } from '@/vision/report'
-import { nameInput, OBJECT_FIND_TASK, OBJECT_NAME_TASK, validateFound, validateNames, type FoundObject, type NamedObject } from '@/vision/tasks'
+import {
+  defaultChoice,
+  nameInput,
+  OBJECT_FIND_TASK,
+  OBJECT_NAME_TASK,
+  validateFound,
+  validateNames,
+  type FoundObject,
+  type LearnerLevel,
+  type ObjectWords,
+} from '@/vision/tasks'
 
 /** Long side of the photo the lab works on (the import sends the same size to the AI). */
 const PHOTO_SIZE = 1536
@@ -82,7 +92,10 @@ export function ObjectsLab() {
   const [editing, setEditing] = useState<number | 'new'>()
   const [note, setNote] = useState<string>()
   const [mosaicUrl, setMosaicUrl] = useState<string>()
-  const [names, setNames] = useState<Map<number, NamedObject>>()
+  const [names, setNames] = useState<Map<number, ObjectWords>>()
+  // Which words the learner keeps per picture number (indexes into its words); one by default.
+  const [picks, setPicks] = useState<Record<number, number[]>>({})
+  const [learner, setLearner] = useState<LearnerLevel>('beginner')
   const [found, setFound] = useState<FoundObject[]>()
   const [showFound, setShowFound] = useState(true)
   const [busy, setBusy] = useState<'name' | 'find'>()
@@ -285,22 +298,38 @@ export function ObjectsLab() {
     const blob = await canvasToBlob(mosaic, 'image/jpeg', 0.9)
     setMosaicUrl(URL.createObjectURL(blob))
     const { res, run } = await ask(OBJECT_NAME_TASK, blob, nameInput(mosaicLayout(chosen.length), chosen.map((c) => c.label)))
-    let list: string[] = []
     if (res) {
       try {
         const named = validateNames(parseModelJson(res.text), chosen.length)
         setNames(named)
-        list = chosen.map((c, i) => {
-          const n = named.get(i + 1)
-          const hint = c.label ? ` [detector: ${c.label}]` : ''
-          return n ? `${i + 1} ${n.hanzi || '?'} ${n.pinyin} ${n.meaning} (${n.confidence})${hint}` : `${i + 1} (no answer)${hint}`
-        })
+        setPicks(defaultPicks(named, learner))
       } catch (e) {
         run.error = message(e)
       }
     }
-    setReport((r) => ({ ...r, naming: { ...run, mosaic: { width: mosaic.width, height: mosaic.height }, names: list } }))
+    // The name lines are added when the report is shown, so they follow the learner's picks.
+    setReport((r) => ({ ...r, naming: { ...run, mosaic: { width: mosaic.width, height: mosaic.height }, names: [] } }))
     setBusy(undefined)
+  }
+
+  function togglePick(index: number, word: number) {
+    setPicks((p) => {
+      const current = p[index] ?? []
+      if (!current.includes(word)) return { ...p, [index]: [...current, word].sort() }
+      // Keep at least one word per object.
+      return current.length > 1 ? { ...p, [index]: current.filter((w) => w !== word) } : p
+    })
+  }
+
+  function nameLines(): string[] {
+    if (!names) return []
+    return chosen.map((c, i) => {
+      const n = names.get(i + 1)
+      const hint = c.label ? ` [detector: ${c.label}]` : ''
+      if (!n?.words.length) return `${i + 1} (no answer)${hint}`
+      const words = n.words.map((w, k) => `${w.hanzi} ${w.pinyin} ${w.meaning} (${w.kind} ${w.level ?? '?'}${picks[i + 1]?.includes(k) ? ' ✓' : ''})`).join(' · ')
+      return `${i + 1} ${words}${n.category ? ` · tag ${n.category.hanzi} ${n.category.meaning}` : ''} · ${n.confidence}${hint}`
+    })
   }
 
   async function findWithAi() {
@@ -322,7 +351,12 @@ export function ObjectsLab() {
     setBusy(undefined)
   }
 
-  const text = reportText({ ...report, view: { style: view, max: maxSuggest } })
+  const text = reportText({
+    ...report,
+    view: { style: view, max: maxSuggest },
+    learner,
+    naming: report.naming && { ...report.naming, names: nameLines() },
+  })
   const loaded = detector && `${detector.dtype} on ${backendName(detector.backend)}`
   const lastRun = report.detects.at(-1)
 
@@ -541,6 +575,22 @@ export function ObjectsLab() {
           ) : (
             <>
               <p className="mb-3 text-sm text-muted">Uses {service}. The mosaic sends only the chosen objects, as one small picture; “AI only” sends the whole photo and lets the AI find things itself.</p>
+              <label className="mb-3 flex items-center gap-2 text-sm">
+                My level
+                <select
+                  className={selectClass}
+                  value={learner}
+                  onChange={(e) => {
+                    const next = e.target.value as LearnerLevel
+                    setLearner(next)
+                    if (names) setPicks(defaultPicks(names, next))
+                  }}
+                >
+                  <option value="beginner">Beginner · everyday words</option>
+                  <option value="intermediate">Intermediate · more precise words</option>
+                  <option value="advanced">Advanced · the most precise word</option>
+                </select>
+              </label>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => void nameWithAi()} disabled={!chosen.length || Boolean(busy)}>
                   {busy === 'name' ? 'Naming…' : `Name ${chosen.length || ''} chosen (one mosaic)`}
@@ -552,21 +602,50 @@ export function ObjectsLab() {
               {mosaicUrl && (
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                   <img src={mosaicUrl} alt="The mosaic sent to the AI" className="w-full max-w-60 self-start rounded-lg border border-line" />
-                  <ol className="flex-1 space-y-1 text-sm">
+                  <ol className="min-w-0 flex-1 space-y-3 text-sm">
                     {chosen.map((c, i) => {
                       const n = names?.get(i + 1)
+                      const kept = picks[i + 1] ?? []
                       return (
                         <li key={i} className="flex gap-2">
-                          <span className="w-5 shrink-0 font-semibold text-muted">{i + 1}</span>
-                          {n ? (
-                            <span>
-                              <span lang="zh-Hant" className="text-base font-semibold">
-                                {n.hanzi || '?'}
-                              </span>{' '}
-                              {n.pinyin} · {n.meaning} <span className="text-muted">({n.confidence})</span>
-                            </span>
+                          <span className="w-5 shrink-0 pt-1 font-semibold text-muted">{i + 1}</span>
+                          {n?.words.length ? (
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap gap-1.5">
+                                {n.words.map((w, k) => {
+                                  const on = kept.includes(k)
+                                  return (
+                                    <button
+                                      key={k}
+                                      type="button"
+                                      onClick={() => togglePick(i + 1, k)}
+                                      aria-pressed={on}
+                                      className={`rounded-xl border px-2.5 py-1 text-left ${on ? 'border-accent bg-accent/10' : 'border-line bg-paper'}`}
+                                    >
+                                      <span lang="zh-Hant" className="text-base font-semibold">
+                                        {w.hanzi}
+                                      </span>{' '}
+                                      <span>{w.pinyin}</span>
+                                      {w.level && <span className="ml-1.5 rounded bg-sunken px-1 text-[10px] font-semibold text-muted">{w.level}</span>}
+                                      <span className="block text-xs text-muted">
+                                        {on ? '✓ ' : ''}
+                                        {w.meaning} · {w.kind === 'everyday' ? 'everyday word' : 'more precise'}
+                                      </span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                              {n.category && (
+                                <p className="mt-1 text-xs text-muted">
+                                  Tag: <span lang="zh-Hant">{n.category.hanzi}</span> {n.category.pinyin} · {n.category.meaning}
+                                </p>
+                              )}
+                              {kept.length > 1 && (
+                                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">Two cards. Very similar words learned on the same days can get mixed up; adding the second one later can help.</p>
+                              )}
+                            </div>
                           ) : (
-                            <span className="text-muted">{busy === 'name' ? '…' : SOURCE_TEXT[c.source]}</span>
+                            <span className="pt-1 text-muted">{busy === 'name' ? '…' : n ? 'Not recognised' : SOURCE_TEXT[c.source]}</span>
                           )}
                         </li>
                       )
@@ -635,6 +714,11 @@ export function ObjectsLab() {
       )}
     </div>
   )
+}
+
+/** One preselected word per named object, for the learner's level. */
+function defaultPicks(named: ReadonlyMap<number, ObjectWords>, learner: LearnerLevel): Record<number, number[]> {
+  return Object.fromEntries([...named].filter(([, n]) => n.words.length).map(([index, n]) => [index, [defaultChoice(n.words, learner)]]))
 }
 
 /** A small preview of one box of the photo. */
