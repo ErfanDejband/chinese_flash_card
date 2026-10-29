@@ -1,6 +1,9 @@
 /** One "What's new" note: shown once after the update that brings it, and kept in Settings → About & support. */
 export interface Release {
-  /** The release date, `YYYY-MM-DD`: newer releases have larger ids. */
+  /**
+   * The release date, `YYYY-MM-DD`, with `.2`, `.3`… for a later release on the same day: newer
+   * releases have larger ids (a device remembers the newest id it has seen).
+   */
   id: string
   title?: string
   items: {
@@ -15,6 +18,17 @@ export interface Release {
  * do now, a link where it helps. Devices that update show the entries they haven't seen (lib/whatsNew).
  */
 export const RELEASES: readonly Release[] = [
+  {
+    id: '2026-10-29.2',
+    title: 'Snap: words for things around you',
+    items: [
+      {
+        text: 'Take a photo of things around you, tap the ones you want, and get their words as cards: the everyday word or a more precise one, for your level.',
+        to: '/snap',
+      },
+      { text: 'Your cards are now in Settings, at the top.', to: '/settings' },
+    ],
+  },
   {
     id: '2026-10-29',
     title: 'Word lists and a clearer import',
@@ -66,3 +80,6 @@ export const RELEASES: readonly Release[] = [
 
 /** The newest release (start-up marks it seen on a fresh device). */
 export const LATEST_RELEASE_ID = RELEASES[0]?.id ?? ''
+
+/** The calendar day of a release id (`2026-10-29.2` → `2026-10-29`). */
+export const releaseDay = (id: string) => id.slice(0, 10)

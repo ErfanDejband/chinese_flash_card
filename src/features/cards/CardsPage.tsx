@@ -62,7 +62,7 @@ export function CardsPage() {
 
   return (
     <>
-      <PageHeader title="Cards" subtitle={plural(deck.length, 'card')} />
+      <PageHeader title="Your cards" subtitle={plural(deck.length, 'card')} back="/settings" />
 
       <div className="sticky top-0 z-10 -mx-4 bg-paper/95 px-4 pb-3 backdrop-blur md:top-16">
         <label className="relative block">

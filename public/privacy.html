@@ -107,12 +107,16 @@
         optional <em>Test the free models</em> sends only the app's own sample page, never your pages.
       </p>
 
-      <h2>Objects test page (optional)</h2>
+      <h2>Snap: cards from a photo (optional)</h2>
       <p>
-        A test page for a coming camera feature finds objects in a photo you take or choose. When you start it, it downloads an
-        object-detection model from Hugging Face (huggingface.co) and the program that runs it from jsDelivr (cdn.jsdelivr.net); your browser
-        keeps them for next time. The photo is analysed on your device. Only when you tap a naming button are the chosen cut-out objects (as
-        one small picture), or the whole photo for the comparison, sent to your AI import service to name them. Nothing is saved.
+        Snap finds objects in a photo you take or choose, on your device: the first time, it downloads its object-detection model and the
+        program that runs it from this app's own site, and your browser keeps them for next time. The photo stays on your device. When you
+        tap <em>Name</em>, only the objects you chose, cut out into one small picture, are sent to your AI import service to be named. The
+        cards you add keep the cut-out as their picture, like any other card.
+      </p>
+      <p>
+        A hidden test page used while developing Snap does the same, and can also download other versions of the model from Hugging Face
+        (huggingface.co) and jsDelivr (cdn.jsdelivr.net), or send the whole photo to your AI service to compare. It saves nothing.
       </p>
 
       <h2>Pictures for cards (optional)</h2>

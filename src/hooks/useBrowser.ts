@@ -4,6 +4,7 @@ import { getAiSettings, subscribeAiSettings, type AiSettingsState } from '@/lib/
 import { canInstall, subscribeInstall } from '@/lib/install'
 import { getOnboarding, isOnboardingReady, subscribeOnboarding, type OnboardingState } from '@/lib/onboarding'
 import { getSignInStatus, subscribeSignInStatus, type SignInStatus } from '@/lib/openrouterSignIn'
+import { getSnapPrefs, subscribeSnapPrefs, type SnapPrefs } from '@/lib/snapPrefs'
 import { mandarinVoices, speechSupported } from '@/lib/speech'
 import { getDeviceSync, subscribeDeviceSync, type DeviceSync } from '@/lib/syncConfig'
 import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '@/lib/syncRunner'
@@ -32,6 +33,11 @@ export function useDeviceSync(): DeviceSync {
 
 export function useSyncStatus(): SyncStatus {
   return useSyncExternalStore(subscribeSyncStatus, getSyncStatus)
+}
+
+/** Snap's choices on this device: dots or boxes, how many suggestions, the learner's level. */
+export function useSnapPrefs(): SnapPrefs {
+  return useSyncExternalStore(subscribeSnapPrefs, getSnapPrefs)
 }
 
 /** First-run help on this device: tips seen, tour, checklist. */

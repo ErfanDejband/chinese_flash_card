@@ -74,7 +74,7 @@ export function PictureSettings() {
   return (
     <div className="flex flex-col gap-4 text-sm">
       <p className="text-muted">
-        After an import, or from Cards → No picture, the app can draw pictures for cards that have none. AI pictures cost a little on
+        After an import, or from Your cards → No picture, the app can draw pictures for cards that have none. AI pictures cost a little on
         your own account (you see an estimate first); emoji are free.
       </p>
 

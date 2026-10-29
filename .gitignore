@@ -16,3 +16,6 @@ plans/
 CLAUDE.md
 # edd .env for secrets that Provided
 .env
+# Snap: the object detector and ONNX runtime, fetched by scripts/fetch-vision.mjs
+public/models/
+public/ort/

@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { addDays } from '@/domain/dates'
-import { LATEST_RELEASE_ID, RELEASES } from './releases'
+import { LATEST_RELEASE_ID, RELEASES, releaseDay } from './releases'
 
 describe('release notes', () => {
   it('have unique ids', () => {
     expect(new Set(RELEASES.map((r) => r.id)).size).toBe(RELEASES.length)
   })
 
-  it('are dated with real calendar days', () => {
+  it('are dated with real calendar days, with .N for a later release that day', () => {
     for (const { id } of RELEASES) {
-      expect(id).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-      expect(addDays(id, 0)).toBe(id) // 2026-02-30 would come back as 2026-03-02
+      expect(id).toMatch(/^\d{4}-\d{2}-\d{2}(\.[2-9])?$/)
+      expect(addDays(releaseDay(id), 0)).toBe(releaseDay(id)) // 2026-02-30 would come back as 2026-03-02
     }
   })
 
@@ -18,6 +18,11 @@ describe('release notes', () => {
     const ids = RELEASES.map((r) => r.id)
     expect(ids).toEqual([...ids].sort().reverse())
     expect(LATEST_RELEASE_ID).toBe(ids[0])
+  })
+
+  it('order a same-day release after the first one', () => {
+    expect('2026-10-29.2' > '2026-10-29').toBe(true)
+    expect(releaseDay('2026-10-29.2')).toBe('2026-10-29')
   })
 
   it('have items with text, and links inside the app', () => {

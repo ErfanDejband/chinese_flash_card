@@ -7,9 +7,9 @@ import { Button } from '@/ui/Button'
 const STEPS: { target: string; title: string; body: string }[] = [
   { target: 'today', title: 'Your daily review', body: 'Start here once a day. The number is what is due today plus today’s new cards.' },
   { target: 'nav-progress', title: 'Progress', body: 'Your streak, a calendar of the days you studied, and the cards you forget most.' },
-  { target: 'nav-cards', title: 'Cards', body: 'Search, edit and add cards. The + Add card button is on Home too.' },
+  { target: 'nav-snap', title: 'Snap', body: 'Photograph things around you, tap the ones you want, and get their words as cards.' },
   { target: 'nav-import', title: 'Import', body: 'Turn a PDF, photos or screenshots of your textbook into cards. Free AI works without a key.' },
-  { target: 'help', title: 'Help', body: 'Questions later? Short answers are behind this ?. Settings has the practice direction, boxes, sync and backup.' },
+  { target: 'help', title: 'Help', body: 'Questions later? Short answers are behind this ?. Settings has your cards, the practice direction, boxes, sync and backup.' },
 ]
 
 const PAD = 6

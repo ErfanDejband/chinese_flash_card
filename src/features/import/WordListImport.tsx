@@ -202,7 +202,7 @@ export function WordListImport() {
           <p className="text-lg font-semibold">Added {plural(added, 'card')}.</p>
           <p className="mt-1 text-muted">New cards wait in the new-card pool; a few are introduced each day.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => navigate(query ? `/cards?q=${encodeURIComponent(query)}` : '/cards', { replace: true })}>See them in Cards</Button>
+            <Button onClick={() => navigate(query ? `/cards?q=${encodeURIComponent(query)}` : '/cards', { replace: true })}>See them in Your cards</Button>
             <Button variant="secondary" onClick={() => navigate('/', { replace: true })}>
               Home
             </Button>
@@ -395,7 +395,7 @@ export function WordListImport() {
             spellCheck={false}
           />
           <span className="text-muted">
-            Find the cards later by searching for it in Cards.
+            Find the cards later by searching for it in Your cards (Settings).
             {table.format === 'pleco' && ' Pleco categories are added as tags too.'}
             {table.format === 'anki' && ' Anki tags are kept too.'}
           </span>

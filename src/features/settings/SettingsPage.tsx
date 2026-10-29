@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { Link, Navigate, NavLink, Outlet, useParams } from 'react-router'
 import type { AppSettings } from '@/domain/types'
 import { useIsDesktop } from '@/hooks/useBrowser'
-import { useSettings } from '@/hooks/useDeck'
+import { useDeck, useSettings } from '@/hooks/useDeck'
+import { plural } from '@/ui/format'
 import { cn } from '@/ui/cn'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
@@ -48,6 +49,10 @@ export function SettingsLayout() {
       <aside className="sticky top-24 hidden self-start md:block">
         <p className="mb-3 px-3 text-xs font-bold tracking-wide text-muted uppercase">Settings</p>
         <nav className="flex flex-col gap-1" aria-label="Settings">
+          <NavLink to="/cards" className="mb-2 flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-muted hover:text-ink">
+            <Icon name="cards" className="size-5 shrink-0" />
+            Your cards
+          </NavLink>
           {SETTINGS_CATEGORIES.map((c) => (
             <NavLink
               key={c.id}
@@ -72,10 +77,21 @@ export function SettingsLayout() {
 /** `/settings`: the list of categories on a phone; a laptop opens the first one (the sidebar lists them). */
 export function SettingsIndex() {
   const desktop = useIsDesktop()
+  const deck = useDeck()
   if (desktop) return <Navigate to="/settings/study" replace />
   return (
     <>
       <PageHeader title="Settings" />
+      <Link to="/cards" className="mb-4 flex items-center gap-4 rounded-3xl border border-line bg-surface px-5 py-4 hover:bg-sunken" data-tour="your-cards">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
+          <Icon name="cards" className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">Your cards</span>
+          <span className="block truncate text-sm text-muted">{deck ? `${plural(deck.length, 'card')} · ` : ''}search, edit, add</span>
+        </span>
+        <Icon name="chevron" className="size-5 shrink-0 text-muted" />
+      </Link>
       <nav aria-label="Settings" className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface">
         {SETTINGS_CATEGORIES.map((c) => (
           <Link key={c.id} to={`/settings/${c.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-sunken">

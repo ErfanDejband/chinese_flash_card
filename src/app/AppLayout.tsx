@@ -1,4 +1,4 @@
-import { NavLink, Outlet, ScrollRestoration } from 'react-router'
+import { NavLink, Outlet, ScrollRestoration, useLocation } from 'react-router'
 import { summarizeDeck } from '@/domain/deck'
 import { WhatsNewSheet } from '@/features/whatsNew/WhatsNewSheet'
 import { useDeck, useSettings } from '@/hooks/useDeck'
@@ -6,16 +6,20 @@ import { useToday } from '@/hooks/useToday'
 import { cn } from '@/ui/cn'
 import { Icon, type IconName } from '@/ui/icons'
 
+/** Snap sits in the middle as the raised camera button. Your cards live in Settings. */
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: '/', label: 'Home', icon: 'home', end: true },
   { to: '/progress', label: 'Progress', icon: 'chart' },
-  { to: '/cards', label: 'Cards', icon: 'cards' },
+  { to: '/snap', label: 'Snap', icon: 'camera' },
   { to: '/import', label: 'Import', icon: 'import' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
 
-/** `nav-progress`, `nav-cards`…: what the tour points at (see features/onboarding/Tour). */
+/** `nav-progress`, `nav-snap`…: what the tour points at (see features/onboarding/Tour). */
 const tourId = (to: string) => `nav-${to.slice(1) || 'home'}`
+
+/** Your cards are reached from Settings, so that tab stays lit there. */
+const alsoActive = (to: string, path: string) => to === '/settings' && path.startsWith('/cards')
 
 function useTodayCount(): number {
   const deck = useDeck()
@@ -37,6 +41,7 @@ function Badge({ count }: { count: number }) {
 
 export function AppLayout() {
   const todayCount = useTodayCount()
+  const { pathname } = useLocation()
 
   return (
     <div className="min-h-dvh">
@@ -57,7 +62,7 @@ export function AppLayout() {
                 end={item.end}
                 data-tour={tourId(item.to)}
                 className={({ isActive }) =>
-                  cn('relative rounded-lg px-3 py-2 font-medium', isActive ? 'bg-sunken text-ink' : 'text-muted hover:text-ink')
+                  cn('relative rounded-lg px-3 py-2 font-medium', isActive || alsoActive(item.to, pathname) ? 'bg-sunken text-ink' : 'text-muted hover:text-ink')
                 }
               >
                 {item.label}
@@ -77,21 +82,45 @@ export function AppLayout() {
       {/* Mobile bottom nav */}
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur md:hidden">
         <div className="grid h-16 grid-cols-5">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              data-tour={tourId(item.to)}
-              className={({ isActive }) =>
-                cn('relative flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium', isActive ? 'text-accent' : 'text-muted')
-              }
-            >
-              <Icon name={item.icon} className="size-6" />
-              {item.label}
-              {item.to === '/progress' && <Badge count={todayCount} />}
-            </NavLink>
-          ))}
+          {NAV.map((item) =>
+            item.to === '/snap' ? (
+              // The raised camera button: the app's main "make cards" action.
+              <NavLink
+                key={item.to}
+                to={item.to}
+                data-tour={tourId(item.to)}
+                className={({ isActive }) => cn('flex flex-col items-center justify-end pb-1.5 text-[11px] font-medium', isActive ? 'text-accent' : 'text-muted')}
+              >
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className={cn(
+                        '-mt-6 mb-0.5 grid size-14 place-items-center rounded-full bg-accent text-on-accent shadow-lg ring-4 ring-paper transition-transform active:scale-95',
+                        isActive && 'ring-accent/30',
+                      )}
+                    >
+                      <Icon name={item.icon} className="size-7" />
+                    </span>
+                    {item.label}
+                  </>
+                )}
+              </NavLink>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                data-tour={tourId(item.to)}
+                className={({ isActive }) =>
+                  cn('relative flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium', isActive || alsoActive(item.to, pathname) ? 'text-accent' : 'text-muted')
+                }
+              >
+                <Icon name={item.icon} className="size-6" />
+                {item.label}
+                {item.to === '/progress' && <Badge count={todayCount} />}
+              </NavLink>
+            ),
+          )}
         </div>
       </nav>
       <WhatsNewSheet />

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/fetch-vision.mjs",
     "build": "tsc -b && vite build",
+    "prebuild": "node scripts/fetch-vision.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

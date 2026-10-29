@@ -7,7 +7,7 @@ import { buttonClass } from '@/ui/buttonStyles'
 import { mediumDate } from '@/ui/format'
 import { Icon } from '@/ui/icons'
 import { ReleaseItems } from './ReleaseItems'
-import { RELEASES, type Release } from './releases'
+import { RELEASES, releaseDay, type Release } from './releases'
 
 /**
  * The "What's new" note after an update, once per device. It waits for the first-run tour, and it
@@ -56,7 +56,7 @@ function Sheet({ releases }: { releases: Release[] }) {
             <h2 id="whats-new-title" className="text-lg font-bold">
               What’s new
             </h2>
-            <p className="text-sm text-muted">{mediumDate(newest.id)}</p>
+            <p className="text-sm text-muted">{mediumDate(releaseDay(newest.id))}</p>
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2">
@@ -68,7 +68,7 @@ function Sheet({ releases }: { releases: Release[] }) {
                   {i > 0 && (
                     <span className="font-normal text-muted">
                       {release.title && ' · '}
-                      {mediumDate(release.id)}
+                      {mediumDate(releaseDay(release.id))}
                     </span>
                   )}
                 </h3>

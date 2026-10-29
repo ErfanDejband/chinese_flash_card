@@ -67,34 +67,69 @@ export async function webGpuInfo(): Promise<GpuInfo> {
 
 const FILE_OF: Record<DetectorDtype, string> = { q8: 'model_quantized.onnx', fp16: 'model_fp16.onnx', fp32: 'model.onnx' }
 
-async function inCache(cacheKey: string, file: string): Promise<boolean> {
+/**
+ * Where the model and the ONNX runtime come from: `app` = the app's own address (Snap; put there
+ * by scripts/fetch-vision.mjs, which hosts the fp32 and int8 models), `hub` = Hugging Face and
+ * jsDelivr (the lab, for setups the app doesn't host).
+ */
+export type DetectorSource = 'app' | 'hub'
+
+/** The model's folder under `public/models/` (scripts/fetch-vision.mjs). */
+const APP_MODEL = 'dfine_s_obj365'
+const ORT_WASM = 'ort-wasm-simd-threaded.asyncify'
+
+async function inCache(cacheKey: string, model: string, file: string): Promise<boolean> {
   try {
     if (!(await caches.has(cacheKey))) return false
     const keys = await (await caches.open(cacheKey)).keys()
-    return keys.some((r) => r.url.includes(DETECTOR_MODEL) && r.url.endsWith(file))
+    return keys.some((r) => r.url.includes(model) && r.url.endsWith(file))
   } catch {
     return false
   }
 }
 
+type OnnxWasmEnv = { wasmPaths?: unknown }
+/** Transformers.js points the runtime at jsDelivr when it loads; kept to switch back for `hub`. */
+let hubWasmPaths: unknown
+let hubWasmPathsKept = false
+
 /**
- * Downloads (or reads from the browser cache) the model and the ONNX runtime, which come from
- * Hugging Face and jsDelivr. The library is only fetched when this runs.
+ * Downloads (or reads from the browser cache) the model and the ONNX runtime. The library itself
+ * is only fetched when this runs.
  */
 export async function loadDetector(
   backend: DetectorBackend,
   dtype: DetectorDtype,
-  onProgress?: (loaded: number, total: number) => void,
+  { onProgress, source = 'hub' }: { onProgress?: (loaded: number, total: number) => void; source?: DetectorSource } = {},
 ): Promise<{ detector: Detector; report: LoadReport }> {
   const { pipeline, env, RawImage } = await import('@huggingface/transformers')
-  env.allowLocalModels = false
-  const cached = await inCache(env.cacheKey, `onnx/${FILE_OF[dtype]}`)
+  const wasm = (env.backends.onnx as { wasm?: OnnxWasmEnv }).wasm
+  if (wasm && !hubWasmPathsKept) {
+    hubWasmPaths = wasm.wasmPaths
+    hubWasmPathsKept = true
+  }
+  const fromApp = source === 'app'
+  const model = fromApp ? APP_MODEL : DETECTOR_MODEL
+  if (fromApp) {
+    const base = new URL(`${import.meta.env.BASE_URL}`, location.href)
+    env.allowLocalModels = true
+    env.allowRemoteModels = false
+    // A path, not a full URL: Transformers.js only looks for optional files (the image processor's
+    // preprocessor_config.json) at local paths that aren't URLs.
+    env.localModelPath = `${import.meta.env.BASE_URL}models/`
+    if (wasm) wasm.wasmPaths = { mjs: new URL(`ort/${ORT_WASM}.mjs`, base).href, wasm: new URL(`ort/${ORT_WASM}.wasm`, base).href }
+  } else {
+    env.allowLocalModels = false
+    env.allowRemoteModels = true
+    if (wasm) wasm.wasmPaths = hubWasmPaths
+  }
+  const cached = await inCache(env.cacheKey, model, `onnx/${FILE_OF[dtype]}`)
   const files = new Map<string, { loaded: number; total: number }>()
   const started = performance.now()
-  const pipe = await pipeline('object-detection', DETECTOR_MODEL, {
+  const pipe = await pipeline('object-detection', model, {
     device: backend,
     dtype,
-    revision: DETECTOR_REVISION,
+    revision: fromApp ? undefined : DETECTOR_REVISION,
     progress_callback: (p) => {
       if (p.status !== 'progress') return
       files.set(p.file, { loaded: p.loaded, total: p.total })

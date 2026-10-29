@@ -57,11 +57,23 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     title: 'Adding cards yourself',
     keywords: 'new card add type characters pinyin meaning example notes edit delete',
     blocks: [
-      'Tap + Add card on Home or in Cards. Only the characters are needed; the app suggests the pinyin from its dictionary.',
+      'Tap + Add card on Home or in Settings → Your cards. Only the characters are needed; the app suggests the pinyin from its dictionary.',
       'Add a meaning, notes, an example sentence or a picture if you like. In the default direction the picture is the question, so cards with pictures work best.',
-      'Tap any card in Cards to edit or delete it. The app is made for Traditional characters with pinyin.',
+      'Tap any card in Settings → Your cards to edit or delete it. The app is made for Traditional characters with pinyin.',
     ],
     links: [{ label: 'Add a card', to: '/cards/new' }],
+  },
+  {
+    id: 'snap',
+    title: 'Snap: cards from a photo of things around you',
+    keywords: 'camera photo object objects detect things room desk kitchen picture take snap word level everyday precise',
+    blocks: [
+      'Tap the camera button in the middle of the bar, take a photo (or choose one), and tap the things you want to learn. Dots show what the app found; a tap anywhere else adds a small box you can adjust.',
+      'Objects are found on your phone. The first time, the app downloads its object finder once (about 18 MB, or 49 MB on phones that can use the graphics chip); after that it works offline. The photo stays on your phone: only the objects you chose, cut out into one small picture, go to your AI service to be named.',
+      'For each object you get the everyday word first (鞋子 shoes) and sometimes a more precise one (球鞋 sneakers), each with a level from A1 to C2. My level picks one for you: beginners get the everyday word. Keeping both makes two cards, but very similar words learned on the same days can get mixed up, so adding the second one later can help.',
+      'Cards from Snap use the cut-out as their picture and are tagged snap and with a group such as 衣物, so you can find them in Your cards.',
+    ],
+    links: [{ label: 'Snap', to: '/snap' }],
   },
   {
     id: 'import',
@@ -125,7 +137,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     keywords: 'image picture emoji generate sheet crop',
     blocks: [
       'In the default direction (Picture → Chinese) the picture is the question. A card without one shows its English meaning instead.',
-      'Add a picture in the card form, keep the one an import cropped from the page, or make many at once: Cards → No picture → Add pictures. That uses an image AI (paid, one sheet of 4 to 9 pictures at a time) or free emoji.',
+      'Add a picture in the card form, keep the one an import cropped from the page, or make many at once: Settings → Your cards → No picture → Add pictures. That uses an image AI (paid, one sheet of 4 to 9 pictures at a time) or free emoji.',
     ],
     links: [{ label: 'Cards without a picture', to: '/cards?pic=none' }],
   },
