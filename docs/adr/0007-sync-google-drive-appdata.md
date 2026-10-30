@@ -1,6 +1,6 @@
 # ADR 0007: Sync between devices via each user's Google Drive app folder
 
-**Status:** accepted (2026-10-10). Step 1 syncs cards, progress, review history, import records and settings; images follow in step 2.
+**Status:** accepted (2026-10-10). Step 1 syncs cards, progress, review history, import records and settings. Step 2 (2026-10-30) syncs card pictures: one immutable Drive file per picture (`pic-<id>-<w>x<h>.<ext>`), uploaded, downloaded or removed after the row merge, four at a time with a progress count; the first failure stops the transfer and a later sync carries on. Every Drive request times out after 60 s.
 
 ## Context
 
@@ -49,9 +49,11 @@ The app is a static PWA on GitHub Pages.
   1. list the files;
   2. skip files unchanged on both sides (Drive `version` plus a content hash);
   3. otherwise download, merge, write locally in one transaction, and upload if the merged file differs.
-- **First sync on a device** when Drive already has data and the device has cards: the user chooses **Combine both** or **Use the
-  Drive copy** (replace this device's synced data).
-- **Never synced:** AI keys and settings, AI usage, the speech voice, import work tables, and (until step 2) images.
+- **First sync on a device** when Drive already has data and the device has cards: the user chooses **Combine both**, **Use the
+  Drive copy** (replace this device's synced data) or **Use this device** (2026-10-30: Drive takes this device's rows; rows only
+  Drive has are retired so other devices follow: cards and known words marked deleted, progress reset, answers tombstoned, and
+  this device's rows stamped newer where Drive's differ).
+- **Never synced:** AI keys and settings, AI usage, the speech voice, and import and picture work tables. Card pictures sync since step 2.
 
 ## Consequences
 

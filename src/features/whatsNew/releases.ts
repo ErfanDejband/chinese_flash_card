@@ -19,6 +19,20 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-10-30.2',
+    title: 'Sync you can follow',
+    items: [
+      {
+        text: 'Pictures now sync a few at a time, with a bar showing how many are done. A connection that stalls no longer leaves sync stuck.',
+        to: '/settings/sync',
+      },
+      {
+        text: 'Connecting a device whose cards differ from your Drive now offers a third choice, “Use this device”: Drive and your other devices take its cards.',
+        to: '/settings/sync',
+      },
+    ],
+  },
+  {
     id: '2026-10-30',
     title: 'Pictures on all your devices',
     items: [

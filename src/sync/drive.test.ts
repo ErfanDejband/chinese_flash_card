@@ -67,6 +67,12 @@ describe('Drive client', () => {
     expect(calls[1]!.url).toBe('https://www.googleapis.com/drive/v3/files/f?alt=media')
   })
 
+  it('gives up on a request that stalls', async () => {
+    const stalled: FetchLike = (_url, init) =>
+      new Promise((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason as Error)))
+    await expect(createDrive(() => 'TOKEN', stalled, 20).list()).rejects.toMatchObject({ kind: 'network', message: 'Google Drive took too long to answer.' })
+  })
+
   it('maps errors: expired token, rate limits, offline, no token', async () => {
     const { fetchImpl } = mockFetch(
       json({ error: { message: 'Invalid Credentials' } }, 401),

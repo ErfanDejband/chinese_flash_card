@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { useDeviceSync, useNow, useSyncStatus } from '@/hooks/useBrowser'
 import { syncNow } from '@/lib/syncRunner'
+import { SyncProgressBar } from '@/ui/SyncProgressBar'
 import { syncStatusText } from '@/ui/syncText'
 
 /** Sync at a glance under the study card; hidden while this device doesn't sync. */
@@ -30,12 +31,15 @@ export function SyncStatusLine() {
     ) : null
 
   return (
-    <div className="mt-2 flex items-center justify-end gap-2 px-1 text-xs text-muted" aria-live="polite">
-      <span className={status.kind === 'error' ? 'text-red-600' : undefined}>
-        {status.kind === 'idle' && config.lastSyncAt ? '✓ ' : ''}
-        {status.kind === 'needs-sign-in' ? 'Google sign-in expired' : syncStatusText(status, config.lastSyncAt, now)}
-      </span>
-      {action}
+    <div className="mt-2 px-1">
+      <div className="flex items-center justify-end gap-2 text-xs text-muted" aria-live="polite">
+        <span className={status.kind === 'error' ? 'text-red-600' : undefined}>
+          {status.kind === 'idle' && config.lastSyncAt ? '✓ ' : ''}
+          {status.kind === 'needs-sign-in' ? 'Google sign-in expired' : syncStatusText(status, config.lastSyncAt, now)}
+        </span>
+        {action}
+      </div>
+      <SyncProgressBar status={status} className="mt-1.5 h-1.5" />
     </div>
   )
 }

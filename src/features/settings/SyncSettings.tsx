@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useDeviceSync, useNow, useSyncStatus } from '@/hooks/useBrowser'
 import { connectGoogleDrive, disconnectGoogleDrive, resolveFirstSync, setAutoSync, syncNow } from '@/lib/syncRunner'
 import { Button } from '@/ui/Button'
 import { plural } from '@/ui/format'
+import { SyncProgressBar } from '@/ui/SyncProgressBar'
 import { syncStatusText } from '@/ui/syncText'
 
 function PrivacyNote() {
@@ -18,6 +20,7 @@ function PrivacyNote() {
 }
 
 function FirstSyncChoice({ localCards, remoteCards }: { localCards: number; remoteCards: number }) {
+  const [confirmDevice, setConfirmDevice] = useState(false)
   return (
     <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/40">
       <p className="font-semibold">Google Drive already has data</p>
@@ -27,13 +30,39 @@ function FirstSyncChoice({ localCards, remoteCards }: { localCards: number; remo
       <div className="mt-3 flex flex-col gap-1.5">
         <Button onClick={() => void resolveFirstSync('combine')}>Combine both</Button>
         <p className="mb-2 text-xs text-muted">Keeps everything from both. A word added separately on both devices appears twice.</p>
-        <Button variant="secondary" onClick={() => void resolveFirstSync('replace')}>
+        <Button variant="secondary" onClick={() => void resolveFirstSync('drive')}>
           Use the Drive copy
         </Button>
-        <p className="text-xs text-muted">
-          Replaces this device’s cards and progress with the Drive copy: best when the other device is the up-to-date one. Pictures stay on
+        <p className="mb-2 text-xs text-muted">
+          Replaces this device’s cards and progress with the Drive copy: best when another device is the up-to-date one. Pictures stay on
           this device.
         </p>
+        {confirmDevice ? (
+          <div className="rounded-lg border border-red-300 bg-surface p-3 dark:border-red-900">
+            <p className="text-sm">
+              Google Drive gets exactly this device’s {plural(localCards, 'card')} and progress. Cards that only Drive or your other devices
+              have are deleted there at their next sync, and their answers are undone. Not sure? Export a backup on the other device first.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => void resolveFirstSync('device')}>
+                Yes, use this device
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmDevice(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDevice(true)}>
+              Use this device
+            </Button>
+            <p className="text-xs text-muted">
+              Replaces the Drive copy with this device’s cards, pictures and progress; your other devices follow. Best when this device is
+              the up-to-date one.
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
@@ -51,8 +80,8 @@ export function SyncSettings() {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
-          Keep your phone and laptop in step: cards, progress, review history and settings sync through a hidden folder in your own Google
-          Drive. Pictures follow in a later update; until then, move them with a backup.
+          Keep your phone and laptop in step: cards, pictures, progress, review history and settings sync through a hidden folder in your
+          own Google Drive.
         </p>
         <Button size="lg" className="w-full" onClick={connectGoogleDrive}>
           Connect Google Drive
@@ -73,6 +102,7 @@ export function SyncSettings() {
           <p className={status.kind === 'error' ? 'mt-1 text-sm text-red-600' : 'mt-1 text-sm text-muted'} aria-live="polite">
             {syncStatusText(status, config.lastSyncAt, now)}
           </p>
+          <SyncProgressBar status={status} indeterminate className="mt-2" />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={syncNow} disabled={status.kind === 'syncing'}>
               {status.kind === 'syncing' ? 'Syncing…' : 'Sync now'}

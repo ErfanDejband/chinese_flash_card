@@ -76,6 +76,25 @@ export function mergeVersioned<T extends Versioned>(local: T[], remote: T[]): Me
   return { merged: sortById([...rows.values()]), localUpdates }
 }
 
+/**
+ * "Use this device": its rows win over the other copy's, and rows only the other copy has go
+ * through `retire` (marked deleted, reset…). Rows that win are stamped just newer than the other
+ * copy's, so every device that merges later keeps them too.
+ */
+export function preferLocal<T extends Versioned>(local: T[], remote: T[], retire: (row: T) => T): MergeResult<T> {
+  const rows = new Map(local.map((r) => [r.id, r]))
+  const localUpdates: T[] = []
+  for (const r of remote) {
+    const mine = rows.get(r.id)
+    const keep = !mine ? retire(r) : canonicalJson(mine) !== canonicalJson(r) && mine.updatedAt <= r.updatedAt ? { ...mine, updatedAt: r.updatedAt + 1 } : mine
+    if (keep !== mine) {
+      rows.set(r.id, keep)
+      localUpdates.push(keep)
+    }
+  }
+  return { merged: sortById([...rows.values()]), localUpdates }
+}
+
 export function mergeTombstones(local: Tombstone[], remote: Tombstone[]): MergeResult<Tombstone> {
   const rows = new Map(local.map((t) => [t.id, t]))
   const localUpdates: Tombstone[] = []

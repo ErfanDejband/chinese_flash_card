@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ReviewLogEntry } from '../types'
-import { canonicalJson, contentHash, mergeLog, mergeTombstones, mergeVersioned } from './merge'
+import { canonicalJson, contentHash, mergeLog, mergeTombstones, mergeVersioned, preferLocal } from './merge'
 
 const row = (id: string, updatedAt: number, value = 'x') => ({ id, updatedAt, value })
 const log = (id: string, at = 1): ReviewLogEntry => ({ id, cardId: 'c', mode: 'image_to_word', at, result: 'knew', fromBox: 1, toBox: 2 })
@@ -33,6 +33,23 @@ describe('mergeVersioned', () => {
     const once = mergeVersioned(rows, rows)
     expect(once.localUpdates).toEqual([])
     expect(once.merged.map((r) => r.id)).toEqual(['a', 'b'])
+  })
+})
+
+describe('preferLocal', () => {
+  it('keeps this device’s rows, stamped newer where the other copy differs, and retires the rest', () => {
+    const local = [row('a', 5, 'mine'), row('b', 1, 'mine'), row('c', 3, 'same')]
+    const remote = [row('a', 9, 'theirs'), row('b', 4, 'theirs'), row('c', 3, 'same'), row('d', 2, 'theirs')]
+    const r = preferLocal(local, remote, (x) => ({ ...x, value: 'retired', updatedAt: x.updatedAt + 1 }))
+    expect(r.merged).toEqual([row('a', 10, 'mine'), row('b', 5, 'mine'), row('c', 3, 'same'), row('d', 3, 'retired')])
+    expect(r.localUpdates.map((x) => x.id)).toEqual(['a', 'b', 'd'])
+    // Whoever merges later keeps this device's rows.
+    expect(mergeVersioned(remote, r.merged).merged).toEqual(r.merged)
+  })
+
+  it('leaves a newer local row alone', () => {
+    const r = preferLocal([row('a', 9, 'mine')], [row('a', 5, 'theirs')], (x) => x)
+    expect(r).toEqual({ merged: [row('a', 9, 'mine')], localUpdates: [] })
   })
 })
 

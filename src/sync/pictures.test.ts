@@ -9,6 +9,12 @@ describe('picture file names', () => {
     expect(parsePictureFileName(pictureFileName({ ...p, mime: 'image/jpeg' }))?.mime).toBe('image/jpeg')
   })
 
+  it('always read back, even for a picture without a valid size', () => {
+    const name = pictureFileName({ id: 'abc', mime: 'image/png', width: Number.NaN, height: -3 })
+    expect(name).toBe('pic-abc-0x0.png')
+    expect(parsePictureFileName(name)?.id).toBe('abc')
+  })
+
   it('ignore other files in the app folder', () => {
     expect(parsePictureFileName('cards.json.gz')).toBeNull()
     expect(parsePictureFileName('pic-x-10x10.bmp')).toBeNull()

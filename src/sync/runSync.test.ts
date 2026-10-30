@@ -4,8 +4,7 @@ import { createCard, createCards, deleteCard, updateCard } from '@/data/reposito
 import { recordAnswer, undoAnswer } from '@/data/repositories/review'
 import { createSyncStore } from '@/data/repositories/syncStore'
 import { DEFAULT_LEITNER, defaultSettings } from '@/domain/leitner/config'
-import { inspectRemote, replaceLocalFromRemote, runSync } from './runSync'
-import { PICTURE_BATCH } from './pictures'
+import { inspectRemote, replaceLocalFromRemote, replaceRemoteFromLocal, runSync, type SyncProgress } from './runSync'
 import { encodeJson, MANIFEST_FILE } from './snapshot'
 import type { DriveLike, SyncFiles } from './types'
 
@@ -204,6 +203,37 @@ describe('first sync on a device', () => {
     expect(await runSync(d.remote.drive, storeB, outcome.files)).toMatchObject({ uploaded: 0, downloaded: 0 })
   })
 
+  it('"use this device" makes Drive and the other devices match this one', async () => {
+    const d = devices()
+    // A and B start in step with one shared card…
+    const shared = await createCard({ hanzi: '學校', pinyin: 'xuéxiào', meaning: 'school' }, day(1).getTime())
+    await d.syncA()
+    await d.syncB()
+    // …then B adds a card, edits the shared one, answers, and adds a known word; A adds its own card.
+    const onlyB = { ...shared, id: 'only-on-b', hanzi: '電腦', updatedAt: day(2).getTime() }
+    await deviceB.cards.bulkPut([onlyB, { ...(await deviceB.cards.get(shared.id))!, meaning: 'school (B)', updatedAt: day(3).getTime() }])
+    await deviceB.reviewLog.put({ id: 'answer-b', cardId: shared.id, mode: 'image_to_word', at: day(3).getTime(), result: 'knew', fromBox: 0, toBox: 2 })
+    await deviceB.knownWords.put({ id: '我', addedAt: 1, updatedAt: 1 })
+    const listening = { id: `${shared.id}:listening`, cardId: shared.id, mode: 'listening' as const, box: 3, dueOn: '2026-10-07', introducedOn: '2026-10-03', lastReviewedAt: day(3).getTime(), reviewCount: 2, lapseCount: 0, updatedAt: day(3).getTime() }
+    await deviceB.reviewStates.put(listening)
+    await d.syncB()
+    const onlyA = await createCard({ hanzi: '筆', pinyin: 'bǐ' }, day(4).getTime())
+
+    // A starts over with "use this device".
+    const outcome = await replaceRemoteFromLocal(d.remote.drive, storeA, { now: day(5).getTime() })
+    const active = async (device: AppDB) => (await device.cards.filter((c) => c.deletedAt === undefined).toArray()).map((c) => c.id).sort()
+    expect(await active(deviceA)).toEqual([shared.id, onlyA.id].sort())
+    expect(await runSync(d.remote.drive, storeA, outcome.files)).toMatchObject({ uploaded: 0, downloaded: 0, localChanges: 0 })
+
+    // B follows on its next sync.
+    await d.syncB()
+    expect(await active(deviceB)).toEqual([shared.id, onlyA.id].sort())
+    expect((await deviceB.cards.get(shared.id))?.meaning).toBe('school')
+    expect(await deviceB.reviewLog.count()).toBe(0)
+    expect((await deviceB.knownWords.get('我'))?.deletedAt).toBeDefined()
+    expect(await deviceB.reviewStates.get(listening.id)).toMatchObject({ box: 0, dueOn: null, reviewCount: 0 })
+  })
+
   it('refuses data from a newer app version', async () => {
     const d = devices()
     await d.remote.drive.create(MANIFEST_FILE, encodeJson({ format: 'mandarin-leitner-sync', version: 99 }))
@@ -239,13 +269,46 @@ describe('card pictures', () => {
     expect(pictureFiles(d)).toHaveLength(0)
   })
 
-  it('move in batches, the rest on the next sync', async () => {
+  it('all move in one sync, reporting how far they are', async () => {
     const d = devices()
-    await createCards(Array.from({ length: PICTURE_BATCH + 5 }, (_, i) => ({ hanzi: `字${i}`, pinyin: 'zì', image: picture(`p${i}`) })))
+    await createCards(Array.from({ length: 45 }, (_, i) => ({ hanzi: `字${i}`, pinyin: 'zì', image: picture(`p${i}`) })))
+    const progress: SyncProgress[] = []
+    const outcome = await runSync(d.remote.drive, storeA, {}, { onProgress: (p) => progress.push(p) })
+    expect(outcome.pictures).toMatchObject({ uploaded: 45, left: 0 })
+    expect(pictureFiles(d)).toHaveLength(45)
+    expect(progress[0]).toEqual({ step: 'rows' })
+    expect(progress[1]).toEqual({ step: 'pictures', done: 0, total: 45 })
+    expect(progress.at(-1)).toEqual({ step: 'pictures', done: 45, total: 45 })
+  })
+
+  it('stop at the first failure; the rest move on the next sync', async () => {
+    const d = devices()
+    await createCards(Array.from({ length: 20 }, (_, i) => ({ hanzi: `字${i}`, pinyin: 'zì', image: picture(`p${i}`) })))
+    const create = d.remote.drive.create
+    let uploads = 0
+    d.remote.drive.create = async (name, data) => {
+      if (name.startsWith('pic-') && ++uploads > 6) throw new Error('connection lost')
+      return create(name, data)
+    }
     const first = await d.outcomeA()
-    expect(first.pictures).toMatchObject({ uploaded: PICTURE_BATCH, left: 5 })
+    expect(first.pictures.error).toBe('connection lost')
+    expect(first.pictures.uploaded).toBeGreaterThanOrEqual(6)
+    expect(first.pictures.left).toBe(20 - first.pictures.uploaded)
+    d.remote.drive.create = create
     await d.syncA()
-    expect(pictureFiles(d)).toHaveLength(PICTURE_BATCH + 5)
+    expect(pictureFiles(d)).toHaveLength(20)
+  })
+
+  it('stop starting new transfers once the device disconnects', async () => {
+    const d = devices()
+    await createCards(Array.from({ length: 12 }, (_, i) => ({ hanzi: `字${i}`, pinyin: 'zì', image: picture(`p${i}`) })))
+    const controller = new AbortController()
+    const outcome = await runSync(d.remote.drive, storeA, {}, {
+      signal: controller.signal,
+      onProgress: (p) => p.step === 'pictures' && p.done === 2 && controller.abort(),
+    })
+    expect(outcome.pictures.uploaded).toBeLessThan(12)
+    expect(outcome.pictures.left).toBe(12 - outcome.pictures.uploaded)
   })
 
   it('never undo a finished card sync when they fail', async () => {

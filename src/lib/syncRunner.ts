@@ -1,7 +1,8 @@
 import { listActiveCards } from '@/data/repositories/cards'
 import { createSyncStore } from '@/data/repositories/syncStore'
 import { createDrive } from '@/sync/drive'
-import { inspectRemote, replaceLocalFromRemote, runSync } from '@/sync/runSync'
+import type { PictureProgress } from '@/sync/pictures'
+import { inspectRemote, replaceLocalFromRemote, replaceRemoteFromLocal, runSync, type SyncOptions } from '@/sync/runSync'
 import { SyncError } from '@/sync/types'
 import { isBusy } from './busy'
 import { clearGoogleToken, fetchGoogleEmail, getGoogleToken, startGoogleSignIn, type GoogleCallbackResult } from './googleSignIn'
@@ -16,12 +17,16 @@ import { DEFAULT_DEVICE_SYNC, getDeviceSync, GOOGLE_CLIENT_ID, saveDeviceSync, u
 export type SyncStatus =
   | { kind: 'unavailable' }
   | { kind: 'off' }
-  /** `picturesLeft`: card pictures still to move; the next sync follows shortly. */
+  /** `picturesLeft`: card pictures that couldn't move yet (a later sync carries on). */
   | { kind: 'idle'; picturesLeft?: number }
-  | { kind: 'syncing' }
+  /** `pictures`: how far the picture transfer is (missing while the cards sync). */
+  | { kind: 'syncing'; pictures?: PictureProgress }
   | { kind: 'needs-sign-in' }
   | { kind: 'choose'; localCards: number; remoteCards: number }
   | { kind: 'error'; message: string }
+
+/** The first-sync choice when Drive and this device both have cards. */
+export type FirstSyncChoice = 'combine' | 'drive' | 'device'
 
 type Reason = 'start' | 'foreground' | 'background' | 'review' | 'timer' | 'online'
 
@@ -30,6 +35,10 @@ const PERIOD_MS = 5 * 60_000
 let status: SyncStatus = { kind: GOOGLE_CLIENT_ID ? 'off' : 'unavailable' }
 const listeners = new Set<() => void>()
 let running: Promise<void> | undefined
+/** A sync was asked for while one ran (after a review, say): run once more afterwards. */
+let again = false
+/** The running sync's; disconnecting aborts it, so a long picture transfer stops. */
+let current: AbortController | undefined
 /** A silent renewal already failed on this page load: don't hop again until the user taps. */
 let silentFailed = false
 let started = false
@@ -61,10 +70,16 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Sync failed.'
 }
 
-async function run(mode?: 'combine' | 'replace'): Promise<void> {
-  if (running) return running
+async function run(mode?: FirstSyncChoice): Promise<void> {
+  if (running) {
+    again = true
+    return running
+  }
+  const controller = new AbortController()
+  current = controller
   running = (async () => {
     setStatus({ kind: 'syncing' })
+    let retry = false
     try {
       await withLock(async () => {
         const drive = createDrive(() => getGoogleToken())
@@ -84,16 +99,30 @@ async function run(mode?: 'combine' | 'replace'): Promise<void> {
             setStatus({ kind: 'choose', localCards, remoteCards: remote.cards })
             return
           }
-          choice = remote.hasData ? 'replace' : 'combine'
+          choice = remote.hasData ? 'drive' : 'combine'
         }
-        const outcome = choice === 'replace' ? await replaceLocalFromRemote(drive, store) : await runSync(drive, store, config.initialized ? config.files : {})
+        const options: SyncOptions = {
+          signal: controller.signal,
+          onProgress: (p) => {
+            if (!controller.signal.aborted) setStatus(p.step === 'pictures' && p.total > 0 ? { kind: 'syncing', pictures: { done: p.done, total: p.total } } : { kind: 'syncing' })
+          },
+        }
+        const outcome =
+          choice === 'drive'
+            ? await replaceLocalFromRemote(drive, store, options)
+            : choice === 'device'
+              ? await replaceRemoteFromLocal(drive, store, options)
+              : await runSync(drive, store, config.initialized ? config.files : {}, options)
+        // Disconnected meanwhile: this device's sync settings were reset; leave them so.
+        if (controller.signal.aborted) return
         updateDeviceSync({ initialized: true, files: outcome.files, lastSyncAt: Date.now() })
-        // Pictures move in batches: carry on soon while some are left (and nothing went wrong).
-        const left = outcome.pictures.error ? 0 : outcome.pictures.left
+        const { uploaded, downloaded, removed, left } = outcome.pictures
         setStatus({ kind: 'idle', picturesLeft: left || undefined })
-        if (left) setTimeout(() => requestSync('timer'), 2000)
+        // A transfer cut short (a dropped connection) carries on soon, as long as pictures keep moving.
+        retry = left > 0 && uploaded + downloaded + removed > 0
       })
     } catch (e) {
+      if (controller.signal.aborted) return
       if (e instanceof SyncError && e.kind === 'auth') {
         clearGoogleToken()
         setStatus({ kind: 'needs-sign-in' })
@@ -102,6 +131,11 @@ async function run(mode?: 'combine' | 'replace'): Promise<void> {
       }
     } finally {
       running = undefined
+      if (current === controller) current = undefined
+    }
+    if (retry || again) {
+      setTimeout(() => requestSync('timer'), again ? 0 : 5000)
+      again = false
     }
   })()
   return running
@@ -132,6 +166,8 @@ export function connectGoogleDrive(): void {
 
 /** Stop syncing on this device. The data stays on the device and in Drive. */
 export function disconnectGoogleDrive(): void {
+  current?.abort()
+  again = false
   clearGoogleToken()
   saveDeviceSync({ ...DEFAULT_DEVICE_SYNC, auto: getDeviceSync().auto })
   setStatus({ kind: 'off' })
@@ -141,8 +177,8 @@ export function setAutoSync(auto: boolean): void {
   updateDeviceSync({ auto })
 }
 
-/** The first-sync choice: combine both copies, or replace this device with the Drive copy. */
-export function resolveFirstSync(choice: 'combine' | 'replace'): Promise<void> {
+/** The first-sync choice: combine both copies, or make this device or Drive match the other. */
+export function resolveFirstSync(choice: FirstSyncChoice): Promise<void> {
   return run(choice)
 }
 

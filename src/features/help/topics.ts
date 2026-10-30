@@ -182,7 +182,8 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     keywords: 'google drive phone laptop devices cloud',
     blocks: [
       'Your cards live in this browser. To use them on your phone and your laptop, turn on sync in Settings → Sync & backup: it keeps a copy in your own Google Drive, in a hidden folder only this app can see.',
-      'Card pictures sync too, a batch at a time: the device that has a picture uploads it, the other downloads it. Until a picture arrives, its card shows a small picture icon and is asked with its meaning. Each picture is stored once in your Drive and deleted there when no card uses it any more. AI keys always stay on each device.',
+      'Card pictures sync too, a few at a time, with a bar showing how many are done: the device that has a picture uploads it, the other downloads it. Until a picture arrives, its card shows a small picture icon and is asked with its meaning. Each picture is stored once in your Drive and deleted there when no card uses it any more. AI keys always stay on each device.',
+      'When you connect a device and both it and your Drive already have cards, you choose: combine both, use the Drive copy (this device takes Drive’s cards), or use this device (Drive and your other devices take this device’s cards). Sync never deletes pictures from a device.',
     ],
     links: [{ label: 'Sync settings', to: '/settings/sync' }],
   },

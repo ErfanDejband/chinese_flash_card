@@ -8,6 +8,8 @@ import { SyncError, type DriveLike, type RemoteFile } from './types'
 const API = 'https://www.googleapis.com/drive/v3'
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3'
 const FIELDS = 'id,name,version'
+/** A request that hasn't finished by then fails (mobile connections can stall without an error). */
+export const DRIVE_TIMEOUT_MS = 60_000
 
 const defaultFetch: FetchLike = (input, init) => fetch(input, init)
 
@@ -28,15 +30,26 @@ async function errorFrom(res: Response): Promise<SyncError> {
   return new SyncError('other', `Google Drive: ${message}`, res.status)
 }
 
-export function createDrive(getToken: () => string | undefined, fetchImpl: FetchLike = defaultFetch): DriveLike {
+const timedOut = (e: unknown) => e instanceof Error && e.name === 'TimeoutError'
+
+/** Reads a reply's body; a connection that stalls or breaks off on the way is a network error. */
+async function readBody<T>(read: Promise<T>): Promise<T> {
+  try {
+    return await read
+  } catch (e) {
+    throw new SyncError('network', timedOut(e) ? 'Google Drive took too long to answer.' : 'The connection to Google Drive broke off.')
+  }
+}
+
+export function createDrive(getToken: () => string | undefined, fetchImpl: FetchLike = defaultFetch, timeoutMs = DRIVE_TIMEOUT_MS): DriveLike {
   async function call(url: string, init: RequestInit = {}): Promise<Response> {
     const token = getToken()
     if (!token) throw new SyncError('auth', 'Sign in to Google to sync.')
     let res: Response
     try {
-      res = await fetchImpl(url, { ...init, headers: { ...init.headers, authorization: `Bearer ${token}` } })
-    } catch {
-      throw new SyncError('network', 'Could not reach Google Drive (offline?).')
+      res = await fetchImpl(url, { ...init, headers: { ...init.headers, authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(timeoutMs) })
+    } catch (e) {
+      throw new SyncError('network', timedOut(e) ? 'Google Drive took too long to answer.' : 'Could not reach Google Drive (offline?).')
     }
     if (!res.ok) throw await errorFrom(res)
     return res
@@ -55,22 +68,22 @@ export function createDrive(getToken: () => string | undefined, fetchImpl: Fetch
       do {
         const params = new URLSearchParams({ spaces: 'appDataFolder', fields: `nextPageToken,files(${FIELDS})`, pageSize: '1000' })
         if (pageToken) params.set('pageToken', pageToken)
-        const body = (await (await call(`${API}/files?${params}`)).json()) as { files?: RemoteFile[]; nextPageToken?: string }
-        files.push(...(body.files ?? []).map(asFile))
-        pageToken = body.nextPageToken ?? ''
+        const page = (await readBody((await call(`${API}/files?${params}`)).json())) as { files?: RemoteFile[]; nextPageToken?: string }
+        files.push(...(page.files ?? []).map(asFile))
+        pageToken = page.nextPageToken ?? ''
       } while (pageToken)
       return files
     },
 
     async download(id) {
       const res = await call(`${API}/files/${encodeURIComponent(id)}?alt=media`)
-      return new Uint8Array(await res.arrayBuffer())
+      return new Uint8Array(await readBody(res.arrayBuffer()))
     },
 
     async create(name, data) {
       const boundary = `mandarin-leitner-${Math.random().toString(36).slice(2)}`
       const meta = JSON.stringify({ name, parents: ['appDataFolder'] })
-      const body = new Blob([
+      const payload = new Blob([
         `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n`,
         `--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`,
         data as Uint8Array<ArrayBuffer>,
@@ -79,9 +92,9 @@ export function createDrive(getToken: () => string | undefined, fetchImpl: Fetch
       const res = await call(`${UPLOAD}/files?uploadType=multipart&fields=${FIELDS}`, {
         method: 'POST',
         headers: { 'content-type': `multipart/related; boundary=${boundary}` },
-        body,
+        body: payload,
       })
-      return asFile(await res.json())
+      return asFile(await readBody(res.json()))
     },
 
     async remove(id) {
@@ -98,7 +111,7 @@ export function createDrive(getToken: () => string | undefined, fetchImpl: Fetch
         headers: { 'content-type': 'application/octet-stream' },
         body: data as Uint8Array<ArrayBuffer>,
       })
-      return asFile(await res.json())
+      return asFile(await readBody(res.json()))
     },
   }
 }

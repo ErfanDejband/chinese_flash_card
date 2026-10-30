@@ -5,7 +5,7 @@ import { timeAgo } from './format'
 export function syncStatusText(status: SyncStatus, lastSyncAt: number | undefined, now: number): string {
   switch (status.kind) {
     case 'syncing':
-      return 'Syncing…'
+      return status.pictures ? `Syncing pictures… ${status.pictures.done} of ${status.pictures.total}` : 'Syncing cards…'
     case 'needs-sign-in':
       return 'The Google sign-in has expired: tap Sync to renew it.'
     case 'choose':
@@ -13,7 +13,7 @@ export function syncStatusText(status: SyncStatus, lastSyncAt: number | undefine
     case 'error':
       return status.message
     case 'idle':
-      if (status.picturesLeft) return `Synced · ${status.picturesLeft} ${status.picturesLeft === 1 ? 'picture' : 'pictures'} still to move…`
+      if (status.picturesLeft) return `Cards synced · ${status.picturesLeft} ${status.picturesLeft === 1 ? 'picture' : 'pictures'} still to move`
       return lastSyncAt ? `Synced ${timeAgo(lastSyncAt, now)}` : 'Not synced yet'
     default:
       return lastSyncAt ? `Synced ${timeAgo(lastSyncAt, now)}` : 'Not synced yet'
