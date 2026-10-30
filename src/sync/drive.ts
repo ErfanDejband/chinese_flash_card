@@ -84,6 +84,14 @@ export function createDrive(getToken: () => string | undefined, fetchImpl: Fetch
       return asFile(await res.json())
     },
 
+    async remove(id) {
+      try {
+        await call(`${API}/files/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      } catch (e) {
+        if (!(e instanceof SyncError && e.status === 404)) throw e
+      }
+    },
+
     async update(id, data) {
       const res = await call(`${UPLOAD}/files/${encodeURIComponent(id)}?uploadType=media&fields=${FIELDS}`, {
         method: 'PATCH',

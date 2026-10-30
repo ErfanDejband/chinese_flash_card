@@ -71,7 +71,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
       'Tap the camera button in the middle of the bar, take a photo (or choose one), and tap the things you want to learn. Dots show what the app found; a tap anywhere else adds a small box you can adjust.',
       'Objects are found on your phone. The first time, the app downloads its object finder once (about 18 MB, or 49 MB on phones that can use the graphics chip); after that it works offline. The photo stays on your phone: only the objects you chose, cut out into one small picture, go to your AI service to be named.',
       'For each object you get the everyday word first (鞋子 shoes) and sometimes a more precise one (球鞋 sneakers), each with a level from A1 to C2. My level picks one for you: beginners get the everyday word. Keeping both makes two cards, but very similar words learned on the same days can get mixed up, so adding the second one later can help.',
-      'Cards from Snap use the cut-out as their picture and are tagged snap and with a group such as 衣物, so you can find them in Your cards.',
+      'A card from Snap gets a square picture of the object in its place: the surroundings are softly blurred and dimmed so the object stands out, with a thin ring around it. Cards are tagged snap and with a group such as 衣物, so you can find them in Your cards.',
     ],
     links: [{ label: 'Snap', to: '/snap' }],
   },
@@ -182,7 +182,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     keywords: 'google drive phone laptop devices cloud',
     blocks: [
       'Your cards live in this browser. To use them on your phone and your laptop, turn on sync in Settings → Sync & backup: it keeps a copy in your own Google Drive, in a hidden folder only this app can see.',
-      'Pictures are not synced yet (save a backup to move them), and AI keys always stay on each device.',
+      'Card pictures sync too, a batch at a time: the device that has a picture uploads it, the other downloads it. Until a picture arrives, its card shows a small picture icon and is asked with its meaning. Each picture is stored once in your Drive and deleted there when no card uses it any more. AI keys always stay on each device.',
     ],
     links: [{ label: 'Sync settings', to: '/settings/sync' }],
   },

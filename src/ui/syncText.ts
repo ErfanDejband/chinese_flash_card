@@ -12,6 +12,9 @@ export function syncStatusText(status: SyncStatus, lastSyncAt: number | undefine
       return 'Choose how this device starts syncing (Settings).'
     case 'error':
       return status.message
+    case 'idle':
+      if (status.picturesLeft) return `Synced · ${status.picturesLeft} ${status.picturesLeft === 1 ? 'picture' : 'pictures'} still to move…`
+      return lastSyncAt ? `Synced ${timeAgo(lastSyncAt, now)}` : 'Not synced yet'
     default:
       return lastSyncAt ? `Synced ${timeAgo(lastSyncAt, now)}` : 'Not synced yet'
   }

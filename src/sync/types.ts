@@ -28,11 +28,30 @@ export interface LocalChanges {
   logDeletes: Id[]
 }
 
+/** A card picture as one device stores it (the media table). Pictures never change: a new one gets a new id. */
+export interface PictureRecord {
+  id: Id
+  blob: Blob
+  mime: string
+  width: number
+  height: number
+  createdAt: number
+}
+
+/** This device's card pictures, for syncing them as files (sync step 2). */
+export interface PictureStore {
+  /** `used`: pictures of cards that aren't deleted; `stored`: pictures this device has. */
+  ids(): Promise<{ used: Set<Id>; stored: Set<Id> }>
+  get(id: Id): Promise<PictureRecord | undefined>
+  put(picture: PictureRecord): Promise<void>
+}
+
 export interface LocalStore {
   read(): Promise<LocalSnapshot>
   apply(changes: LocalChanges): Promise<void>
   /** Replace this device's synced data with another copy (first sync, "use the Drive copy"). */
   replace(snapshot: LocalSnapshot): Promise<void>
+  pictures: PictureStore
 }
 
 export interface RemoteFile {
@@ -48,6 +67,8 @@ export interface DriveLike {
   download(id: string): Promise<Uint8Array>
   create(name: string, data: Uint8Array): Promise<RemoteFile>
   update(id: string, data: Uint8Array): Promise<RemoteFile>
+  /** Delete a file (a picture no card uses any more); a file that is already gone is fine. */
+  remove(id: string): Promise<void>
 }
 
 /** What this device last saw of each remote file. */

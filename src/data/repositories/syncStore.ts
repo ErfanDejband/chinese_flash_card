@@ -11,8 +11,9 @@ function withLocalVoice(s: SyncedSettings, local: SettingsRecord | undefined): S
 }
 
 /**
- * The synced part of one device's database. Not synced: media (step 2), import work tables,
- * and imports still in draft (their pages exist only on the device that started them).
+ * The synced part of one device's database: the rows below, plus card pictures as separate files
+ * (`pictures`, sync step 2). Not synced: import and picture work tables, and imports still in
+ * draft (their pages exist only on the device that started them).
  */
 export function createSyncStore(database: AppDB = defaultDb): LocalStore {
   const tables = () => [
@@ -70,6 +71,18 @@ export function createSyncStore(database: AppDB = defaultDb): LocalStore {
         await database.reviewLog.bulkPut(snapshot.log)
         await database.settings.bulkPut(snapshot.settings.map((s) => withLocalVoice(s, localSettings)))
       })
+    },
+
+    pictures: {
+      async ids() {
+        const [cards, stored] = await Promise.all([database.cards.toArray(), database.media.toCollection().primaryKeys()])
+        const used = cards.flatMap((c) => (c.deletedAt === undefined && c.imageId ? [c.imageId] : []))
+        return { used: new Set(used), stored: new Set(stored) }
+      },
+      get: (id) => database.media.get(id),
+      async put(picture) {
+        await database.media.put(picture)
+      },
     },
   }
 }

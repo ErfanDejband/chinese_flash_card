@@ -6,7 +6,7 @@ import { MediaImage } from './MediaImage'
 
 export function CardThumb({ card, className = 'size-12' }: { card: Card; className?: string }) {
   return card.imageId ? (
-    <MediaImage id={card.imageId} alt={card.meaning ?? card.hanzi} className={`${className} shrink-0 rounded-lg bg-white object-contain`} />
+    <MediaImage id={card.imageId} alt={card.meaning ?? card.hanzi} className={`${className} shrink-0 rounded-lg`} />
   ) : (
     <div className={`${className} grid shrink-0 place-items-center rounded-lg bg-sunken text-lg text-muted`}>
       <Hanzi>{[...card.hanzi][0]}</Hanzi>

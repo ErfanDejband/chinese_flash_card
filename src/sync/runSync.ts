@@ -1,5 +1,6 @@
 import { mergeLog, mergeTombstones, mergeVersioned, type Tombstone, type Versioned } from '@/domain/sync/merge'
 import type { ReviewLogEntry } from '@/domain/types'
+import { syncPictures, type PictureSyncResult } from './pictures'
 import { decodeJson, encodeJson, hashRows, isDataFile, isLogFile, logFileName, logMonth, MANIFEST_FILE, SYNC_FORMAT, SYNC_VERSION, TABLE_FILES, type Manifest } from './snapshot'
 import { SyncError, type DriveLike, type LocalChanges, type LocalSnapshot, type LocalStore, type RemoteFile, type SyncFiles } from './types'
 
@@ -9,6 +10,18 @@ export interface SyncOutcome {
   uploaded: number
   /** Rows written on this device. */
   localChanges: number
+  /** Card pictures moved; `error` when they couldn't (the cards are synced anyway). */
+  pictures: PictureSyncResult & { error?: string }
+}
+
+/** Pictures after the rows: a picture failure never undoes a finished row sync; the next run retries. */
+async function withPictures(drive: DriveLike, store: LocalStore, remote: Map<string, RemoteFile>): Promise<SyncOutcome['pictures']> {
+  try {
+    return await syncPictures(drive, store.pictures, remote.values())
+  } catch (e) {
+    if (e instanceof SyncError && e.kind === 'auth') throw e
+    return { uploaded: 0, downloaded: 0, removed: 0, left: 0, error: e instanceof Error ? e.message : 'Pictures could not be synced.' }
+  }
 }
 
 type Rows = { id: string }[]
@@ -146,7 +159,7 @@ export async function runSync(drive: DriveLike, store: LocalStore, previous: Syn
   const manifest = remote.get(MANIFEST_FILE) ?? (uploads.length ? await drive.create(MANIFEST_FILE, encodeJson({ format: SYNC_FORMAT, version: SYNC_VERSION })) : undefined)
   if (manifest) files[MANIFEST_FILE] = { id: manifest.id, version: manifest.version, hash: '' }
 
-  return { files, downloaded, uploaded: uploads.length, localChanges }
+  return { files, downloaded, uploaded: uploads.length, localChanges, pictures: await withPictures(drive, store, remote) }
 }
 
 /** First sync, "use the Drive copy": this device's synced data becomes exactly the Drive copy. */
@@ -169,5 +182,6 @@ export async function replaceLocalFromRemote(drive: DriveLike, store: LocalStore
   await store.replace(snapshot)
   const manifest = remote.get(MANIFEST_FILE)
   if (manifest) files[MANIFEST_FILE] = { id: manifest.id, version: manifest.version, hash: '' }
-  return { files, downloaded, uploaded: 0, localChanges: snapshot.cards.length + snapshot.states.length + snapshot.log.length }
+  const localChanges = snapshot.cards.length + snapshot.states.length + snapshot.log.length
+  return { files, downloaded, uploaded: 0, localChanges, pictures: await withPictures(drive, store, remote) }
 }

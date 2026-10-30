@@ -34,6 +34,15 @@ describe('Drive client', () => {
     expect(auth(calls[0]!.init)).toBe('Bearer TOKEN')
   })
 
+  it('deletes a file, and is fine when it is already gone', async () => {
+    const { fetchImpl, calls } = mockFetch(new Response(null, { status: 204 }), json({ error: { message: 'File not found' } }, 404))
+    const drive = createDrive(() => 'TOKEN', fetchImpl)
+    await drive.remove('pic-1')
+    await drive.remove('pic-1')
+    expect(calls[0]!.init.method).toBe('DELETE')
+    expect(calls[0]!.url).toBe('https://www.googleapis.com/drive/v3/files/pic-1')
+  })
+
   it('creates files in appDataFolder with a multipart upload', async () => {
     const { fetchImpl, calls } = mockFetch(json({ id: 'new', name: 'cards.json.gz', version: '1' }))
     const saved = await createDrive(() => 'TOKEN', fetchImpl).create('cards.json.gz', new Uint8Array([1, 2, 3]))

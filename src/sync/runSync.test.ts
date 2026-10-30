@@ -1,10 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { ALL_TABLES, AppDB, db as deviceA } from '@/data/db'
-import { createCard, updateCard } from '@/data/repositories/cards'
+import { createCard, createCards, deleteCard, updateCard } from '@/data/repositories/cards'
 import { recordAnswer, undoAnswer } from '@/data/repositories/review'
 import { createSyncStore } from '@/data/repositories/syncStore'
 import { DEFAULT_LEITNER, defaultSettings } from '@/domain/leitner/config'
 import { inspectRemote, replaceLocalFromRemote, runSync } from './runSync'
+import { PICTURE_BATCH } from './pictures'
 import { encodeJson, MANIFEST_FILE } from './snapshot'
 import type { DriveLike, SyncFiles } from './types'
 
@@ -31,6 +32,9 @@ function fakeDrive() {
       f.version++
       f.data = data
       return { id, name: f.name, version: String(f.version) }
+    },
+    remove: async (id) => {
+      files.delete(id)
     },
   }
   return { drive, files, calls }
@@ -204,5 +208,56 @@ describe('first sync on a device', () => {
     const d = devices()
     await d.remote.drive.create(MANIFEST_FILE, encodeJson({ format: 'mandarin-leitner-sync', version: 99 }))
     await expect(runSync(d.remote.drive, storeA, {})).rejects.toMatchObject({ kind: 'format' })
+  })
+})
+
+describe('card pictures', () => {
+  const picture = (text: string) => ({ blob: new Blob([text], { type: 'image/webp' }), mime: 'image/webp', width: 800, height: 600 })
+  const pictureFiles = (d: ReturnType<typeof devices>) => [...d.remote.files.values()].filter((f) => f.name.startsWith('pic-'))
+
+  it('go from A to B with the same id, bytes and size', async () => {
+    const d = devices()
+    const card = await createCard({ hanzi: '杯子', pinyin: 'bēizi', image: picture('cup-bytes') })
+    await d.syncA()
+    expect(pictureFiles(d).map((f) => f.name)).toEqual([`pic-${card.imageId}-800x600.webp`])
+
+    await d.syncB()
+    const onB = await deviceB.media.get(card.imageId!)
+    expect(onB).toMatchObject({ id: card.imageId, mime: 'image/webp', width: 800, height: 600 })
+    expect(await onB!.blob.text()).toBe('cup-bytes')
+    // Nothing more to move.
+    expect((await runSync(d.remote.drive, storeB, await d.syncB())).pictures).toMatchObject({ uploaded: 0, downloaded: 0, removed: 0, left: 0 })
+  })
+
+  it('are removed from Drive when no card uses them any more', async () => {
+    const d = devices()
+    const card = await createCard({ hanzi: '書', pinyin: 'shū', image: picture('book') })
+    await d.syncA()
+    expect(pictureFiles(d)).toHaveLength(1)
+    await deleteCard(card.id)
+    await d.syncA()
+    expect(pictureFiles(d)).toHaveLength(0)
+  })
+
+  it('move in batches, the rest on the next sync', async () => {
+    const d = devices()
+    await createCards(Array.from({ length: PICTURE_BATCH + 5 }, (_, i) => ({ hanzi: `字${i}`, pinyin: 'zì', image: picture(`p${i}`) })))
+    const first = await d.outcomeA()
+    expect(first.pictures).toMatchObject({ uploaded: PICTURE_BATCH, left: 5 })
+    await d.syncA()
+    expect(pictureFiles(d)).toHaveLength(PICTURE_BATCH + 5)
+  })
+
+  it('never undo a finished card sync when they fail', async () => {
+    const d = devices()
+    await createCard({ hanzi: '燈', pinyin: 'dēng', image: picture('lamp') })
+    const create = d.remote.drive.create
+    d.remote.drive.create = async (name, data) => {
+      if (name.startsWith('pic-')) throw new Error('quota')
+      return create(name, data)
+    }
+    const outcome = await d.outcomeA()
+    expect(outcome.pictures.error).toBe('quota')
+    expect([...d.remote.files.values()].some((f) => f.name === 'cards.json.gz')).toBe(true)
   })
 })

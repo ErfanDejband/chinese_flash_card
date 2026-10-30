@@ -16,7 +16,8 @@ import { DEFAULT_DEVICE_SYNC, getDeviceSync, GOOGLE_CLIENT_ID, saveDeviceSync, u
 export type SyncStatus =
   | { kind: 'unavailable' }
   | { kind: 'off' }
-  | { kind: 'idle' }
+  /** `picturesLeft`: card pictures still to move; the next sync follows shortly. */
+  | { kind: 'idle'; picturesLeft?: number }
   | { kind: 'syncing' }
   | { kind: 'needs-sign-in' }
   | { kind: 'choose'; localCards: number; remoteCards: number }
@@ -87,7 +88,10 @@ async function run(mode?: 'combine' | 'replace'): Promise<void> {
         }
         const outcome = choice === 'replace' ? await replaceLocalFromRemote(drive, store) : await runSync(drive, store, config.initialized ? config.files : {})
         updateDeviceSync({ initialized: true, files: outcome.files, lastSyncAt: Date.now() })
-        setStatus({ kind: 'idle' })
+        // Pictures move in batches: carry on soon while some are left (and nothing went wrong).
+        const left = outcome.pictures.error ? 0 : outcome.pictures.left
+        setStatus({ kind: 'idle', picturesLeft: left || undefined })
+        if (left) setTimeout(() => requestSync('timer'), 2000)
       })
     } catch (e) {
       if (e instanceof SyncError && e.kind === 'auth') {

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Card, ReviewMode } from '@/domain/types'
+import { useMediaUrl } from '@/hooks/useMediaUrl'
 import { speak, speechSupported } from '@/lib/speech'
 import { boxLabel } from '@/ui/boxTones'
 import { ExampleSentence } from '@/ui/ExampleSentence'
@@ -9,16 +10,17 @@ import { MediaImage } from '@/ui/MediaImage'
 
 /**
  * What the card shows before the answer. Picture → Chinese: the picture, else the meaning, else
- * the characters. Chinese → meaning: always the characters. Sound → Chinese: the word is spoken
- * once when the card appears (again with the play button, or R in the review page); a device
- * without text-to-speech shows the pinyin instead.
+ * the characters (also when the picture isn't on this device yet, e.g. still syncing).
+ * Chinese → meaning: always the characters. Sound → Chinese: the word is spoken once when the
+ * card appears (again with the play button, or R in the review page); a device without
+ * text-to-speech shows the pinyin instead.
  */
 type PromptKind = 'image' | 'meaning' | 'hanzi' | 'sound'
 
-function promptKind(card: Card, mode: ReviewMode): PromptKind {
+function promptKind(card: Card, mode: ReviewMode, pictureHere: boolean): PromptKind {
   if (mode === 'listening') return 'sound'
   if (mode === 'hanzi_to_meaning') return 'hanzi'
-  if (card.imageId) return 'image'
+  if (card.imageId && pictureHere) return 'image'
   if (card.meaning) return 'meaning'
   return 'hanzi'
 }
@@ -45,7 +47,8 @@ function Chip({ children, className = 'bg-sunken text-muted' }: { children: stri
 }
 
 export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Props) {
-  const kind = promptKind(card, mode)
+  const pictureHere = !useMediaUrl(card.imageId).missing
+  const kind = promptKind(card, mode, pictureHere)
   const canSpeak = speechSupported()
 
   // Speak the word once per showing: the review page remounts the card for every answer (so a
@@ -70,7 +73,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
       </div>
 
       {kind === 'image' && (
-        <MediaImage id={card.imageId!} alt="" className="max-h-[38dvh] min-h-40 w-full max-w-md rounded-2xl bg-white object-contain p-2 shadow-sm" />
+        <MediaImage id={card.imageId!} alt="" className="max-h-[38dvh] min-h-40 w-full max-w-md rounded-2xl p-2 shadow-sm" />
       )}
       {kind === 'meaning' && <p className="max-w-md text-3xl leading-snug font-semibold">{card.meaning}</p>}
       {kind === 'hanzi' && <Hanzi className="text-7xl leading-tight">{card.hanzi}</Hanzi>}
@@ -112,8 +115,8 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
             )}
           </div>
           {kind !== 'meaning' && card.meaning && <p className="text-lg text-muted">{card.meaning}</p>}
-          {(kind === 'hanzi' || kind === 'sound') && card.imageId && (
-            <MediaImage id={card.imageId} alt="" className="mt-2 max-h-[24dvh] w-full max-w-xs rounded-2xl bg-white object-contain p-2 shadow-sm" />
+          {(kind === 'hanzi' || kind === 'sound') && card.imageId && pictureHere && (
+            <MediaImage id={card.imageId} alt="" className="mt-2 max-h-[24dvh] w-full max-w-xs rounded-2xl p-2 shadow-sm" />
           )}
           {card.example && <ExampleSentence example={card.example} word={card.hanzi} className="mt-2 max-w-md" />}
           {card.notes && <p className="mt-2 max-w-md text-sm whitespace-pre-line text-muted">{card.notes}</p>}

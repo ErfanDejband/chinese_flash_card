@@ -62,7 +62,7 @@ export function ImagePicker({ currentImageId, value, onChange }: Props) {
           {value.kind === 'set' ? (
             <img src={value.preview} alt="" className="size-full bg-white object-contain" />
           ) : showsStored ? (
-            <MediaImage id={currentImageId} alt="" className="size-full bg-white object-contain" />
+            <MediaImage id={currentImageId} alt="" className="size-full" />
           ) : (
             <Icon name="image" className="size-8" />
           )}
