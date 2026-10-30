@@ -4,13 +4,14 @@ import type { NewMedia } from '@/data/repositories/media'
 import { configProblems, createProvider } from '@/import/ai/createProvider'
 import { bytesToBase64 } from '@/import/ai/http'
 import { parseModelJson } from '@/import/ai/parse'
-import { cropFromImage } from '@/import/pdf/crop'
+import { encodeCanvas } from '@/lib/image'
 import { canvasToBlob } from '@/import/render'
 import { activeProviderConfig, getAiSettings } from '@/lib/aiConfig'
 import { recordUsage } from '@/lib/aiUsage'
 import { getSnapPrefs, setSnapPrefs } from '@/lib/snapPrefs'
 import { plannedCards, preselectAll, type SnapContext } from '@/vision/cards'
-import { padBox, type Detection } from '@/vision/detections'
+import { drawCardPicture } from '@/vision/cardPicture'
+import type { Detection } from '@/vision/detections'
 import { loadDetector, webGpuInfo, type Detector } from '@/vision/detector'
 import { drawMosaic, mosaicLayout } from '@/vision/mosaic'
 import { nameInput, OBJECT_NAME_TASK, validateNames, type LearnerLevel, type ObjectWords } from '@/vision/tasks'
@@ -195,7 +196,11 @@ export function backToPhoto() {
   set({ step: 'pick', names: undefined, picks: {}, aiError: undefined })
 }
 
-/** The kept words as cards, each with its object's cut-out as the picture. */
+/**
+ * The kept words as cards. Each object's picture is cut from the photo as taken (full
+ * resolution; the working copy if it can't be read again): the object in its surroundings, with
+ * a spotlight on it (vision/cardPicture).
+ */
 export async function addCards() {
   const { photo, names, chosen } = state
   if (!photo || !names || state.adding) return
@@ -203,16 +208,25 @@ export async function addCards() {
   if (!plan.length) return
   set({ adding: true })
   try {
-    const crops = new Map<number, NewMedia | null>()
-    for (const p of plan) {
-      if (!crops.has(p.index)) crops.set(p.index, await cropFromImage(photo.blob, padBox(chosen[p.index - 1]!.box, 0.08)))
+    const original = await createImageBitmap(photo.file).catch(() => undefined)
+    const source = original ?? photo.canvas
+    const pictures = new Map<number, NewMedia>()
+    try {
+      for (const p of plan) {
+        if (pictures.has(p.index)) continue
+        const canvas = document.createElement('canvas')
+        drawCardPicture(canvas, source, source.width, source.height, chosen[p.index - 1]!.box)
+        pictures.set(p.index, await encodeCanvas(canvas))
+      }
+    } finally {
+      original?.close()
     }
     const inputs: NewCard[] = plan.map((p) => ({
       hanzi: p.word.hanzi,
       pinyin: p.word.pinyin,
       meaning: p.word.meaning,
       tags: p.tags,
-      image: crops.get(p.index) ?? undefined,
+      image: pictures.get(p.index),
       source: { type: 'manual' },
     }))
     await createCards(inputs)

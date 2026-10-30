@@ -1,7 +1,7 @@
 import { checkPinyin } from '@/domain/pinyin/suggest'
 import type { Taken } from '@/vision/cards'
 import type { ObjectWords, WordChoice } from '@/vision/tasks'
-import { CropThumb } from './CropThumb'
+import { CardPicturePreview } from './CardPicturePreview'
 import { SOURCE_TEXT, type Chosen, type Photo } from './photo'
 
 const TAKEN_TEXT: Record<Taken, string> = { 'in-deck': 'in your cards', known: 'you know this' }
@@ -31,7 +31,7 @@ export function WordChoices({ photo, chosen, names, picks, onToggle, busy, taken
         return (
           <li key={i} className="flex gap-3">
             <div className="relative shrink-0">
-              <CropThumb photo={photo.canvas} box={c.box} size={56} />
+              <CardPicturePreview photo={photo} box={c.box} size={72} />
               <span className="absolute -top-1 -left-1 grid size-5 place-items-center rounded-md bg-accent text-[11px] font-bold text-on-accent">{i + 1}</span>
             </div>
             {n?.words.length ? (

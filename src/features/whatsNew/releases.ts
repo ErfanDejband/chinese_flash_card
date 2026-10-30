@@ -19,6 +19,17 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-10-30',
+    title: 'Pictures on all your devices',
+    items: [
+      {
+        text: 'Card pictures now sync between your devices, a batch at a time. Until a picture arrives, its card shows a small picture icon and asks with the meaning.',
+        to: '/settings/sync',
+      },
+      { text: 'Snap pictures are bigger: the object in its place, in focus, with the surroundings softly faded.', to: '/snap' },
+    ],
+  },
+  {
     id: '2026-10-29.2',
     title: 'Snap: words for things around you',
     items: [

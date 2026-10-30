@@ -7,10 +7,13 @@ export const PHOTO_SIZE = 1536
 export const BIG_AREA = 0.35
 
 export interface Photo {
+  /** The working copy (at most PHOTO_SIZE): detection, the mosaic, previews. */
   canvas: HTMLCanvasElement
   blob: Blob
   url: string
   key: string
+  /** The photo as taken: card pictures are cut from it at full resolution. */
+  file: File
 }
 
 export type ChosenSource = 'detector' | 'big' | 'tapped' | 'empty' | 'drawn'
@@ -43,5 +46,5 @@ export async function readPhoto(file: File): Promise<Photo> {
   bitmap.close()
   const canvas = downscale(full, PHOTO_SIZE)
   const blob = await canvasToBlob(canvas, 'image/jpeg', 0.9)
-  return { canvas, blob, url: URL.createObjectURL(blob), key: `${file.name}-${file.lastModified}-${file.size}` }
+  return { canvas, blob, url: URL.createObjectURL(blob), key: `${file.name}-${file.lastModified}-${file.size}`, file }
 }
