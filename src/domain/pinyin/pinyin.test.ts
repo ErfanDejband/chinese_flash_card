@@ -103,6 +103,13 @@ describe('checkPinyin', () => {
     ['長大', 'zhǎngdà', 'match'],
     ['還', 'hǎi', 'tone-differs'],
     ['長大', 'zhǎng', 'mismatch'],
+    // Taiwan's standard readings, which the dictionary doesn't list.
+    ['垃圾', 'lèsè', 'match'],
+    ['星期', 'xīngqí', 'match'],
+    ['企業', 'qìyè', 'match'],
+    ['休息', 'xiūxí', 'match'],
+    ['垃圾', 'lēsē', 'tone-differs'],
+    ['老師', 'lèsè', 'mismatch'],
   ])('%s vs %s → %s', (hanzi, given, expected) => {
     expect(checkPinyin(hanzi, given)).toBe(expected)
   })

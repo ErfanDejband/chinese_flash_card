@@ -1,15 +1,15 @@
 import { normalizePinyin } from '@/domain/pinyin/tones'
 import { ModelOutputError, parseBox } from '@/import/ai/parse'
-import type { JsonTask } from '@/import/ai/prompt'
+import { TAIWAN_READING, type JsonTask } from '@/import/ai/prompt'
 import type { NormBox } from '@/import/types'
 import { cellPosition, type MosaicLayout } from './mosaic'
 
 /** Bump when a prompt or schema below changes. */
-export const OBJECT_PROMPT_VERSION = 2
+export const OBJECT_PROMPT_VERSION = 3
 
 const WORD_RULES = `For each object:
 - hanzi: the everyday word a person in Taiwan uses for it, in Traditional characters as used in Taiwan (never Simplified): 冰箱, 腳踏車, 垃圾桶, 冷氣, 拖鞋. Prefer the common general word (杯子) over a brand or a very rare term; use a more specific word only when it is just as common (馬克杯).
-- pinyin: Hanyu Pinyin with tone marks, syllables joined without spaces (bēizi). The neutral tone has no mark.
+- pinyin: Hanyu Pinyin with tone marks, syllables joined without spaces (bēizi). The neutral tone has no mark. Give ${TAIWAN_READING}.
 - meaning: a short English meaning (1-4 words).
 - confidence: a number from 0 to 1: how sure you are what the object is and that the word fits.`
 
@@ -27,7 +27,7 @@ For each object give 1 to 3 words, from general to specific, so the learner can 
 
 For each word:
 - hanzi: Traditional characters as used in Taiwan (never Simplified).
-- pinyin: Hanyu Pinyin with tone marks, syllables joined without spaces (bēizi). The neutral tone has no mark.
+- pinyin: Hanyu Pinyin with tone marks, syllables joined without spaces (bēizi). The neutral tone has no mark. Give ${TAIWAN_READING}.
 - meaning: a short English meaning (1-4 words).
 - kind: "everyday" or "specific".
 - level: your estimate of the TOCFL level at which learners usually meet the word: A1, A2, B1, B2, C1 or C2.

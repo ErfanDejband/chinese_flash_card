@@ -2,7 +2,13 @@
  * Instructions for extracting study items from one page image. Bump PROMPT_VERSION whenever the
  * wording or schema changes, so stored page results can be traced to the prompt that produced them.
  */
-export const PROMPT_VERSION = 2
+export const PROMPT_VERSION = 3
+
+/**
+ * For a reading the page doesn't print. Printed readings always come first; the dictionary check
+ * accepts these (`TAIWAN_READINGS` in domain/pinyin/suggest).
+ */
+export const TAIWAN_READING = `the standard pinyin, using Taiwan's reading where it differs from the mainland's (垃圾 lèsè, 星期 xīngqí, 企業 qìyè, 危險 wéixiǎn, 研究 yánjiù)`
 
 export const SYSTEM_PROMPT = `You extract study material from ONE page image of a Mandarin Chinese course for an English-speaking learner in Taiwan. The image may be a scan, a screenshot or a phone photo of a printed page; photos can be tilted, curved or shadowed, so read characters and tone marks carefully. Reply with JSON only.
 
@@ -17,7 +23,7 @@ Ignore: page headers and footers, logos, image credits (e.g. "by ... from Flatic
 For each item:
 - kind: "word" or "sentence".
 - hanzi: Traditional Chinese characters as used in Taiwan. Copy them exactly if printed. If the page shows only pinyin (and maybe a picture), write the word that matches BOTH the pinyin and the picture, and set hanziSource to "inferred". Never use Simplified characters.
-- pinyin: Hanyu Pinyin with tone marks, in the standard written form. If a table also shows a spoken / tone-sandhi row, use the written row. Join the syllables of one word without spaces (lǎoshī); keep spaces between the words of a sentence. The neutral tone has no mark. If no pinyin is printed, give the standard pinyin and set pinyinSource to "inferred".
+- pinyin: Hanyu Pinyin with tone marks, in the standard written form. If a table also shows a spoken / tone-sandhi row, use the written row. Join the syllables of one word without spaces (lǎoshī); keep spaces between the words of a sentence. The neutral tone has no mark. If no pinyin is printed, give ${TAIWAN_READING}, and set pinyinSource to "inferred".
 - meaning: short English meaning (1-6 words; for a sentence, a natural translation). Use the printed English if present, otherwise write one and set meaningSource to "inferred".
 - partOfSpeech: as printed (e.g. "N", "V", "Vst", "M"), otherwise "".
 - notes: other printed text that helps learn the item (related words, measure word), otherwise "".
@@ -155,7 +161,7 @@ export const VOCAB_TASK: JsonTask = {
 }
 
 /** Bump whenever the reading prompt's wording or schema changes. */
-export const READING_PROMPT_VERSION = 2
+export const READING_PROMPT_VERSION = 3
 
 export const READING_SYSTEM_PROMPT = `You read ONE page of a Chinese children's book or graded reader for an English-speaking learner in Taiwan, and split its sentences into words. The image may be a scan, a screenshot or a phone photo; photos can be tilted, curved or shadowed, so read every character carefully. Reply with JSON only.
 
@@ -165,13 +171,13 @@ Return every sentence of the story text, in reading order (books may run top to 
 
 For each sentence:
 - text: the sentence exactly as printed, in Traditional characters, with its punctuation. Never use Simplified characters.
-- pinyin: Hanyu Pinyin with tone marks for the whole sentence, with spaces between words.
+- pinyin: Hanyu Pinyin with tone marks for the whole sentence, with spaces between words, using the same readings as its words.
 - meaning: a natural English translation.
 - words: the sentence split into words, in order, so that the words joined together give the sentence without its punctuation and spaces. Use natural dictionary words (一起, 公園, 散步; set phrases like 跑來跑去 may stay one word), not single characters, unless the character is a word on its own.
 
 For each word:
 - hanzi: the word's characters, exactly as in the sentence.
-- pinyin: Hanyu Pinyin with tone marks, syllables joined without spaces (gōngyuán), using the reading this sentence needs. Write the dictionary tones of 一 and 不 (yī, bù), not their tone-sandhi forms. The neutral tone has no mark.
+- pinyin: Hanyu Pinyin with tone marks, syllables joined without spaces (gōngyuán), using the reading this sentence needs: follow printed zhuyin if there is any, otherwise give ${TAIWAN_READING}. Write the dictionary tones of 一 and 不 (yī, bù), not their tone-sandhi forms. The neutral tone has no mark.
 - meaning: a short English meaning as used in this sentence (1-6 words).
 - role: "name" for names of people, animals or places (小明); "function" for grammatical particles (的, 了, 嗎, 呢, 吧, 啊, 地, 得, 著); "number" for numbers, dates and counts; otherwise "word".
 - confidence: a number from 0 to 1: how sure you are that the characters and pinyin are correct.

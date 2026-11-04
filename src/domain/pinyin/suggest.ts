@@ -46,12 +46,23 @@ function tonesCompatible(a: string, b: string): boolean {
 const ONLY_HAN = /^\p{Script=Han}{1,8}$/u
 
 /**
- * True when `given` reads each character with one of its dictionary readings (還 hái or huán,
- * 了 le or liǎo), so a polyphonic character read right for its sentence isn't flagged.
+ * Taiwan's standard readings that the dictionary doesn't list, so the check accepts them. They are
+ * per character because the check only asks whether a reading exists; `suggestPinyin` can't use
+ * them, as most only apply in some words.
+ */
+const TAIWAN_READINGS: Record<string, string> = {
+  垃: 'lè', 圾: 'sè', 息: 'xí', 惜: 'xí', 識: 'shì', 擊: 'jí', 擁: 'yǒng', 微: 'wéi', 危: 'wéi', 期: 'qí', 企: 'qì',
+  跌: 'dié', 跡: 'jī', 究: 'jiù', 突: 'tú', 崖: 'yái', 暫: 'zhàn', 血: 'xiě', 熟: 'shóu', 和: 'hàn', 質: 'zhí', 暴: 'pù',
+}
+
+/**
+ * True when `given` reads each character with one of its dictionary or Taiwan readings (還 hái or
+ * huán, 了 le or liǎo), so a polyphonic character read right for its sentence isn't flagged.
  */
 function isAnyReading(hanzi: string, given: string, ignoreTones = false): boolean {
   if (!ONLY_HAN.test(hanzi)) return false
-  const options = polyphonic(hanzi, { type: 'array', toneType: 'symbol' }).map((rs) => rs.map(compact))
+  const chars = [...hanzi]
+  const options = polyphonic(hanzi, { type: 'array', toneType: 'symbol' }).map((rs, i) => [...rs, TAIWAN_READINGS[chars[i]!] ?? ''].filter(Boolean).map(compact))
   const target = compact(given)
   const same = (a: string, b: string) => (ignoreTones ? toSearchKey(a) === toSearchKey(b) : tonesCompatible(a, b))
   const fits = (i: number, at: number): boolean =>
@@ -66,7 +77,7 @@ function isAnyReading(hanzi: string, given: string, ignoreTones = false): boolea
 
 /**
  * Compare given pinyin with the dictionary reading. Only a hint: tone sandhi (一, 不) and
- * dictionary gaps legitimately differ. Any dictionary reading of a polyphonic character counts.
+ * dictionary gaps legitimately differ. Any dictionary or Taiwan reading of a character counts.
  */
 export function checkPinyin(hanzi: string, given: string): PinyinCheck {
   const expected = suggestPinyin(hanzi)
