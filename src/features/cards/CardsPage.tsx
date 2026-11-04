@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { createPictureJob, listOpenPictureJobs } from '@/data/repositories/pictures'
 import { effectiveBox } from '@/domain/leitner/scheduler'
 import { matchesQuery } from '@/domain/search'
+import { symbolInfo } from '@/domain/zhuyinSymbols'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { boxLabel, boxTone } from '@/ui/boxTones'
 import { Button, ButtonLink } from '@/ui/Button'
@@ -45,7 +46,7 @@ export function CardsPage() {
   const boxOf = (box: number) => (box === 0 ? 0 : effectiveBox(box, config))
   const results = deck
     .filter((e) => boxFilter === null || boxOf(e.state.box) === boxFilter)
-    .filter((e) => !noPicture || !e.card.imageId)
+    .filter((e) => !noPicture || (!e.card.imageId && !symbolInfo(e.card.hanzi)))
     .filter((e) => matchesQuery(e.card, query))
     .sort((a, b) => b.card.createdAt - a.card.createdAt)
 

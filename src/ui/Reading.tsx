@@ -1,4 +1,5 @@
 import { toZhuyin } from '@/domain/pinyin/zhuyin'
+import { symbolInfo } from '@/domain/zhuyinSymbols'
 import { useReadingPref } from '@/hooks/useBrowser'
 import type { ReadingPref } from '@/lib/readingPref'
 
@@ -28,7 +29,7 @@ export function Reading({ pinyin, hanzi, show, className }: Props) {
 /** Under a pinyin field: the zhuyin it turns into, so a wrong split can be fixed with an apostrophe. */
 export function ZhuyinPreview({ pinyin, hanzi }: { pinyin: string; hanzi: string }) {
   const pref = useReadingPref()
-  if (pref === 'pinyin' || !pinyin.trim()) return null
+  if (pref === 'pinyin' || !pinyin.trim() || symbolInfo(hanzi.trim())) return null
   const zhuyin = toZhuyin(pinyin, hanzi)
   if (!zhuyin) return <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">No zhuyin for this pinyin: check the spelling.</p>
   return (

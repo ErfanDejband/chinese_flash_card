@@ -25,11 +25,13 @@ import { SyncSettings } from './SyncSettings'
 import { UsagePanel } from './UsagePanel'
 import { VoiceSettings } from './VoiceSettings'
 import { WhatsNewSettings } from './WhatsNewSettings'
+import { ZhuyinSymbolsSettings } from './ZhuyinSymbolsSettings'
 
 const SECTION_CONTENT: Record<SettingsSectionId, (settings: AppSettings) => ReactNode> = {
   direction: (s) => <DirectionSettings settings={s} />,
   leitner: (s) => <LeitnerSettings key={JSON.stringify([s.leitner, s.newPerDay])} settings={s} />,
   knownWords: () => <KnownWordsSettings />,
+  zhuyinSymbols: (s) => <ZhuyinSymbolsSettings settings={s} />,
   appearance: () => <AppearanceSettings />,
   reading: () => <ReadingSettings />,
   voice: (s) => <VoiceSettings settings={s} />,

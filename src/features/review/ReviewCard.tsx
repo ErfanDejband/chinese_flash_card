@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Card, ReviewMode } from '@/domain/types'
+import { spokenText, symbolInfo } from '@/domain/zhuyinSymbols'
 import { useMediaUrl } from '@/hooks/useMediaUrl'
 import { speak, speechSupported } from '@/lib/speech'
 import { boxLabel } from '@/ui/boxTones'
@@ -14,13 +15,13 @@ import { Reading } from '@/ui/Reading'
  * the characters (also when the picture isn't on this device yet, e.g. still syncing).
  * Chinese → meaning: always the characters. Sound → Chinese: the word is spoken once when the
  * card appears (again with the play button, or R in the review page); a device without
- * text-to-speech shows the reading instead.
+ * text-to-speech shows the reading instead. A zhuyin symbol card always asks with the symbol.
  */
 type PromptKind = 'image' | 'meaning' | 'hanzi' | 'sound'
 
 function promptKind(card: Card, mode: ReviewMode, pictureHere: boolean): PromptKind {
   if (mode === 'listening') return 'sound'
-  if (mode === 'hanzi_to_meaning') return 'hanzi'
+  if (mode === 'hanzi_to_meaning' || symbolInfo(card.hanzi)) return 'hanzi'
   if (card.imageId && pictureHere) return 'image'
   if (card.meaning) return 'meaning'
   return 'hanzi'
@@ -51,6 +52,8 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
   const pictureHere = !useMediaUrl(card.imageId).missing
   const kind = promptKind(card, mode, pictureHere)
   const canSpeak = speechSupported()
+  const symbol = symbolInfo(card.hanzi)
+  const spoken = spokenText(card)
 
   // Speak the word once per showing: the review page remounts the card for every answer (so a
   // forgotten card is spoken again when it is re-asked), but not on reveal. The ref keeps
@@ -59,8 +62,8 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
   useEffect(() => {
     if (kind !== 'sound' || played.current) return
     played.current = true
-    speak(card.hanzi, voiceURI)
-  }, [kind, card.hanzi, voiceURI])
+    speak(spoken, voiceURI)
+  }, [kind, spoken, voiceURI])
 
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-5 py-4 text-center">
@@ -84,9 +87,9 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
         (canSpeak ? (
           <button
             type="button"
-            onClick={() => speak(card.hanzi, voiceURI)}
+            onClick={() => speak(spoken, voiceURI)}
             className="grid size-24 place-items-center rounded-full bg-accent/10 text-accent hover:bg-accent/20"
-            aria-label="Play the word again"
+            aria-label="Play the sound again"
           >
             <Icon name="speaker" className="size-12" />
           </button>
@@ -98,7 +101,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
         ))}
 
       {!revealed ? (
-        <p className="text-lg text-muted">{kind === 'sound' && !canSpeak ? 'Which word is it, and what does it mean?' : QUESTION[kind]}</p>
+        <p className="text-lg text-muted">{kind === 'sound' && !canSpeak ? 'Which word is it, and what does it mean?' : kind === 'hanzi' && symbol ? 'How does it sound?' : QUESTION[kind]}</p>
       ) : (
         <div className="flex animate-reveal flex-col items-center gap-2" aria-live="polite">
           {kind !== 'hanzi' && <Hanzi className="text-6xl leading-tight font-medium">{card.hanzi}</Hanzi>}
@@ -107,7 +110,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
             {canSpeak && (
               <button
                 type="button"
-                onClick={() => speak(card.hanzi, voiceURI)}
+                onClick={() => speak(spoken, voiceURI)}
                 className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken"
                 aria-label="Play pronunciation"
               >
@@ -119,7 +122,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
           {(kind === 'hanzi' || kind === 'sound') && card.imageId && pictureHere && (
             <MediaImage id={card.imageId} alt="" className="mt-2 max-h-[24dvh] w-full max-w-xs rounded-2xl p-2 shadow-sm" />
           )}
-          {card.example && <ExampleSentence example={card.example} word={card.hanzi} className="mt-2 max-w-md" />}
+          {card.example && <ExampleSentence example={card.example} word={card.hanzi} reading={symbol ? 'both' : undefined} className="mt-2 max-w-md" />}
           {card.notes && <p className="mt-2 max-w-md text-sm whitespace-pre-line text-muted">{card.notes}</p>}
         </div>
       )}

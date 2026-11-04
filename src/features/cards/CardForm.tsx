@@ -3,6 +3,7 @@ import { createCard, updateCard, validateCardDraft, type CardDraft } from '@/dat
 import { checkPinyin, suggestPinyin } from '@/domain/pinyin/suggest'
 import { normalizePinyin } from '@/domain/pinyin/tones'
 import type { Card } from '@/domain/types'
+import { symbolInfo } from '@/domain/zhuyinSymbols'
 import { Button } from '@/ui/Button'
 import { Icon } from '@/ui/icons'
 import { ZhuyinPreview } from '@/ui/Reading'
@@ -37,8 +38,8 @@ export function CardForm({ card, onSaved }: Props) {
   const [error, setError] = useState<string>()
   const [saving, setSaving] = useState(false)
 
-  const dictionary = hanzi.trim() ? suggestPinyin(hanzi) : ''
-  const check = hanzi.trim() && pinyin.trim() ? checkPinyin(hanzi, pinyin) : 'unknown'
+  const dictionary = hanzi.trim() && !symbolInfo(hanzi.trim()) ? suggestPinyin(hanzi) : ''
+  const check = dictionary && pinyin.trim() ? checkPinyin(hanzi, pinyin) : 'unknown'
 
   function fillPinyinIfEmpty() {
     if (!pinyin.trim() && dictionary) setPinyin(dictionary)

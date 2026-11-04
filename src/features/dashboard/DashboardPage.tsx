@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { nextDueDate, summarizeDeck } from '@/domain/deck'
 import { SAMPLE_TAG } from '@/domain/sampleDeck'
+import { ZHUYIN_TAG } from '@/domain/zhuyinSymbols'
 import { BoxesView } from '@/features/boxes/BoxesView'
 import { Checklist } from '@/features/onboarding/Checklist'
 import { SampleBanner } from '@/features/onboarding/SampleBanner'
@@ -60,6 +61,7 @@ export function DashboardPage() {
   const extra = Math.min(s.notStarted, EXTRA_NEW)
   const lastBox = s.boxes[s.boxes.length - 1]
   const samples = deck.filter((e) => e.card.tags.includes(SAMPLE_TAG)).length
+  const symbols = deck.filter((e) => e.card.tags.includes(ZHUYIN_TAG)).length
 
   return (
     <>
@@ -91,7 +93,7 @@ export function DashboardPage() {
       />
 
       <SampleBanner count={samples} />
-      {onboardingReady && onboarding.tourDone && <Checklist ownCards={deck.length - samples} />}
+      {onboardingReady && onboarding.tourDone && <Checklist ownCards={deck.length - samples - symbols} />}
       <StreakStrip />
 
       <section data-tour="today" className="rounded-3xl border border-line bg-surface p-5 shadow-sm">

@@ -67,6 +67,14 @@ describe('nextDueDate', () => {
 })
 
 describe('newCardPool', () => {
+  it('puts the zhuyin symbols first, in the order they were added', () => {
+    const word = makeCard({ createdAt: 10 })
+    const first = makeCard({ hanzi: 'ㄅ', createdAt: 200 })
+    const second = makeCard({ hanzi: 'ㄆ', createdAt: 201 })
+    const entries = joinDeck([second, word, first], [], 'image_to_word', 0)
+    expect(newCardPool(entries).map((e) => e.card.id)).toEqual([first.id, second.id, word.id])
+  })
+
   it('orders by creation time', () => {
     const late = makeCard({ createdAt: 300 })
     const early = makeCard({ createdAt: 100 })

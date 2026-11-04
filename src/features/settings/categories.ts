@@ -5,6 +5,7 @@ export type SettingsSectionId =
   | 'direction'
   | 'leitner'
   | 'knownWords'
+  | 'zhuyinSymbols'
   | 'appearance'
   | 'reading'
   | 'voice'
@@ -22,6 +23,7 @@ export const SECTION_TITLES: Record<SettingsSectionId, string> = {
   direction: 'Practice direction',
   leitner: 'Leitner boxes',
   knownWords: 'Known words',
+  zhuyinSymbols: 'Zhuyin symbols',
   appearance: 'Appearance',
   reading: 'Pinyin & zhuyin',
   voice: 'Pronunciation',
@@ -52,8 +54,8 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     id: 'study',
     title: 'Study',
     icon: 'cards',
-    description: 'Practice direction, Leitner boxes, known words',
-    sections: ['direction', 'leitner', 'knownWords'],
+    description: 'Practice direction, Leitner boxes, known words, zhuyin symbols',
+    sections: ['direction', 'leitner', 'knownWords', 'zhuyinSymbols'],
   },
   { id: 'display', title: 'Display & sound', icon: 'contrast', description: 'Light or dark, pinyin or zhuyin, pronunciation voice', sections: ['appearance', 'reading', 'voice'] },
   { id: 'ai', title: 'AI & pictures', icon: 'sparkle', description: 'AI for importing, pictures for cards, usage', sections: ['ai', 'pictures', 'usage'] },

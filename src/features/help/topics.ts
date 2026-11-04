@@ -64,6 +64,21 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     links: [{ label: 'Add a card', to: '/cards/new' }],
   },
   {
+    id: 'zhuyin',
+    title: 'Zhuyin (ㄅㄆㄇㄈ)',
+    keywords: 'bopomofo zhuyin symbols reading pinyin taiwan sound chart apostrophe',
+    blocks: [
+      'Zhuyin, also called bopomofo, is the way of writing sounds used in Taiwan. To see it on your cards, choose Zhuyin or Both in Settings → Display & sound → Pinyin & zhuyin.',
+      'You still type pinyin when you edit a card; the zhuyin is worked out from it. If a word splits wrongly, add an apostrophe to the pinyin, like fāng’àn. Anything that can’t be converted stays in pinyin.',
+      'To learn the symbols, add the 37 symbol cards in Settings → Study → Zhuyin symbols. They come before your other new cards, in lesson order and within your daily limit. The chart there says every sound.',
+      'Your device’s voice says each symbol the way it is named in class: ㄅ sounds like “bo”, ending in a short vowel.',
+    ],
+    links: [
+      { label: 'Zhuyin symbols', to: '/settings/study' },
+      { label: 'Pinyin & zhuyin', to: '/settings/display' },
+    ],
+  },
+  {
     id: 'snap',
     title: 'Snap: cards from a photo of things around you',
     keywords: 'camera photo object objects detect things room desk kitchen picture take snap word level everyday precise',

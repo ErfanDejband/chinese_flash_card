@@ -20,6 +20,7 @@ import {
   startSession,
 } from '@/domain/session/reducer'
 import type { AppSettings, ReviewResult } from '@/domain/types'
+import { spokenText } from '@/domain/zhuyinSymbols'
 import { Tip } from '@/features/onboarding/Tip'
 import { speak, speechSupported } from '@/lib/speech'
 import { requestSync } from '@/lib/syncRunner'
@@ -176,7 +177,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
     } else if (e.key === 'u') {
       void undo()
     } else if (e.key === 'r' && !e.repeat && canReplay && entry) {
-      speak(entry.card.hanzi, settings.ttsVoiceURI)
+      speak(spokenText(entry.card), settings.ttsVoiceURI)
     }
   })
   useEffect(() => {

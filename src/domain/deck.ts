@@ -1,5 +1,6 @@
 import { effectiveBox, isDue, newReviewState } from './leitner/scheduler'
 import type { Card, LeitnerConfig, LocalDate, ReviewMode, ReviewState, Timestamp } from './types'
+import { symbolInfo } from './zhuyinSymbols'
 
 export interface DeckEntry {
   card: Card
@@ -87,7 +88,8 @@ export function nextDueDate(entries: DeckEntry[], today: LocalDate): LocalDate |
   return next
 }
 
-/** New-card pool in introduction order: oldest first (imports keep document order via createdAt). */
+/** New-card pool in introduction order: the zhuyin symbols, then oldest first (imports keep document order via createdAt). */
 export function newCardPool(entries: DeckEntry[]): DeckEntry[] {
-  return entries.filter((e) => e.state.box === 0).sort((a, b) => a.card.createdAt - b.card.createdAt)
+  const rank = (e: DeckEntry) => (symbolInfo(e.card.hanzi) ? 0 : 1)
+  return entries.filter((e) => e.state.box === 0).sort((a, b) => rank(a) - rank(b) || a.card.createdAt - b.card.createdAt)
 }
