@@ -19,6 +19,23 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-04.2',
+    title: 'Zhuyin in ㄅㄆㄇㄈ order',
+    items: [
+      {
+        text: 'The zhuyin symbols now follow the ㄅㄆㄇㄈ order, with consonants, medials and vowels apart, and the chart has the tone marks. If you added the symbol cards already, tap Update there for better hints and example words.',
+        to: '/settings/study',
+      },
+      {
+        text: 'New cards from the AI use Taiwan’s readings, like 垃圾 lèsè and 星期 xīngqí, unless the page prints its own.',
+      },
+      {
+        text: 'Known words fold away, so Settings stays short. You can still add or find a word right there.',
+        to: '/settings/study',
+      },
+    ],
+  },
+  {
     id: '2026-11-04',
     title: 'Zhuyin',
     items: [

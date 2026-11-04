@@ -38,7 +38,7 @@ a synced setting would need a live query per row or a new app-wide store, and wo
 field that an edit could lose. `hanzi` is the symbol, `pinyin` the pinyin, `meaning` the "sounds similar to" hint.
 
 - The front is always the symbol, whatever the direction; the default direction would otherwise ask with the hint.
-- They lead the new-card queue, in lesson order, within the daily limit (`newCardPool`).
+- They lead the new-card queue, in the ㄅㄆㄇㄈ order taught in Taiwan, within the daily limit (`newCardPool`).
 - **Sound:** the voice gets a stand-in character, `spokenText(card)`. Text-to-speech can't say a bare consonant and may not
   know the symbols, so ㄅ is spoken as 玻 (bō), which is how ㄅ is named in class. ㄝ and ㄥ have no such character and use
   their example word. No recordings with a clear licence were found.
@@ -53,3 +53,15 @@ field that an edit could lose. `hanzi` is the symbol, `pinyin` the pinyin, `mean
   progress over.
 - An older build shows symbol cards as plain cards, with the hint on the front.
 - Stand-in sounds depend on the device's voice, which tests can't judge: they have to be checked by ear on a phone.
+
+## Follow-up (2026-11-04)
+
+- **Order:** the first release used the Dong Chinese lesson order. The user found the ㄅㄆㄇㄈ order easier, with consonants
+  and vowels apart, so the table became `ZHUYIN_GROUPS` (consonants, medials, vowels). `newCardPool` sorts by that table, not
+  by `createdAt`, so cards already added follow it with no data change.
+- **Saved wording:** a symbol card keeps the text it was made with, so a better hint in the table doesn't reach it.
+  `outdatedSymbolCards` finds these and Settings offers "Update N cards". Progress is stored apart, so it stays.
+- **Taiwan readings:** to keep the mainland readings above out of new cards, the AI prompts now ask for Taiwan's reading
+  when no reading is printed (`TAIWAN_READING`). The dictionary doesn't know these readings (only 垃圾 lājī), so
+  `checkPinyin` got a per-character table, `TAIWAN_READINGS`, or a correct `lèsè` would be flagged as wrong. It can't feed the
+  dictionary fill: most of these readings apply only in some words (法 is fǎ in most, fà in 法國).

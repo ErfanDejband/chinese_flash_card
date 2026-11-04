@@ -67,12 +67,13 @@ describe('nextDueDate', () => {
 })
 
 describe('newCardPool', () => {
-  it('puts the zhuyin symbols first, in the order they were added', () => {
+  it('puts the zhuyin symbols first, in teaching order, however they were added', () => {
     const word = makeCard({ createdAt: 10 })
-    const first = makeCard({ hanzi: 'ㄅ', createdAt: 200 })
-    const second = makeCard({ hanzi: 'ㄆ', createdAt: 201 })
-    const entries = joinDeck([second, word, first], [], 'image_to_word', 0)
-    expect(newCardPool(entries).map((e) => e.card.id)).toEqual([first.id, second.id, word.id])
+    const later = makeCard({ hanzi: 'ㄚ', createdAt: 200 })
+    const first = makeCard({ hanzi: 'ㄅ', createdAt: 201 })
+    const second = makeCard({ hanzi: 'ㄈ', createdAt: 202 })
+    const entries = joinDeck([later, second, word, first], [], 'image_to_word', 0)
+    expect(newCardPool(entries).map((e) => e.card.id)).toEqual([first.id, second.id, later.id, word.id])
   })
 
   it('orders by creation time', () => {
