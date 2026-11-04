@@ -21,7 +21,7 @@ export function Reading({ pinyin, hanzi, show, className }: Props) {
   return (
     <span className={className}>
       {mode === 'both' && `${pinyin} · `}
-      <span lang="zh-Hant">{zhuyin}</span>
+      <span lang="zh-Hant" className="break-keep">{zhuyin}</span>
     </span>
   )
 }
@@ -33,7 +33,7 @@ export function ZhuyinPreview({ pinyin, hanzi }: { pinyin: string; hanzi: string
   const zhuyin = toZhuyin(pinyin, hanzi)
   if (!zhuyin) return <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">No zhuyin for this pinyin: check the spelling.</p>
   return (
-    <p lang="zh-Hant" className="mt-1 text-sm text-muted">
+    <p lang="zh-Hant" className="mt-1 text-sm break-keep text-muted">
       {zhuyin}
     </p>
   )

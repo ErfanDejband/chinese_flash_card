@@ -1,6 +1,6 @@
 # Mandarin Leitner
 
-A personal, mobile-first PWA for learning Mandarin vocabulary (Traditional characters + pinyin) with the
+A personal, mobile-first PWA for learning Mandarin vocabulary (Traditional characters with pinyin, zhuyin or both) with the
 [Leitner box system](https://en.wikipedia.org/wiki/Leitner_system). Offline-first: your cards live in your
 browser (IndexedDB). Nothing leaves the device unless you use an optional feature: AI import and AI pictures
 send what they need to the AI services you configure, and sync stores a copy in your own Google Drive.

@@ -19,6 +19,20 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-04',
+    title: 'Zhuyin',
+    items: [
+      {
+        text: 'Cards can now show zhuyin, or pinyin and zhuyin together, on all your words. Choose in Settings → Display & sound.',
+        to: '/settings/display',
+      },
+      {
+        text: 'Learn the 37 zhuyin symbols with cards: ㄅ on the front, its pinyin, a hint and its sound on the back. A chart lets you hear every sound.',
+        to: '/settings/study',
+      },
+    ],
+  },
+  {
     id: '2026-10-30.2',
     title: 'Sync you can follow',
     items: [
