@@ -59,7 +59,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     blocks: [
       'Tap + Add card on Home or in Settings → Your cards. Only the characters are needed; the app suggests the pinyin from its dictionary.',
       'Add a meaning, notes, an example sentence or a picture if you like. In the default direction the picture is the question, so cards with pictures work best.',
-      'Tap any card in Settings → Your cards to edit or delete it. The app is made for Traditional characters with pinyin.',
+      'Tap any card in Settings → Your cards to edit or delete it. The app is made for Traditional characters, with pinyin or zhuyin.',
     ],
     links: [{ label: 'Add a card', to: '/cards/new' }],
   },
@@ -148,7 +148,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     blocks: [
       {
         list: [
-          'Picture → Chinese (the default): see the picture or the meaning, recall the characters and pinyin.',
+          'Picture → Chinese (the default): see the picture or the meaning, recall the characters and how they read.',
           'Chinese → meaning: see the characters, recall how they are read and what they mean.',
           'Sound → Chinese: hear the word, recall the characters and meaning. This needs a Mandarin text-to-speech voice on the device; ▶ plays it again.',
         ],

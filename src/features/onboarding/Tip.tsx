@@ -7,6 +7,7 @@ import { getOnboarding, markTipSeen } from '@/lib/onboarding'
 import { cn } from '@/ui/cn'
 import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
+import { Reading } from '@/ui/Reading'
 import { TIP_WORD, TIPS, type HelpWord, type TipId } from './tips'
 
 /** A help word with "+ add" (or "✓ in your deck"). */
@@ -26,7 +27,7 @@ export function HelpWordLine({ word }: { word: HelpWord }) {
   return (
     <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
       <Hanzi className="text-lg font-semibold">{word.hanzi}</Hanzi>
-      <span className="text-accent">{word.pinyin}</span>
+      <Reading pinyin={word.pinyin} hanzi={word.hanzi} className="text-accent" />
       <span className="text-muted">{word.meaning}</span>
       {inDeck ? (
         <span className="text-xs text-muted">✓ in your deck</span>
@@ -53,7 +54,7 @@ function TipBox({ id, className }: { id: TipId; className?: string }) {
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-accent">
-            💡 <Hanzi>{TIP_WORD.hanzi}</Hanzi> {TIP_WORD.pinyin} · {TIP_WORD.meaning}
+            💡 <Hanzi>{TIP_WORD.hanzi}</Hanzi> <Reading pinyin={TIP_WORD.pinyin} hanzi={TIP_WORD.hanzi} /> · {TIP_WORD.meaning}
           </p>
           <p className="mt-1">
             {tip.body}

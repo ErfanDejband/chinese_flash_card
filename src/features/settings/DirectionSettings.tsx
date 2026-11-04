@@ -10,7 +10,7 @@ import { reviewModeInfo } from '@/ui/reviewModes'
 /** Why Sound → Chinese may not speak on this device; nothing when it can. */
 function ListeningNote() {
   const voices = useVoices()
-  if (!speechSupported()) return <p className="text-sm text-muted">This browser has no text-to-speech; the pinyin is shown instead.</p>
+  if (!speechSupported()) return <p className="text-sm text-muted">This browser has no text-to-speech; the reading is shown instead.</p>
   if (voices.length > 0) return null
   return (
     <p className="text-sm text-muted">No Mandarin voice found on this device. On Android: Settings → System → Languages → Text-to-speech.</p>

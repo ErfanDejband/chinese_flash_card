@@ -10,6 +10,7 @@ import { useBlobUrl } from '@/hooks/useBrowser'
 import { cn } from '@/ui/cn'
 import { ExampleSentence } from '@/ui/ExampleSentence'
 import { Icon } from '@/ui/icons'
+import { ZhuyinPreview } from '@/ui/Reading'
 import { FLAG_INFO, liveFlags, TONE_CLASS } from './flags'
 
 const field = 'w-full rounded-lg border border-line bg-paper px-2.5 outline-none focus:border-accent'
@@ -115,6 +116,7 @@ export function DraftCard({ draft, reading = false, onEditImage }: { draft: Impo
               aria-label="Meaning"
             />
           </div>
+          <ZhuyinPreview pinyin={pinyin} hanzi={hanzi} />
         </div>
       </div>
 

@@ -14,6 +14,7 @@ import { plural } from '@/ui/format'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
+import { Reading } from '@/ui/Reading'
 import { TONE_CLASS } from './flags'
 import { clearWordListFile, pendingWordListFile, WORD_LIST_ACCEPT } from './wordListFile'
 
@@ -323,7 +324,7 @@ export function WordListImport() {
             <thead className="bg-sunken text-xs text-muted">
               <tr>
                 <th className="w-[30%] px-3 py-2 font-medium">Characters</th>
-                <th className="w-[30%] px-3 py-2 font-medium">Pinyin</th>
+                <th className="w-[30%] px-3 py-2 font-medium">Reading</th>
                 <th className="px-3 py-2 font-medium">Meaning</th>
               </tr>
             </thead>
@@ -334,7 +335,9 @@ export function WordListImport() {
                     <td className={cn('truncate px-3 pt-2 text-base', !row.issues.length && 'pb-2')} lang="zh-Hant">
                       {row.draft.hanzi || '—'}
                     </td>
-                    <td className={cn('truncate px-3 pt-2', !row.issues.length && 'pb-2')}>{row.draft.pinyin}</td>
+                    <td className={cn('truncate px-3 pt-2', !row.issues.length && 'pb-2')}>
+                      <Reading pinyin={row.draft.pinyin} hanzi={row.draft.hanzi} />
+                    </td>
                     <td className={cn('truncate px-3 pt-2', !row.issues.length && 'pb-2')}>{row.draft.meaning}</td>
                   </tr>
                   {row.issues.length > 0 && (

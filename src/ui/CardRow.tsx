@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Card } from '@/domain/types'
 import { Hanzi } from './Hanzi'
 import { MediaImage } from './MediaImage'
+import { Reading } from './Reading'
 
 export function CardThumb({ card, className = 'size-12' }: { card: Card; className?: string }) {
   return card.imageId ? (
@@ -22,7 +23,7 @@ export function CardRow({ card, trailing }: { card: Card; trailing?: ReactNode }
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <Hanzi className="text-xl font-medium">{card.hanzi}</Hanzi>
-            <span className="truncate text-muted">{card.pinyin}</span>
+            <Reading pinyin={card.pinyin} hanzi={card.hanzi} className="truncate text-muted" />
           </div>
           {card.meaning && <div className="truncate text-sm text-muted">{card.meaning}</div>}
         </div>

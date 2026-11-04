@@ -1,4 +1,5 @@
 import { checkPinyin } from '@/domain/pinyin/suggest'
+import { Reading } from '@/ui/Reading'
 import type { Taken } from '@/vision/cards'
 import type { ObjectWords, WordChoice } from '@/vision/tasks'
 import { CardPicturePreview } from './CardPicturePreview'
@@ -53,7 +54,7 @@ export function WordChoices({ photo, chosen, names, picks, onToggle, busy, taken
                         <span lang="zh-Hant" className="text-base font-semibold">
                           {w.hanzi}
                         </span>{' '}
-                        <span>{w.pinyin}</span>
+                        <Reading pinyin={w.pinyin} hanzi={w.hanzi} />
                         {w.level && <span className="ml-1.5 rounded bg-sunken px-1 text-[10px] font-semibold text-muted">{w.level}</span>}
                         <span className="block text-xs text-muted">
                           {on ? '✓ ' : ''}
@@ -66,7 +67,7 @@ export function WordChoices({ photo, chosen, names, picks, onToggle, busy, taken
                 </div>
                 {n.category && (
                   <p className="mt-1 text-xs text-muted">
-                    Tag: <span lang="zh-Hant">{n.category.hanzi}</span> {n.category.pinyin} · {n.category.meaning}
+                    Tag: <span lang="zh-Hant">{n.category.hanzi}</span> <Reading pinyin={n.category.pinyin} hanzi={n.category.hanzi} /> · {n.category.meaning}
                   </p>
                 )}
                 {kept.length > 1 && (

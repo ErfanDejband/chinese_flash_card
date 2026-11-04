@@ -59,7 +59,7 @@ export function Welcome({ settings }: { settings: AppSettings }) {
         <Hanzi className="mb-3 block text-6xl text-accent">學</Hanzi>
         <h1 className="mb-2 text-2xl font-bold">Welcome to Mandarin Leitner</h1>
         <p className="mx-auto max-w-md text-muted">
-          Flashcards for Mandarin in Traditional characters and pinyin. Review a few minutes a day; each card comes back just before you would forget it.
+          Flashcards for Mandarin in Traditional characters, with pinyin or zhuyin. Review a few minutes a day; each card comes back just before you would forget it.
         </p>
       </header>
 

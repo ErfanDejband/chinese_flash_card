@@ -4,6 +4,7 @@ import { getAiSettings, subscribeAiSettings, type AiSettingsState } from '@/lib/
 import { canInstall, subscribeInstall } from '@/lib/install'
 import { getOnboarding, isOnboardingReady, subscribeOnboarding, type OnboardingState } from '@/lib/onboarding'
 import { getSignInStatus, subscribeSignInStatus, type SignInStatus } from '@/lib/openrouterSignIn'
+import { getReadingPref, subscribeReadingPref, type ReadingPref } from '@/lib/readingPref'
 import { getSnapPrefs, subscribeSnapPrefs, type SnapPrefs } from '@/lib/snapPrefs'
 import { mandarinVoices, speechSupported } from '@/lib/speech'
 import { getDeviceSync, subscribeDeviceSync, type DeviceSync } from '@/lib/syncConfig'
@@ -58,6 +59,11 @@ export function useLastSeenRelease(): string {
 /** False until the start-up check has run (see `initWhatsNew`). */
 export function useWhatsNewReady(): boolean {
   return useSyncExternalStore(subscribeWhatsNew, isWhatsNewReady, () => false)
+}
+
+/** How this device writes readings: pinyin, zhuyin or both. */
+export function useReadingPref(): ReadingPref {
+  return useSyncExternalStore(subscribeReadingPref, getReadingPref)
 }
 
 /** Appearance setting of this device: System, Light or Dark. */

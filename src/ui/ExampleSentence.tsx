@@ -1,9 +1,11 @@
 import type { Example } from '@/domain/types'
+import type { ReadingPref } from '@/lib/readingPref'
 import { cn } from './cn'
 import { Hanzi } from './Hanzi'
+import { Reading } from './Reading'
 
-/** The sentence a word was learned from, with the word highlighted, its pinyin and translation. */
-export function ExampleSentence({ example, word, className }: { example: Example; word: string; className?: string }) {
+/** The sentence a word was learned from, with the word highlighted, its reading and translation. */
+export function ExampleSentence({ example, word, reading, className }: { example: Example; word: string; reading?: ReadingPref; className?: string }) {
   const pieces = word ? example.hanzi.split(word) : [example.hanzi]
   return (
     <div className={cn('flex flex-col gap-0.5', className)}>
@@ -15,7 +17,7 @@ export function ExampleSentence({ example, word, className }: { example: Example
           </span>
         ))}
       </Hanzi>
-      {example.pinyin && <p className="text-sm text-muted">{example.pinyin}</p>}
+      {example.pinyin && <Reading pinyin={example.pinyin} hanzi={example.hanzi} show={reading} className="block text-sm text-muted" />}
       {example.meaning && <p className="text-sm text-muted italic">{example.meaning}</p>}
     </div>
   )

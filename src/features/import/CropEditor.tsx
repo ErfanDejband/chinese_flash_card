@@ -5,6 +5,7 @@ import { cropFromImage } from '@/import/pdf/crop'
 import type { NormBox } from '@/import/types'
 import { BoxEditor } from '@/ui/BoxEditor'
 import { Hanzi } from '@/ui/Hanzi'
+import { Reading } from '@/ui/Reading'
 
 interface Props {
   draft: ImportDraftRecord
@@ -37,7 +38,7 @@ export function CropEditor({ draft, page, otherBoxes, onClose }: Props) {
       imageLabel={page.label ?? `Page ${page.page}`}
       title={
         <>
-          <Hanzi className="text-xl font-semibold">{draft.hanzi || '—'}</Hanzi> <span className="text-white/70">{draft.pinyin}</span>
+          <Hanzi className="text-xl font-semibold">{draft.hanzi || '—'}</Hanzi> <Reading pinyin={draft.pinyin} hanzi={draft.hanzi} className="text-white/70" />
         </>
       }
       subtitle={page.label ?? `Page ${page.page}`}

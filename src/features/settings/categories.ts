@@ -6,6 +6,7 @@ export type SettingsSectionId =
   | 'leitner'
   | 'knownWords'
   | 'appearance'
+  | 'reading'
   | 'voice'
   | 'ai'
   | 'pictures'
@@ -22,6 +23,7 @@ export const SECTION_TITLES: Record<SettingsSectionId, string> = {
   leitner: 'Leitner boxes',
   knownWords: 'Known words',
   appearance: 'Appearance',
+  reading: 'Pinyin & zhuyin',
   voice: 'Pronunciation',
   ai: 'AI for PDF import',
   pictures: 'Pictures for cards',
@@ -53,7 +55,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     description: 'Practice direction, Leitner boxes, known words',
     sections: ['direction', 'leitner', 'knownWords'],
   },
-  { id: 'display', title: 'Display & sound', icon: 'contrast', description: 'Light or dark, pronunciation voice', sections: ['appearance', 'voice'] },
+  { id: 'display', title: 'Display & sound', icon: 'contrast', description: 'Light or dark, pinyin or zhuyin, pronunciation voice', sections: ['appearance', 'reading', 'voice'] },
   { id: 'ai', title: 'AI & pictures', icon: 'sparkle', description: 'AI for importing, pictures for cards, usage', sections: ['ai', 'pictures', 'usage'] },
   { id: 'sync', title: 'Sync & backup', icon: 'cloud', description: 'Google Drive sync, backup files', sections: ['sync', 'backup'] },
   {

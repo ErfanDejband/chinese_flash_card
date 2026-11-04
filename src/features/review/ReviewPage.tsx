@@ -28,6 +28,7 @@ import { plural } from '@/ui/format'
 import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
+import { Reading } from '@/ui/Reading'
 import { ReviewCard } from './ReviewCard'
 
 function parseRequest(query: string): SessionRequest {
@@ -213,7 +214,7 @@ function ReviewSession({ entries, settings, plan }: Loaded) {
                   return (
                     <li key={cardId} className="flex items-baseline gap-3 px-4 py-2">
                       <Hanzi className="text-xl">{card?.hanzi}</Hanzi>
-                      <span className="min-w-0 flex-1 truncate text-sm text-muted">{card?.pinyin}</span>
+                      <Reading pinyin={card?.pinyin ?? ''} hanzi={card?.hanzi} className="min-w-0 flex-1 truncate text-sm text-muted" />
                       <span className="text-sm text-rose-600 tabular-nums dark:text-rose-400">{tries} tries</span>
                     </li>
                   )

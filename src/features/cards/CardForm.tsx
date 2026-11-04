@@ -5,6 +5,7 @@ import { normalizePinyin } from '@/domain/pinyin/tones'
 import type { Card } from '@/domain/types'
 import { Button } from '@/ui/Button'
 import { Icon } from '@/ui/icons'
+import { ZhuyinPreview } from '@/ui/Reading'
 import { ImagePicker, type ImageChange } from './ImagePicker'
 
 interface Props {
@@ -89,14 +90,17 @@ export function CardForm({ card, onSaved }: Props) {
         label="Pinyin"
         htmlFor="pinyin"
         hint={
-          (check === 'mismatch' || check === 'tone-differs') && (
-            <p className="mt-1.5 text-sm text-amber-700 dark:text-amber-400">
-              Dictionary reading: <span className="font-semibold">{dictionary}</span>{' '}
-              <button type="button" className="underline" onClick={() => setPinyin(dictionary)}>
-                use it
-              </button>
-            </p>
-          )
+          <>
+            <ZhuyinPreview pinyin={pinyin} hanzi={hanzi} />
+            {(check === 'mismatch' || check === 'tone-differs') && (
+              <p className="mt-1.5 text-sm text-amber-700 dark:text-amber-400">
+                Dictionary reading: <span className="font-semibold">{dictionary}</span>{' '}
+                <button type="button" className="underline" onClick={() => setPinyin(dictionary)}>
+                  use it
+                </button>
+              </p>
+            )}
+          </>
         }
       >
         <div className="flex gap-2">

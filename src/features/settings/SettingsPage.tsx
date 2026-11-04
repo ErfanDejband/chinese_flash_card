@@ -18,6 +18,7 @@ import { HelpSettings } from './HelpSettings'
 import { KnownWordsSettings } from './KnownWordsSettings'
 import { LeitnerSettings } from './LeitnerSettings'
 import { PictureSettings } from './PictureSettings'
+import { ReadingSettings } from './ReadingSettings'
 import { Section } from './Section'
 import { SupportSettings } from './SupportSettings'
 import { SyncSettings } from './SyncSettings'
@@ -30,6 +31,7 @@ const SECTION_CONTENT: Record<SettingsSectionId, (settings: AppSettings) => Reac
   leitner: (s) => <LeitnerSettings key={JSON.stringify([s.leitner, s.newPerDay])} settings={s} />,
   knownWords: () => <KnownWordsSettings />,
   appearance: () => <AppearanceSettings />,
+  reading: () => <ReadingSettings />,
   voice: (s) => <VoiceSettings settings={s} />,
   ai: () => <AiSettings />,
   pictures: () => <PictureSettings />,

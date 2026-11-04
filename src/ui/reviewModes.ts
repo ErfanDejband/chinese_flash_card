@@ -12,17 +12,17 @@ export const REVIEW_MODE_INFO: Record<ReviewMode, ReviewModeInfo> = {
   image_to_word: {
     label: 'Picture → Chinese',
     front: 'Picture (or the meaning if a card has no picture)',
-    back: 'Characters, pinyin and meaning',
+    back: 'Characters, reading and meaning',
   },
   hanzi_to_meaning: {
     label: 'Chinese → meaning',
     front: 'Characters',
-    back: 'Pinyin, meaning and picture',
+    back: 'Reading, meaning and picture',
   },
   listening: {
     label: 'Sound → Chinese',
     front: 'The word, spoken',
-    back: 'Characters, pinyin, meaning and picture',
+    back: 'Characters, reading, meaning and picture',
   },
 }
 

@@ -4,6 +4,7 @@ import { useNow } from '@/hooks/useBrowser'
 import { estimateRemainingMs, formatAbout } from '@/lib/importTiming'
 import { cn } from '@/ui/cn'
 import { plural } from '@/ui/format'
+import { Reading } from '@/ui/Reading'
 import { Skeleton } from '@/ui/Skeleton'
 import type { RunState } from './runner'
 
@@ -147,7 +148,7 @@ export function CurrentPage({ run, reading }: { run: RunState; reading: boolean 
             {words.slice(0, MAX_CHIPS).map((w, i) => (
               <li key={`${i}:${w.hanzi}`} className="max-w-full truncate rounded-full border border-line bg-surface px-2.5 py-0.5 motion-safe:animate-reveal">
                 <span lang="zh-Hant">{w.hanzi}</span>
-                {w.pinyin && <span className="ml-1 text-xs text-muted">{w.pinyin}</span>}
+                {w.pinyin && <Reading pinyin={w.pinyin} hanzi={w.hanzi} className="ml-1 text-xs text-muted" />}
               </li>
             ))}
             {words.length > MAX_CHIPS && <li className="px-1 py-0.5 text-xs text-muted">+{words.length - MAX_CHIPS} more</li>}

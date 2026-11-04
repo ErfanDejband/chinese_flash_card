@@ -7,13 +7,14 @@ import { ExampleSentence } from '@/ui/ExampleSentence'
 import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { MediaImage } from '@/ui/MediaImage'
+import { Reading } from '@/ui/Reading'
 
 /**
  * What the card shows before the answer. Picture → Chinese: the picture, else the meaning, else
  * the characters (also when the picture isn't on this device yet, e.g. still syncing).
  * Chinese → meaning: always the characters. Sound → Chinese: the word is spoken once when the
  * card appears (again with the play button, or R in the review page); a device without
- * text-to-speech shows the pinyin instead.
+ * text-to-speech shows the reading instead.
  */
 type PromptKind = 'image' | 'meaning' | 'hanzi' | 'sound'
 
@@ -91,8 +92,8 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
           </button>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <span className="text-4xl text-accent">{card.pinyin}</span>
-            <span className="text-sm text-muted">This device can't speak — showing pinyin instead.</span>
+            <Reading pinyin={card.pinyin} hanzi={card.hanzi} className="text-4xl text-accent" />
+            <span className="text-sm text-muted">This device can't speak — showing the reading instead.</span>
           </div>
         ))}
 
@@ -102,7 +103,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
         <div className="flex animate-reveal flex-col items-center gap-2" aria-live="polite">
           {kind !== 'hanzi' && <Hanzi className="text-6xl leading-tight font-medium">{card.hanzi}</Hanzi>}
           <div className="flex items-center gap-2">
-            <span className="text-2xl text-accent">{card.pinyin}</span>
+            <Reading pinyin={card.pinyin} hanzi={card.hanzi} className="text-2xl text-accent" />
             {canSpeak && (
               <button
                 type="button"
