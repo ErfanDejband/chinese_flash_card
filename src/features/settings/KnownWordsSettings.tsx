@@ -1,12 +1,34 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState, type FormEvent } from 'react'
 import { addKnownWords, listKnownWords, removeKnownWord } from '@/data/repositories/knownWords'
+import type { KnownWord } from '@/domain/types'
 import { Button } from '@/ui/Button'
 import { plural } from '@/ui/format'
 import { Hanzi } from '@/ui/Hanzi'
+import { Icon } from '@/ui/icons'
 
-/** Show a filter once the list no longer fits at a glance. */
-const FILTER_FROM = 30
+/** Past this, the list no longer fits at a glance: it folds away and a filter finds a word. */
+const FOLD_FROM = 30
+
+function WordChips({ words }: { words: KnownWord[] }) {
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {words.map((w) => (
+        <li key={w.id} className="flex items-center rounded-full border border-line bg-paper pl-3 text-base">
+          <Hanzi>{w.id}</Hanzi>
+          <button
+            type="button"
+            onClick={() => void removeKnownWord(w.id)}
+            className="grid size-8 place-items-center rounded-full text-muted hover:text-ink"
+            aria-label={`Remove ${w.id}`}
+          >
+            ×
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** Words the learner knows without having a card: imports switch them off. Synced. */
 export function KnownWordsSettings() {
@@ -21,7 +43,8 @@ export function KnownWordsSettings() {
     setInput('')
   }
 
-  const shown = filter.trim() ? words.filter((w) => w.id.includes(filter.trim())) : words
+  const query = filter.trim()
+  const matches = words.filter((w) => w.id.includes(query))
 
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -42,7 +65,7 @@ export function KnownWordsSettings() {
           Add
         </Button>
       </form>
-      {words.length > FILTER_FROM && (
+      {words.length > FOLD_FROM && (
         <input
           type="search"
           lang="zh-Hant"
@@ -53,22 +76,20 @@ export function KnownWordsSettings() {
           className="h-10 rounded-xl border border-line bg-paper px-3 outline-none focus:border-accent"
         />
       )}
-      {shown.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
-          {shown.map((w) => (
-            <li key={w.id} className="flex items-center rounded-full border border-line bg-paper pl-3 text-base">
-              <Hanzi>{w.id}</Hanzi>
-              <button
-                type="button"
-                onClick={() => void removeKnownWord(w.id)}
-                className="grid size-8 place-items-center rounded-full text-muted hover:text-ink"
-                aria-label={`Remove ${w.id}`}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
+      {query ? (
+        matches.length > 0 ? <WordChips words={matches} /> : <p className="text-muted">No known word has “{query}”.</p>
+      ) : words.length > FOLD_FROM ? (
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center gap-3 py-1 font-semibold [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0 flex-1">Show all {words.length} words</span>
+            <Icon name="chevron" className="size-5 shrink-0 text-muted transition group-open:rotate-90 motion-reduce:transition-none" />
+          </summary>
+          <div className="mt-2">
+            <WordChips words={words} />
+          </div>
+        </details>
+      ) : (
+        <WordChips words={words} />
       )}
     </div>
   )
