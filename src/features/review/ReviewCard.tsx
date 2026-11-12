@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { isGrammar } from '@/domain/grammar'
 import type { Card, ReviewMode } from '@/domain/types'
 import { spokenText, symbolInfo } from '@/domain/zhuyinSymbols'
 import { useMediaUrl } from '@/hooks/useMediaUrl'
@@ -9,23 +10,7 @@ import { Hanzi } from '@/ui/Hanzi'
 import { Icon } from '@/ui/icons'
 import { MediaImage } from '@/ui/MediaImage'
 import { Reading } from '@/ui/Reading'
-
-/**
- * What the card shows before the answer. Picture → Chinese: the picture, else the meaning, else
- * the characters (also when the picture isn't on this device yet, e.g. still syncing).
- * Chinese → meaning: always the characters. Sound → Chinese: the word is spoken once when the
- * card appears (again with the play button, or R in the review page); a device without
- * text-to-speech shows the reading instead. A zhuyin symbol card always asks with the symbol.
- */
-type PromptKind = 'image' | 'meaning' | 'hanzi' | 'sound'
-
-function promptKind(card: Card, mode: ReviewMode, pictureHere: boolean): PromptKind {
-  if (mode === 'listening') return 'sound'
-  if (mode === 'hanzi_to_meaning' || symbolInfo(card.hanzi)) return 'hanzi'
-  if (card.imageId && pictureHere) return 'image'
-  if (card.meaning) return 'meaning'
-  return 'hanzi'
-}
+import { promptKind, type PromptKind } from './prompt'
 
 const QUESTION: Record<PromptKind, string> = {
   image: 'What is this?',
@@ -53,6 +38,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
   const kind = promptKind(card, mode, pictureHere)
   const canSpeak = speechSupported()
   const symbol = symbolInfo(card.hanzi)
+  const grammar = isGrammar(card)
   const spoken = spokenText(card)
 
   // Speak the word once per showing: the review page remounts the card for every answer (so a
@@ -74,13 +60,14 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
         ) : (
           <Chip>{box === 0 ? 'New card' : boxLabel(box)}</Chip>
         )}
+        {grammar && <Chip className="bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">Grammar</Chip>}
       </div>
 
       {kind === 'image' && (
         <MediaImage id={card.imageId!} alt="" className="max-h-[38dvh] min-h-40 w-full max-w-md rounded-2xl p-2 shadow-sm" />
       )}
       {kind === 'meaning' && <p className="max-w-md text-3xl leading-snug font-semibold">{card.meaning}</p>}
-      {kind === 'hanzi' && <Hanzi className="text-7xl leading-tight">{card.hanzi}</Hanzi>}
+      {kind === 'hanzi' && <Hanzi className={grammar ? 'text-5xl leading-tight' : 'text-7xl leading-tight'}>{card.hanzi}</Hanzi>}
       {/* The sound prompt makes way for the answer, which has its own play button. */}
       {kind === 'sound' &&
         !revealed &&
@@ -104,7 +91,7 @@ export function ReviewCard({ card, box, attempt, revealed, mode, voiceURI }: Pro
         <p className="text-lg text-muted">{kind === 'sound' && !canSpeak ? 'Which word is it, and what does it mean?' : kind === 'hanzi' && symbol ? 'How does it sound?' : QUESTION[kind]}</p>
       ) : (
         <div className="flex animate-reveal flex-col items-center gap-2" aria-live="polite">
-          {kind !== 'hanzi' && <Hanzi className="text-6xl leading-tight font-medium">{card.hanzi}</Hanzi>}
+          {kind !== 'hanzi' && <Hanzi className={grammar ? 'text-4xl leading-tight font-medium' : 'text-6xl leading-tight font-medium'}>{card.hanzi}</Hanzi>}
           <div className="flex items-center gap-2">
             <Reading pinyin={card.pinyin} hanzi={card.hanzi} className="text-2xl text-accent" />
             {canSpeak && (

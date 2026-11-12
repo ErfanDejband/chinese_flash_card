@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
+import { isGrammar } from '@/domain/grammar'
 import type { Card } from '@/domain/types'
 import { Hanzi } from './Hanzi'
 import { MediaImage } from './MediaImage'
@@ -24,6 +25,11 @@ export function CardRow({ card, trailing }: { card: Card; trailing?: ReactNode }
           <div className="flex items-baseline gap-2">
             <Hanzi className="text-xl font-medium">{card.hanzi}</Hanzi>
             <Reading pinyin={card.pinyin} hanzi={card.hanzi} className="truncate text-muted" />
+            {isGrammar(card) && (
+              <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[0.65rem] font-bold tracking-wide text-violet-700 uppercase dark:bg-violet-950 dark:text-violet-300">
+                Grammar
+              </span>
+            )}
           </div>
           {card.meaning && <div className="truncate text-sm text-muted">{card.meaning}</div>}
         </div>

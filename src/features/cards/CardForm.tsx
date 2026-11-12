@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { createCard, updateCard, validateCardDraft, type CardDraft } from '@/data/repositories/cards'
+import { isGrammar, withGrammar } from '@/domain/grammar'
 import { checkPinyin, suggestPinyin } from '@/domain/pinyin/suggest'
 import { normalizePinyin } from '@/domain/pinyin/tones'
 import type { Card } from '@/domain/types'
@@ -34,19 +35,21 @@ export function CardForm({ card, onSaved }: Props) {
   const [meaning, setMeaning] = useState(card?.meaning ?? '')
   const [notes, setNotes] = useState(card?.notes ?? '')
   const [example, setExample] = useState(card?.example ?? { hanzi: '', pinyin: '', meaning: '' })
+  const [grammar, setGrammar] = useState(card ? isGrammar(card) : false)
   const [image, setImage] = useState<ImageChange>({ kind: 'keep' })
   const [error, setError] = useState<string>()
   const [saving, setSaving] = useState(false)
 
   const dictionary = hanzi.trim() && !symbolInfo(hanzi.trim()) ? suggestPinyin(hanzi) : ''
-  const check = dictionary && pinyin.trim() ? checkPinyin(hanzi, pinyin) : 'unknown'
+  // A grammar pattern (雖然…但是…) isn't a dictionary word: no reading check.
+  const check = dictionary && pinyin.trim() && !grammar ? checkPinyin(hanzi, pinyin) : 'unknown'
 
   function fillPinyinIfEmpty() {
     if (!pinyin.trim() && dictionary) setPinyin(dictionary)
   }
 
   async function save(addAnother: boolean) {
-    const draft: CardDraft = { hanzi, pinyin, meaning, notes, example, tags: card?.tags }
+    const draft: CardDraft = { hanzi, pinyin, meaning, notes, example, tags: withGrammar(card?.tags ?? [], grammar) }
     const errors = validateCardDraft(draft)
     if (errors.length) {
       setError(errors[0])
@@ -82,9 +85,13 @@ export function CardForm({ card, onSaved }: Props) {
           onBlur={fillPinyinIfEmpty}
           autoFocus={!card}
           autoComplete="off"
-          placeholder="老師"
+          placeholder={grammar ? '雖然…但是…' : '老師'}
           className={`${inputClass} h-16 text-3xl`}
         />
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={grammar} onChange={(e) => setGrammar(e.target.checked)} className="size-4 accent-accent" />
+          Grammar point <span className="text-muted">(a pattern; never asked by picture)</span>
+        </label>
       </Field>
 
       <Field
@@ -135,7 +142,7 @@ export function CardForm({ card, onSaved }: Props) {
           value={meaning}
           onChange={(e) => setMeaning(e.target.value)}
           autoComplete="off"
-          placeholder="teacher"
+          placeholder={grammar ? 'although…, (still)…' : 'teacher'}
           className={`${inputClass} h-12`}
         />
       </Field>

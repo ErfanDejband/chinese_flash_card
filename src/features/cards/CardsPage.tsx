@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { createPictureJob, listOpenPictureJobs } from '@/data/repositories/pictures'
+import { isGrammar } from '@/domain/grammar'
 import { effectiveBox } from '@/domain/leitner/scheduler'
 import { matchesQuery } from '@/domain/search'
 import { symbolInfo } from '@/domain/zhuyinSymbols'
@@ -46,7 +47,7 @@ export function CardsPage() {
   const boxOf = (box: number) => (box === 0 ? 0 : effectiveBox(box, config))
   const results = deck
     .filter((e) => boxFilter === null || boxOf(e.state.box) === boxFilter)
-    .filter((e) => !noPicture || (!e.card.imageId && !symbolInfo(e.card.hanzi)))
+    .filter((e) => !noPicture || (!e.card.imageId && !symbolInfo(e.card.hanzi) && !isGrammar(e.card)))
     .filter((e) => matchesQuery(e.card, query))
     .sort((a, b) => b.card.createdAt - a.card.createdAt)
 
