@@ -19,6 +19,16 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-12.6',
+    title: 'A ready-made class',
+    items: [
+      {
+        text: 'New: “Beginner Mandarin Course (Term II)”, 6 lessons and about 320 words, ready to join. Decks → Join a class, pick the lessons you want.',
+        to: '/join',
+      },
+    ],
+  },
+  {
     id: '2026-11-12.5',
     title: 'Your own copy of a class',
     items: [

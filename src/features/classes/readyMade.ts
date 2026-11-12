@@ -10,4 +10,10 @@ export interface ReadyMadeClass {
   note: string
 }
 
-export const READY_MADE_CLASSES: readonly ReadyMadeClass[] = []
+export const READY_MADE_CLASSES: readonly ReadyMadeClass[] = [
+  {
+    id: '1ofB1iQ5lLeIKHRi74fFDE5uApU_2Xnmh',
+    title: 'Beginner Mandarin Course (Term II)',
+    note: '6 lessons · about 320 words, Traditional characters with pinyin',
+  },
+]
