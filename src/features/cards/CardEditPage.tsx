@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { deleteCard, getCard } from '@/data/repositories/cards'
 import { getReviewState } from '@/data/repositories/review'
 import { getSettings } from '@/data/repositories/settings'
@@ -14,6 +14,7 @@ import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { reviewModeInfo } from '@/ui/reviewModes'
+import { targetFromParams, targetQuery } from '@/features/decks/target'
 import { useSettings } from '@/hooks/useDeck'
 import { CardForm } from './CardForm'
 
@@ -54,6 +55,7 @@ export function CardEditPage() {
   const location = useLocation()
   const [formKey, setFormKey] = useState(0)
   const [flash, setFlash] = useState<string>()
+  const [params, setParams] = useSearchParams()
 
   // undefined = loading, null = not found
   const card = useLiveQuery(async () => (id ? ((await getCard(id)) ?? null) : null), [id])
@@ -102,6 +104,8 @@ export function CardEditPage() {
       <CardForm
         key={`${existing?.id ?? 'new'}-${formKey}`}
         card={existing}
+        target={targetFromParams(params)}
+        onTargetChange={(t) => setParams(targetQuery(t), { replace: true })}
         onSaved={(saved, addAnother) => {
           if (addAnother) {
             setFlash(`Saved ${saved.hanzi}. Add the next one.`)

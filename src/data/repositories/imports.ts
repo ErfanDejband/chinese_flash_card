@@ -1,4 +1,5 @@
 import { newId } from '@/domain/ids'
+import { MY_CARDS } from '@/domain/library'
 import { SAMPLE_TAG } from '@/domain/sampleDeck'
 import type { Id } from '@/domain/types'
 import type { Rotation } from '@/import/render'
@@ -28,6 +29,8 @@ export interface NewImport {
   mode?: ImportMode
   /** The import demo (sample page, no AI). */
   demo?: boolean
+  /** Where the cards go; default My cards. */
+  target?: ImportRecord['target']
 }
 
 /** Create an import with its selected pages queued as pending. */
@@ -45,6 +48,7 @@ export async function createImport(input: NewImport, now = Date.now()): Promise<
     provider: input.provider,
     model: input.model,
     ...(input.demo && { demo: true }),
+    ...(input.target && input.target.deckId !== MY_CARDS && { target: input.target }),
     createdAt: now,
     updatedAt: now,
   }
@@ -64,6 +68,24 @@ export async function createImport(input: NewImport, now = Date.now()): Promise<
     )
   })
   return record
+}
+
+/** Change where an open import's cards will go (My cards when `target` is undefined or My cards). */
+export async function setImportTarget(importId: Id, target: ImportRecord['target'], now = Date.now()): Promise<void> {
+  await db.transaction('rw', db.imports, async () => {
+    const record = await db.imports.get(importId)
+    if (!record) return
+    const { target: _old, ...rest } = record
+    await db.imports.put({ ...rest, ...(target && target.deckId !== MY_CARDS ? { target } : {}), updatedAt: now })
+  })
+}
+
+/** The import's target if its deck (and lesson) still exist: a deleted lesson means the deck, a deleted deck My cards. */
+async function liveTarget(target: ImportRecord['target']): Promise<{ deckId: Id; lessonId?: Id }> {
+  const deck = target ? await db.decks.get(target.deckId) : undefined
+  if (!target || !deck || deck.deletedAt !== undefined) return { deckId: MY_CARDS }
+  const lesson = target.lessonId ? await db.lessons.get(target.lessonId) : undefined
+  return lesson && lesson.deletedAt === undefined && lesson.deckId === deck.id ? { deckId: deck.id, lessonId: lesson.id } : { deckId: deck.id }
 }
 
 /** Queue more pages (e.g. retry failed ones); pages already done are left alone. */
@@ -179,9 +201,10 @@ async function deleteWorkTables(importId: Id) {
  * in document order) and remove the import's work tables.
  */
 export async function commitImport(importId: Id, now = Date.now()): Promise<{ created: number; cardIds: Id[] }> {
-  return db.transaction('rw', [db.cards, db.reviewStates, db.media, db.imports, db.importPages, db.importDrafts], async () => {
+  return db.transaction('rw', [db.cards, db.reviewStates, db.media, db.imports, db.importPages, db.importDrafts, db.decks, db.lessons], async () => {
     const record = await db.imports.get(importId)
     if (!record || record.status !== 'draft') throw new Error('This import is no longer open.')
+    const target = await liveTarget(record.target)
     const drafts = await listDrafts(importId)
     const chosen = drafts.filter(isImportable)
     const pages = new Map((await listImportPages(importId)).map((p) => [p.page, p]))
@@ -193,6 +216,7 @@ export async function commitImport(importId: Id, now = Date.now()): Promise<{ cr
       example: d.example,
       tags: [...(d.kind === 'sentence' ? ['sentence'] : []), ...(record.demo ? [SAMPLE_TAG] : [])],
       image: d.crop,
+      ...target,
       source:
         record.sourceKind === 'images'
           ? { type: 'image', importId, fileName: pages.get(d.page)?.sourceFile ?? record.fileName, bbox: d.sourceBox }

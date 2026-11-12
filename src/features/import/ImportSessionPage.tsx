@@ -13,7 +13,10 @@ import {
   listImportPages,
   queuePages,
   setDraftsSelected,
+  setImportTarget,
 } from '@/data/repositories/imports'
+import { TargetSelect } from '@/features/decks/TargetSelect'
+import { liveTarget, MY_CARDS_TARGET, targetLabel, type Target } from '@/features/decks/target'
 import { Tip } from '@/features/onboarding/Tip'
 import { configProblems } from '@/import/ai/createProvider'
 import { createDemoProvider } from '@/import/demo/demoProvider'
@@ -21,6 +24,7 @@ import { createSamplePage } from '@/import/demo/samplePage'
 import { openSource, SourceError } from '@/import/source/openSource'
 import type { NormBox } from '@/import/types'
 import { useAiSettings } from '@/hooks/useBrowser'
+import { useDecks, useLessons } from '@/hooks/useDecks'
 import { activeProviderConfig } from '@/lib/aiConfig'
 import { getUsage, subscribeUsage } from '@/lib/aiUsage'
 import { usageLine } from '@/ui/usageText'
@@ -250,9 +254,16 @@ function LiveGroup({ importId, shown, reading, nothingYet }: { importId: string;
   return nothingYet ? <p className="py-8 text-center text-muted">Cards appear here as pages are read.</p> : null
 }
 
+/** Where the new cards are: their lesson or deck page, else the new-card box. */
+const placeOf = (t: Target) => (t.lessonId ? `/decks/${t.deckId}/${t.lessonId}` : t.deckId !== MY_CARDS_TARGET.deckId ? `/decks/${t.deckId}` : '/boxes/0')
+
 /** After "Add cards": offer pictures for the new cards that have none (e.g. words from a reading page). */
-function Finished({ importId, added }: { importId: string; added: number }) {
+function Finished({ importId, added, target }: { importId: string; added: number; target: Target }) {
   const navigate = useNavigate()
+  const decks = useDecks()
+  const lessons = useLessons()
+  const live = decks && lessons ? liveTarget(target, decks, lessons) : MY_CARDS_TARGET
+  const where = decks && lessons && live.deckId !== MY_CARDS_TARGET.deckId ? ` to ${targetLabel(live, decks, lessons)}` : ''
   const withoutPicture = useLiveQuery(
     async () =>
       (await listActiveCards())
@@ -273,7 +284,10 @@ function Finished({ importId, added }: { importId: string; added: number }) {
     <>
       <PageHeader title="Import finished" back="/import" />
       <section className="rounded-3xl border border-line bg-surface p-5">
-        <p className="text-lg font-semibold">Added {plural(added, 'card')}.</p>
+        <p className="text-lg font-semibold">
+          Added {plural(added, 'card')}
+          {where}.
+        </p>
         {withoutPicture && withoutPicture.length > 0 ? (
           <>
             <p className="mt-1 text-muted">
@@ -284,14 +298,14 @@ function Finished({ importId, added }: { importId: string; added: number }) {
               <Button onClick={() => void addPictures(withoutPicture)} disabled={starting}>
                 Add pictures
               </Button>
-              <Button variant="secondary" onClick={() => navigate('/boxes/0', { replace: true })}>
+              <Button variant="secondary" onClick={() => navigate(placeOf(live), { replace: true })}>
                 Later
               </Button>
             </div>
           </>
         ) : (
           <div className="mt-4">
-            <Button onClick={() => navigate('/boxes/0', { replace: true })}>See the new cards</Button>
+            <Button onClick={() => navigate(placeOf(live), { replace: true })}>See the new cards</Button>
           </div>
         )}
       </section>
@@ -309,9 +323,11 @@ export function ImportSessionPage() {
   const [editing, setEditing] = useState<ImportDraftRecord>()
   const [committing, setCommitting] = useState(false)
   const running = useSyncExternalStore(runStore.subscribe, () => isRunning(importId))
+  const decks = useDecks()
+  const lessons = useLessons()
 
   if (record === undefined || !pages || !drafts || !existing) return <Loading />
-  if (record?.status === 'committed') return <Finished importId={importId} added={record.acceptedCount} />
+  if (record?.status === 'committed') return <Finished importId={importId} added={record.acceptedCount} target={record.target ?? MY_CARDS_TARGET} />
   if (record === null || record.status !== 'draft') {
     return (
       <>
@@ -377,6 +393,18 @@ export function ImportSessionPage() {
 
       <div className="pb-safe sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] -mx-4 border-t border-line bg-paper/95 px-4 py-3 backdrop-blur md:bottom-0">
         {running && <p className="mb-2 text-xs text-muted">You can review while pages are being read; pause to import.</p>}
+        {decks && lessons && decks.length > 0 && (
+          <label className="mb-2 flex items-center gap-2 text-sm">
+            <span className="shrink-0 text-muted">Add to</span>
+            <TargetSelect
+              value={liveTarget(record.target ?? MY_CARDS_TARGET, decks, lessons)}
+              onChange={(t) => void setImportTarget(importId, t)}
+              decks={decks}
+              lessons={lessons}
+              className="h-9 flex-1 text-sm"
+            />
+          </label>
+        )}
         <div className="flex gap-2">
           <Button
             variant="ghost"

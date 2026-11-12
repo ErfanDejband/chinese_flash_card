@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { createImport, discardImport, findImportsByHash, listOpenImports } from '@/data/repositories/imports'
 import { configProblems } from '@/import/ai/createProvider'
 import { serviceFor } from '@/import/ai/detectKey'
@@ -9,16 +9,35 @@ import { createSamplePage } from '@/import/demo/samplePage'
 import { openSource, SourceError } from '@/import/source/openSource'
 import type { ImportSource } from '@/import/source/types'
 import type { ImportMode } from '@/import/types'
+import { TargetSelect } from '@/features/decks/TargetSelect'
+import { liveTarget, targetFromParams, targetQuery, type Target } from '@/features/decks/target'
 import { useAiSettings, useFreeQuota, useSignInStatus } from '@/hooks/useBrowser'
+import { useDecks, useLessons } from '@/hooks/useDecks'
 import { activeProviderConfig } from '@/lib/aiConfig'
 import { startOpenRouterSignIn } from '@/lib/openrouterSignIn'
 import { Button, ButtonLink } from '@/ui/Button'
 import { shortDateTime } from '@/ui/format'
-import { Icon } from '@/ui/icons'
+import { Icon, type IconName } from '@/ui/icons'
 import { PageHeader } from '@/ui/PageHeader'
 import { PagePicker, type PickedPage } from './PagePicker'
 import { attachSource, startRun } from './runner'
 import { isWordListFile, setWordListFile, WORD_LIST_ACCEPT } from './wordListFile'
+
+/** One way to add cards: a row with an icon, a title and a line of explanation. */
+function Way({ to, icon, title, note }: { to: string; icon: IconName; title: string; note: string }) {
+  return (
+    <Link to={to} className="flex items-center gap-4 px-5 py-4 hover:bg-sunken">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
+        <Icon name={icon} className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold">{title}</span>
+        <span className="block text-sm text-muted">{note}</span>
+      </span>
+      <Icon name="chevron" className="size-5 shrink-0 text-muted" />
+    </Link>
+  )
+}
 
 interface Picked {
   source: ImportSource
@@ -39,6 +58,12 @@ export function ImportPage() {
   const [picked, setPicked] = useState<Picked>()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
+  const [params, setParams] = useSearchParams()
+  const decks = useDecks()
+  const lessons = useLessons()
+  const target: Target = decks && lessons ? liveTarget(targetFromParams(params), decks, lessons) : targetFromParams(params)
+  const query = targetQuery(target)
+  const withTarget = (path: string) => (query ? `${path}${path.includes('?') ? '&' : '?'}${query}` : path)
 
   async function onFiles(files: File[] | (() => Promise<File[]>), demo = false) {
     setLoading(true)
@@ -70,7 +95,7 @@ export function ImportPage() {
       setError('Choose a word list on its own.')
     } else {
       setWordListFile(list)
-      navigate('/import/list')
+      navigate(withTarget('/import/list'))
     }
   }
 
@@ -87,6 +112,7 @@ export function ImportPage() {
       model: demo ? DEMO_MODEL : config.model,
       mode,
       demo,
+      target,
     })
     attachSource(record.id, source)
     void startRun(record.id, config, demo ? createDemoProvider() : undefined)
@@ -114,8 +140,22 @@ export function ImportPage() {
 
   return (
     <>
-      <PageHeader title="Import vocabulary" />
+      <PageHeader title="Add cards" back={target.lessonId ? `/decks/${target.deckId}/${target.lessonId}` : query ? `/decks/${target.deckId}` : '/decks'} />
 
+      {decks && lessons && (
+        <label className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="font-medium">Add to</span>
+          <TargetSelect value={target} onChange={(t) => setParams(targetQuery(t), { replace: true })} decks={decks} lessons={lessons} className="flex-1 basis-56" />
+        </label>
+      )}
+
+      <nav aria-label="Ways to add cards" className="mb-6 divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface">
+        <Way to={withTarget('/cards/new')} icon="pencil" title="Type a card" note="Characters, pinyin and meaning; a picture if you like." />
+        <Way to={withTarget('/import/list?paste=1')} icon="cards" title="Paste from a spreadsheet" note="Copy the rows in Excel or Google Sheets and paste them. No AI needed." />
+        <Way to={withTarget('/import/list')} icon="upload" title="Open a word list file" note="Excel, CSV, or an Anki, Pleco or Quizlet export. No AI needed." />
+      </nav>
+
+      <h2 className="mb-2 text-lg font-semibold">From a PDF or photos, with AI</h2>
       <section className="mb-6 rounded-3xl border border-line bg-surface p-5">
         <p className="mb-4 text-sm text-muted">
           Choose a PDF, or photos / screenshots of your course pages. The AI reads each page you pick, finds the vocabulary (characters,
@@ -132,7 +172,7 @@ export function ImportPage() {
                   Open Settings
                 </Link>
                 {signIn.kind === 'error' && <span className="mt-2 block text-red-700 dark:text-red-300">{signIn.message}</span>}
-                <Button size="sm" className="mt-3 w-full" onClick={() => void startOpenRouterSignIn('/import')}>
+                <Button size="sm" className="mt-3 w-full" onClick={() => void startOpenRouterSignIn(withTarget('/import'))}>
                   Connect free AI (OpenRouter)
                 </Button>
               </>
@@ -164,12 +204,6 @@ export function ImportPage() {
           }}
         />
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-        <p className="mt-4 text-sm">
-          <Link to="/import/list" className="font-semibold text-accent">
-            Import a word list (Anki, Pleco, Quizlet, CSV) →
-          </Link>
-          <span className="mt-0.5 block text-xs text-muted">A text file from another flashcard app or a spreadsheet. No AI needed.</span>
-        </p>
         <div className="mt-4 border-t border-line pt-4">
           <p className="text-sm font-medium">Not sure yet?</p>
           <Button variant="secondary" className="mt-2 w-full" onClick={() => void onFiles(async () => [await createSamplePage()], true)} disabled={loading}>

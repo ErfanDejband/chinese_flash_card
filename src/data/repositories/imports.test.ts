@@ -15,8 +15,10 @@ import {
   queuePages,
   requeueInterrupted,
   savePageResult,
+  setImportTarget,
   updateDraft,
 } from './imports'
+import { createDeck, createLesson, deleteLesson } from './decks'
 import { unzipSync } from 'fflate'
 import { PROMPT_VERSION, READING_PROMPT_VERSION } from '@/import/ai/prompt'
 
@@ -179,6 +181,26 @@ describe('imports repository', () => {
       ['我們好', ['sentence', 'sample']],
     ])
     expect((await setupImport()).demo).toBeUndefined()
+  })
+
+  it('adds the cards to its deck and lesson, or the deck when the lesson was deleted', async () => {
+    const deck = await createDeck('Book 2', 1000)
+    const lesson = await createLesson(deck.id, 'Lesson 3', 1000)
+    const pages = [{ page: 1, label: 'Page 1', rotation: 0 as const }]
+    const a = await createImport({ fileName: 'a.pdf', fileHash: 'a', sourceKind: 'pdf', pageCount: 1, pages, provider: 'g', model: 'm', target: { deckId: deck.id, lessonId: lesson.id } })
+    await savePageResult(a.id, result(1, [draft('餐廳')]))
+    await commitImport(a.id)
+    expect((await loadDeck())[0]!.card).toMatchObject({ hanzi: '餐廳', deckId: deck.id, lessonId: lesson.id })
+
+    const b = await createImport({ fileName: 'b.pdf', fileHash: 'b', sourceKind: 'pdf', pageCount: 1, pages, provider: 'g', model: 'm' })
+    await setImportTarget(b.id, { deckId: deck.id, lessonId: lesson.id })
+    await deleteLesson(lesson.id, 'keep')
+    await savePageResult(b.id, result(1, [draft('菜單')]))
+    await commitImport(b.id)
+
+    const menu = (await loadDeck()).map((e) => e.card).find((c) => c.hanzi === '菜單')!
+    expect(menu.deckId).toBe(deck.id)
+    expect('lessonId' in menu).toBe(false)
   })
 
   it('discards an import and its work tables', async () => {

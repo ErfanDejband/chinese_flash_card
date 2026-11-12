@@ -35,6 +35,8 @@ export interface ImportRecord {
   model?: string
   /** The import demo's sample page: no AI, and its cards are tagged as sample cards. */
   demo?: boolean
+  /** Where the cards go (a deck and maybe a lesson); missing = My cards. */
+  target?: { deckId: Id; lessonId?: Id }
   createdAt: Timestamp
   updatedAt: Timestamp
 }

@@ -1,10 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { createCard, updateCard, validateCardDraft, type CardDraft } from '@/data/repositories/cards'
+import { moveCards } from '@/data/repositories/decks'
 import { isGrammar, withGrammar } from '@/domain/grammar'
 import { checkPinyin, suggestPinyin } from '@/domain/pinyin/suggest'
 import { normalizePinyin } from '@/domain/pinyin/tones'
 import type { Card } from '@/domain/types'
 import { symbolInfo } from '@/domain/zhuyinSymbols'
+import { TargetSelect } from '@/features/decks/TargetSelect'
+import { liveTarget, MY_CARDS_TARGET, type Target } from '@/features/decks/target'
+import { useDecks, useLessons } from '@/hooks/useDecks'
 import { Button } from '@/ui/Button'
 import { Icon } from '@/ui/icons'
 import { ZhuyinPreview } from '@/ui/Reading'
@@ -12,6 +16,10 @@ import { ImagePicker, type ImageChange } from './ImagePicker'
 
 interface Props {
   card?: Card
+  /** Deck and lesson for a new card (default My cards). */
+  target?: Target
+  /** A new card's deck or lesson was changed (so "Save & add another" keeps it). */
+  onTargetChange?: (target: Target) => void
   onSaved(card: Card, addAnother: boolean): void
 }
 
@@ -29,7 +37,7 @@ function Field({ label, htmlFor, children, hint }: { label: string; htmlFor: str
   )
 }
 
-export function CardForm({ card, onSaved }: Props) {
+export function CardForm({ card, target: initialTarget, onTargetChange, onSaved }: Props) {
   const [hanzi, setHanzi] = useState(card?.hanzi ?? '')
   const [pinyin, setPinyin] = useState(card?.pinyin ?? '')
   const [meaning, setMeaning] = useState(card?.meaning ?? '')
@@ -37,6 +45,10 @@ export function CardForm({ card, onSaved }: Props) {
   const [example, setExample] = useState(card?.example ?? { hanzi: '', pinyin: '', meaning: '' })
   const [grammar, setGrammar] = useState(card ? isGrammar(card) : false)
   const [image, setImage] = useState<ImageChange>({ kind: 'keep' })
+  const [chosen, setChosen] = useState<Target>(card ? { deckId: card.deckId, ...(card.lessonId ? { lessonId: card.lessonId } : {}) } : (initialTarget ?? MY_CARDS_TARGET))
+  const decks = useDecks()
+  const lessons = useLessons()
+  const target = decks && lessons ? liveTarget(chosen, decks, lessons) : chosen
   const [error, setError] = useState<string>()
   const [saving, setSaving] = useState(false)
 
@@ -59,9 +71,11 @@ export function CardForm({ card, onSaved }: Props) {
     setError(undefined)
     try {
       const imageArg = image.kind === 'keep' ? undefined : image.kind === 'set' ? image.media : null
-      const saved = card
-        ? await updateCard(card.id, draft, imageArg)
-        : await createCard({ ...draft, image: imageArg ?? undefined })
+      let saved = card ? await updateCard(card.id, draft, imageArg) : await createCard({ ...draft, image: imageArg ?? undefined, ...target })
+      if (card && (target.deckId !== card.deckId || target.lessonId !== card.lessonId)) {
+        await moveCards([card.id], target.deckId, target.lessonId)
+        saved = { ...saved, ...target }
+      }
       onSaved(saved, addAnother)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the card')
@@ -187,6 +201,23 @@ export function CardForm({ card, onSaved }: Props) {
           className={`${inputClass} h-11`}
         />
       </fieldset>
+
+      {decks && lessons && decks.length > 0 && (
+        <Field label="Deck" htmlFor="target">
+          <TargetSelect
+            id="target"
+            value={target}
+            onChange={(t) => {
+              setChosen(t)
+              if (!card) onTargetChange?.(t)
+            }}
+            decks={decks}
+            lessons={lessons}
+            label="Deck and lesson"
+            className="w-full"
+          />
+        </Field>
+      )}
 
       <Field label="Notes" htmlFor="notes">
         <textarea
