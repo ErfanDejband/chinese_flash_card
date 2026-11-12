@@ -71,7 +71,7 @@ export function DecksPage() {
       <PageHeader title="Decks" subtitle="Group your cards into decks and lessons" />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-        <ButtonLink to="/import" size="lg" className="flex-1">
+        <ButtonLink to="/import" size="lg" className="sm:flex-1">
           <Icon name="plus" /> Add cards
         </ButtonLink>
       </div>

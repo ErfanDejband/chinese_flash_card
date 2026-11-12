@@ -2,7 +2,9 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { newCardPool, summarizeDeck } from '@/domain/deck'
 import { inScope, parseScope, scopedLink } from '@/domain/scope'
 import { effectiveBox, intervalDays } from '@/domain/leitner/scheduler'
+import { lessonRanks } from '@/domain/library'
 import { useDeck, useSettings } from '@/hooks/useDeck'
+import { useDecks, useLessons } from '@/hooks/useDecks'
 import { useToday } from '@/hooks/useToday'
 import { boxLabel, boxTone } from '@/ui/boxTones'
 import { ButtonLink } from '@/ui/Button'
@@ -17,9 +19,11 @@ export function BoxDetailPage() {
   const [params] = useSearchParams()
   const scope = parseScope(params)
   const all = useDeck()
+  const decks = useDecks()
+  const lessons = useLessons()
   const settings = useSettings()
   const today = useToday()
-  if (!all || !settings) return <Loading />
+  if (!all || !settings || !decks || !lessons) return <Loading />
   const deck = all.filter((e) => inScope(e.card, scope))
 
   const config = settings.leitner
@@ -30,7 +34,7 @@ export function BoxDetailPage() {
   const summary = summarizeDeck(all, today, config, settings.newPerDay, scope)
   const entries =
     box === 0
-      ? newCardPool(deck)
+      ? newCardPool(deck, lessonRanks(decks, lessons))
       : deck
           .filter((e) => e.state.box > 0 && effectiveBox(e.state.box, config) === box)
           .sort((a, b) => (a.state.dueOn ?? '').localeCompare(b.state.dueOn ?? ''))

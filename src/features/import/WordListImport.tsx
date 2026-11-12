@@ -78,7 +78,11 @@ function withTable(sheet: Omit<Sheet, 'table' | 'roles'>, table: ParsedTable): O
   return { ...sheet, table, roles: guessRoles(table) }
 }
 
-const sheetTable = (workbook: Worksheet[], choice: number | 'lessons') => (choice === 'lessons' ? tableFromSheets(workbook) : tableFromRows(workbook[choice]!.rows))
+function sheetTable(workbook: Worksheet[], choice: number | 'lessons'): ParsedTable {
+  if (choice === 'lessons') return tableFromSheets(workbook)
+  const sheet = workbook[choice]!
+  return { ...tableFromRows(sheet.rows), label: workbook.length > 1 ? `Excel sheet “${sheet.name}”` : 'Excel workbook' }
+}
 
 /** `lessons`: an Excel file with several sheets becomes one lesson per sheet (else its first sheet is read). */
 async function readWordList(source: Source, lessons: boolean): Promise<Opened> {
@@ -580,7 +584,7 @@ export function WordListImport() {
         {fileLessons &&
           (toDeck ? (
             <p className="text-sm text-muted">
-              The Lesson {sheet.choice === 'lessons' ? 'sheets make' : 'column makes'} {plural(lessonNames.length, 'lesson')}: {lessonNames.slice(0, 6).join(', ')}
+              {sheet.choice === 'lessons' ? 'The sheets make' : 'The Lesson column makes'} {plural(lessonNames.length, 'lesson')}: {lessonNames.slice(0, 6).join(', ')}
               {lessonNames.length > 6 && ', …'}. Lessons the deck already has are reused.
             </p>
           ) : (

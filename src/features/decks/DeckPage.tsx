@@ -160,10 +160,10 @@ export function DeckPage() {
       />
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <ButtonLink to={`/import?deck=${deck.id}`} variant="secondary" className="flex-1">
+        <ButtonLink to={`/import?deck=${deck.id}`} variant="secondary" className="sm:flex-1">
           <Icon name="plus" /> Add cards
         </ButtonLink>
-        <ButtonLink to={`/cards?deck=${deck.id}`} variant="secondary" className="flex-1">
+        <ButtonLink to={`/cards?deck=${deck.id}`} variant="secondary" className="sm:flex-1">
           <Icon name="cards" /> All its cards
         </ButtonLink>
       </div>
