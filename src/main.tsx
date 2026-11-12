@@ -8,6 +8,7 @@ import { countReviews } from './data/repositories/review'
 import { TIP_IDS } from './features/onboarding/tips'
 import { LATEST_RELEASE_ID } from './features/whatsNew/releases'
 import './lib/install' // registers the install-prompt listener early
+import { initClasses } from './lib/classRunner'
 import { handleGoogleCallback } from './lib/googleSignIn'
 import { initOnboarding } from './lib/onboarding'
 import { handleOpenRouterCallback } from './lib/openrouterSignIn'
@@ -28,6 +29,7 @@ const googleCallback = handleGoogleCallback()
 const returnTo = handleOpenRouterCallback() ?? googleCallback?.returnTo
 if (returnTo) void router.navigate(returnTo, { replace: true })
 initSync(googleCallback)
+initClasses()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

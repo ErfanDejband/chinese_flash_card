@@ -19,6 +19,7 @@ const importSessionPage = async () => ({ Component: (await import('@/features/im
 const wordListImport = async () => ({ Component: (await import('@/features/import/WordListImport')).WordListImport })
 const picturesPage = async () => ({ Component: (await import('@/features/pictures/PicturesPage')).PicturesPage })
 const helpPage = async () => ({ Component: (await import('@/features/help/HelpPage')).HelpPage })
+const joinPage = async () => ({ Component: (await import('@/features/classes/JoinPage')).JoinPage })
 // Snap and its test page; Transformers.js loads only when the object detector is loaded.
 const snapPage = async () => ({ Component: (await import('@/features/snap/SnapPage')).SnapPage })
 const objectsLab = async () => ({ Component: (await import('@/features/lab/ObjectsLab')).ObjectsLab })
@@ -42,6 +43,8 @@ export const router = createHashRouter([
       { path: 'decks', element: <DecksPage /> },
       { path: 'decks/:deckId', element: <DeckPage /> },
       { path: 'decks/:deckId/:lessonId', element: <LessonPage /> },
+      { path: 'join', lazy: joinPage },
+      { path: 'join/:classId', lazy: joinPage },
       { path: 'import', lazy: importPage },
       { path: 'import/list', lazy: wordListImport },
       { path: 'import/:importId', lazy: importSessionPage },

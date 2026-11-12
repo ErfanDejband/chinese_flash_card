@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router'
 import { BackupFormatError, exportBackup, restoreBackup } from '@/data/backup/backup'
 import { listActiveCards } from '@/data/repositories/cards'
 import { toLocalDate } from '@/domain/dates'
+import { isClassFile } from '@/classes/classFile'
+import { setClassFile } from '@/features/classes/classFileHandoff'
 import { isWordListFile, setWordListFile, WORD_LIST_ACCEPT } from '@/features/import/wordListFile'
 import { wordListTsv } from '@/import/table/export'
 import { updateOnboarding } from '@/lib/onboarding'
@@ -42,11 +44,19 @@ export function BackupSettings() {
     }
   }
 
-  /** A backup .zip restores here; a word list (CSV, TSV, Anki/Pleco/Quizlet export) opens the word-list import. */
-  function onFile(file: File | undefined) {
+  /**
+   * A backup .zip restores here; a word list (Excel, CSV, TSV, Anki/Pleco/Quizlet export) opens the
+   * word-list import, and a class file (.zip with a class in it) the Join screen.
+   */
+  async function onFile(file: File | undefined) {
     if (file && isWordListFile(file)) {
       setWordListFile(file)
       navigate('/import/list', { state: { from: '/settings/sync' } })
+      return
+    }
+    if (file && isClassFile(new Uint8Array(await file.arrayBuffer()))) {
+      setClassFile(file)
+      navigate('/join')
       return
     }
     setPending(file)
@@ -92,7 +102,7 @@ export function BackupSettings() {
           accept={`.zip,application/zip,${WORD_LIST_ACCEPT}`}
           hidden
           onChange={(e) => {
-            onFile(e.target.files?.[0])
+            void onFile(e.target.files?.[0])
             e.target.value = ''
           }}
         />

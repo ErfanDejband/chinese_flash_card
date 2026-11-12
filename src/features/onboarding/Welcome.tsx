@@ -75,6 +75,9 @@ export function Welcome({ settings }: { settings: AppSettings }) {
             <Link to="/import" className={CHOICE}>
               <ChoiceBody emoji="📄" title="I have a textbook or PDF" note="Photos and screenshots work too. The AI makes the cards; you check them." />
             </Link>
+            <Link to="/join" className={CHOICE}>
+              <ChoiceBody emoji="🏫" title="My teacher gave me a class" note="Open their link or scan their QR code, pick the lessons, and the cards are ready. No account needed." />
+            </Link>
             <Link to="/cards/new" className={CHOICE}>
               <ChoiceBody emoji="⌨️" title="I'll type my own words" note="Characters, pinyin and meaning; a picture if you like." />
             </Link>

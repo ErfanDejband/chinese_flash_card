@@ -88,7 +88,7 @@ export async function takeLessons(
     opened.manifest.id,
     fetched.flatMap((f) => f.cards.map((c) => c.id)),
   )
-  const before = Object.keys(local.deck?.remote?.lessons ?? {})
+  const before = local.deck?.deletedAt === undefined ? Object.keys(local.deck?.remote?.lessons ?? {}) : []
   const plan = planClass({
     manifest: opened.manifest,
     body,

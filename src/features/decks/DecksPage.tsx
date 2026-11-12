@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { createDeck, moveDeck } from '@/data/repositories/decks'
 import { MY_CARDS } from '@/domain/library'
 import type { Deck } from '@/domain/types'
 import { useDeck, useSettings } from '@/hooks/useDeck'
-import { useDecks, useLessons } from '@/hooks/useDecks'
+import { useClassNews, useDecks, useLessons } from '@/hooks/useDecks'
+import { checkClasses } from '@/lib/classRunner'
 import { useToday } from '@/hooks/useToday'
 import { Button, ButtonLink } from '@/ui/Button'
 import { plural } from '@/ui/format'
@@ -19,7 +20,7 @@ export function StudyBadge({ count }: { count: number }) {
   return <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-on-accent tabular-nums">{count}</span>
 }
 
-function DeckRow({ deck, lessons, cards, study, first, last }: { deck: Deck; lessons: number; cards: number; study: number; first: boolean; last: boolean }) {
+function DeckRow({ deck, lessons, cards, study, first, last, news }: { deck: Deck; lessons: number; cards: number; study: number; first: boolean; last: boolean; news: number }) {
   return (
     <li className="flex items-center gap-1 pr-2 hover:bg-sunken">
       <Link to={`/decks/${deck.id}`} className="flex min-w-0 flex-1 items-center gap-4 py-4 pl-5">
@@ -29,9 +30,11 @@ function DeckRow({ deck, lessons, cards, study, first, last }: { deck: Deck; les
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{deck.title}</span>
           <span className="block truncate text-sm text-muted">
+            {deck.remote ? `Class${deck.teacher ? ` · ${deck.teacher}` : ''} · ` : deck.share ? 'Shared · ' : ''}
             {lessons > 0 ? `${plural(lessons, 'lesson')} · ` : ''}
             {plural(cards, 'card')}
           </span>
+          {news > 0 && <span className="mt-1 inline-block rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent">{news === 1 ? 'New lesson' : `${news} new lessons`}</span>}
         </span>
         <StudyBadge count={study} />
       </Link>
@@ -56,6 +59,9 @@ export function DecksPage() {
   const today = useToday()
   const navigate = useNavigate()
   const [adding, setAdding] = useState(false)
+  const news = useClassNews()
+  // Joined classes are looked at when Decks opens (at most every few hours).
+  useEffect(() => void checkClasses(), [])
   if (!decks || !lessons || !entries || !settings) return <Loading />
 
   const cardsIn = (deckId: string) => entries.filter((e) => e.card.deckId === deckId).length
@@ -73,6 +79,9 @@ export function DecksPage() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <ButtonLink to="/import" size="lg" className="sm:flex-1">
           <Icon name="plus" /> Add cards
+        </ButtonLink>
+        <ButtonLink to="/join" size="lg" variant="secondary" className="sm:flex-1">
+          <Icon name="share" /> Join a class
         </ButtonLink>
       </div>
 
@@ -118,6 +127,7 @@ export function DecksPage() {
                   study={toStudy(entries, d.id, today, settings)}
                   first={i === 0}
                   last={i === decks.length - 1}
+                  news={news[d.id]?.newLessons.length ?? 0}
                 />
               ))}
             </ul>

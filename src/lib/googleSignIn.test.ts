@@ -25,7 +25,7 @@ describe('matchGoogleCallback', () => {
 
   it('accepts the token of a sign-in started here', () => {
     const r = matchGoogleCallback('#state=S&access_token=ya29.x&token_type=Bearer&expires_in=3599&scope=email', pending, now)
-    expect(r).toEqual({ kind: 'token', accessToken: 'ya29.x', expiresInMs: 3_599_000, pending })
+    expect(r).toEqual({ kind: 'token', accessToken: 'ya29.x', expiresInMs: 3_599_000, scope: 'email', pending })
   })
 
   it('reports errors, e.g. a silent renewal that needs the user', () => {

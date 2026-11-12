@@ -36,12 +36,13 @@
   <body>
     <main>
       <h1>Privacy policy</h1>
-      <p class="muted">Mandarin Leitner · last updated 30 October 2026</p>
+      <p class="muted">Mandarin Leitner · last updated 12 November 2026</p>
 
       <div class="card">
         <strong>In short:</strong> the app has no server and no account with us. Your cards and progress are stored on your device.
-        Nothing is sent anywhere unless you turn on sync with your own Google Drive or use AI import with an AI service you choose.
-        There are no ads, no analytics and no tracking, and your data is never sold or shared.
+        Nothing is sent anywhere unless you turn on sync with your own Google Drive, share a deck as a class from your Google Drive, or
+        use AI import with an AI service you choose. There are no ads, no analytics and no tracking, and your data is never sold, and
+        never shared except a class you choose to share.
       </div>
 
       <h2>Who we are</h2>
@@ -81,7 +82,7 @@
       <p>
         Mandarin Leitner's use and transfer of information received from Google APIs adheres to the
         <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the
-        Limited Use requirements. Data from Google is used only to provide sync to you: it is not used for advertising, not sold or
+        Limited Use requirements. Data from Google is used only to provide sync and class sharing to you: it is not used for advertising, not sold or
         transferred to others, not used to train AI models, and not read by people.
       </p>
       <p>To stop and remove it:</p>
@@ -93,6 +94,26 @@
         </li>
         <li>To remove the app's access to your Google account: <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
       </ul>
+
+      <h2>Sharing a deck as a class (optional)</h2>
+      <p>
+        A teacher can share a deck as a class. The app then asks Google for one more permission:
+        <strong>see, edit, create and delete only the specific Google Drive files you use with this app</strong>
+        (<code>https://www.googleapis.com/auth/drive.file</code>). It only covers files the app itself creates: a folder named
+        “Mandarin Leitner · <em>deck name</em>” in your My Drive, holding the deck's lesson titles and card content (characters, pinyin,
+        meanings, examples, notes, pictures) and the name you enter for students. Your progress and your other cards are never shared, and the
+        app still cannot see any other file in your Drive.
+      </p>
+      <p>
+        These files are shared as <strong>anyone with the link can view</strong>, so anyone you give the link or QR code to can read the
+        class. With a class password, the files are encrypted in your browser before they are uploaded (AES-256), and only the class name
+        can be read without the password. <em>Stop sharing</em> deletes the folder; students keep the cards they already have.
+      </p>
+      <p>
+        Students need no account: their browser downloads the class files straight from Google with the app's public API key, and the cards
+        are then stored on their device like their own. Opening a class sends Google the file's id, as any download does. Classes can also be
+        passed around as a class file (.zip) without Google at all.
+      </p>
 
       <h2>AI import (optional)</h2>
       <p>

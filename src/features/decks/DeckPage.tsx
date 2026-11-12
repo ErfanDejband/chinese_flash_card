@@ -14,6 +14,8 @@ import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { toStudy } from './counts'
+import { ClassStatus } from '@/features/classes/ClassStatus'
+import { SharePanel } from '@/features/classes/SharePanel'
 import { StudyBadge } from './DecksPage'
 import { RemovePanel, TitleForm } from './parts'
 
@@ -59,17 +61,20 @@ export function StudyPanel({ scope, from, what, actions }: { scope: StudyScope; 
   )
 }
 
-function LessonRow({ lesson, cards, study, first, last }: { lesson: Lesson; cards: number; study: number; first: boolean; last: boolean }) {
+function LessonRow({ lesson, cards, study, first, last, fixed }: { lesson: Lesson; cards: number; study: number; first: boolean; last: boolean; fixed?: boolean }) {
   return (
     <li className="flex items-center gap-1 pr-2 hover:bg-sunken">
       <Link to={`/decks/${lesson.deckId}/${lesson.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-5">
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{lesson.title}</span>
-          <span className="block text-sm text-muted">{plural(cards, 'card')}</span>
+          <span className="block text-sm text-muted">
+            {plural(cards, 'card')}
+            {lesson.hidden && ' · hidden from students'}
+          </span>
         </span>
         <StudyBadge count={study} />
       </Link>
-      <div className="flex flex-col">
+      <div className={fixed ? 'hidden' : 'flex flex-col'}>
         <button type="button" disabled={first} onClick={() => void moveLesson(lesson.id, -1)} className="grid size-7 place-items-center rounded-full text-muted hover:bg-line disabled:invisible" aria-label={`Move ${lesson.title} up`}>
           <Icon name="arrowUp" className="size-4" />
         </button>
@@ -102,6 +107,8 @@ export function DeckPage() {
   const scope: StudyScope = { kind: 'deck', deckId: deck.id }
   const onHome = homeScope.kind === 'deck' && homeScope.deckId === deck.id
   const here = `/decks/${deck.id}`
+  /** A class joined from a teacher: its content follows the teacher's, so it isn't edited here. */
+  const joined = !!deck.remote
 
   async function remove(keep: boolean) {
     await deleteDeck(deck!.id, keep ? 'keep' : 'delete')
@@ -113,13 +120,21 @@ export function DeckPage() {
       <PageHeader
         back="/decks"
         title={deck.title}
-        subtitle={`${lessons.length > 0 ? `${plural(lessons.length, 'lesson')} · ` : ''}${plural(cards.length, 'card')}`}
+        subtitle={`${joined ? 'Class · ' : ''}${lessons.length > 0 ? `${plural(lessons.length, 'lesson')} · ` : ''}${plural(cards.length, 'card')}`}
         actions={
           <div className="-mr-2 flex">
-            <button type="button" onClick={() => setMode('rename')} className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="Rename the deck" title="Rename">
-              <Icon name="pencil" className="size-5" />
-            </button>
-            <button type="button" onClick={() => setMode('remove')} className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="Delete the deck" title="Delete">
+            {!joined && (
+              <button type="button" onClick={() => setMode('rename')} className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="Rename the deck" title="Rename">
+                <Icon name="pencil" className="size-5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setMode('remove')}
+              className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken"
+              aria-label={joined ? 'Leave the class' : 'Delete the deck'}
+              title={joined ? 'Leave the class' : 'Delete'}
+            >
               <Icon name="trash" className="size-5" />
             </button>
           </div>
@@ -133,7 +148,14 @@ export function DeckPage() {
       )}
       {mode === 'remove' && (
         <div className="mb-4">
-          <RemovePanel what={`“${deck.title}”`} cards={cards.length} keepLabel="Keep them in My cards" onRemove={(keep) => void remove(keep)} onCancel={() => setMode('view')} />
+          <RemovePanel
+            what={joined ? `“${deck.title}” (leave the class)` : `“${deck.title}”`}
+            cards={cards.length}
+            keepLabel="Keep them in My cards"
+            onRemove={(keep) => void remove(keep)}
+            onCancel={() => setMode('view')}
+          />
+          {deck.share && <p className="mt-2 text-sm text-muted">It stays shared in your Google Drive: stop sharing below first if students shouldn’t get it any more.</p>}
         </div>
       )}
 
@@ -160,9 +182,11 @@ export function DeckPage() {
       />
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <ButtonLink to={`/import?deck=${deck.id}`} variant="secondary" className="sm:flex-1">
-          <Icon name="plus" /> Add cards
-        </ButtonLink>
+        {!joined && (
+          <ButtonLink to={`/import?deck=${deck.id}`} variant="secondary" className="sm:flex-1">
+            <Icon name="plus" /> Add cards
+          </ButtonLink>
+        )}
         <ButtonLink to={`/cards?deck=${deck.id}`} variant="secondary" className="sm:flex-1">
           <Icon name="cards" /> All its cards
         </ButtonLink>
@@ -171,7 +195,7 @@ export function DeckPage() {
       <section className="mt-8">
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="text-lg font-semibold">Lessons</h2>
-          {mode !== 'lesson' && (
+          {mode !== 'lesson' && !joined && (
             <Button variant="ghost" size="sm" onClick={() => setMode('lesson')}>
               <Icon name="plus" className="size-4" /> New lesson
             </Button>
@@ -187,7 +211,9 @@ export function DeckPage() {
             />
           </div>
         )}
-        {lessons.length === 0 ? (
+        {lessons.length === 0 && joined ? (
+          <p className="text-sm text-muted">No lessons added yet.</p>
+        ) : lessons.length === 0 ? (
           <p className="text-sm text-muted">
             Split the deck into lessons to review them one at a time. A word list with a Lesson column makes them for you.{' '}
             <Link to="/help?topic=teachers" className="font-semibold text-accent">
@@ -204,6 +230,7 @@ export function DeckPage() {
                 study={toStudy(entries, deck.id, today, settings, [l.id])}
                 first={i === 0}
                 last={i === lessons.length - 1}
+                fixed={joined}
               />
             ))}
           </ul>
@@ -214,6 +241,8 @@ export function DeckPage() {
           </Link>
         )}
       </section>
+
+      {joined ? <ClassStatus deck={deck} /> : <SharePanel deck={deck} lessons={lessons} cards={cards.map((e) => e.card)} />}
     </>
   )
 }

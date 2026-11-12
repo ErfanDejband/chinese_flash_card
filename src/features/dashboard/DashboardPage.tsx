@@ -4,6 +4,7 @@ import { inScope, scopedLink, scopeParams } from '@/domain/scope'
 import { SAMPLE_TAG } from '@/domain/sampleDeck'
 import { ZHUYIN_TAG } from '@/domain/zhuyinSymbols'
 import { BoxesView } from '@/features/boxes/BoxesView'
+import { ClassNewsBanner } from '@/features/classes/ClassNewsBanner'
 import { ScopePicker } from '@/features/decks/parts'
 import { Checklist } from '@/features/onboarding/Checklist'
 import { SampleBanner } from '@/features/onboarding/SampleBanner'
@@ -104,6 +105,7 @@ export function DashboardPage() {
       />
 
       <SampleBanner count={samples} />
+      <ClassNewsBanner />
       {onboardingReady && onboarding.tourDone && <Checklist ownCards={deck.length - samples - symbols} />}
       <StreakStrip />
 

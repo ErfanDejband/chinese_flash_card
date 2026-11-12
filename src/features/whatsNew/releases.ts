@@ -19,6 +19,23 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-12.3',
+    title: 'Classes',
+    items: [
+      {
+        text: 'Teachers: open a deck and tap Share as a class. You get a link and a QR code for your students, an optional password, and Publish changes when you add lessons or fix cards.',
+        to: '/decks',
+      },
+      {
+        text: 'Students: open your teacher’s link or scan their QR code, pick the lessons, and the cards arrive with their pictures. Your teacher’s updates and new lessons follow. No account needed.',
+        to: '/join',
+      },
+      {
+        text: 'No Google? Save a deck as a class file and send it; it opens under Decks → Join a class.',
+      },
+    ],
+  },
+  {
     id: '2026-11-12.2',
     title: 'Pictures from your spreadsheet',
     items: [

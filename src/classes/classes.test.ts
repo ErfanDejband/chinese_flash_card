@@ -195,6 +195,26 @@ describe('joining a class', () => {
     expect(await studentDb.cards.count()).toBe(2)
   })
 
+  it('brings the cards back when the student joins again after leaving', async () => {
+    const d = fakeDrive()
+    const t = await teacherClass()
+    const share = await publish(d.drive, t.deckId)
+    await takeLessons(d.read, student, await openClass(d.read, share.manifestId), [t.l1.id], { now: 7000 })
+    // Leaving with "delete the cards": the deck, its lessons and cards are soft-deleted.
+    await studentDb.decks.update(t.deckId, { deletedAt: 8000, updatedAt: 8000 })
+    await studentDb.lessons.toCollection().modify({ deletedAt: 8000, updatedAt: 8000 })
+    await studentDb.cards.toCollection().modify({ deletedAt: 8000, updatedAt: 8000 })
+
+    await takeLessons(d.read, student, await openClass(d.read, share.manifestId), [t.l2.id], { now: 9000 })
+    const deck = (await studentDb.decks.get(t.deckId))!
+    expect(deck.deletedAt).toBeUndefined()
+    expect(Object.keys(deck.remote!.lessons)).toEqual([t.l2.id])
+    const active = (await studentDb.cards.toArray()).filter((c) => c.deletedAt === undefined)
+    expect(active.map((c) => c.hanzi)).toEqual(['餐廳'])
+    await takeLessons(d.read, student, await openClass(d.read, share.manifestId), [t.l1.id], { now: 9500 })
+    expect((await studentDb.cards.toArray()).filter((c) => c.deletedAt === undefined)).toHaveLength(3)
+  })
+
   it('refuses the teacher’s own class', async () => {
     const d = fakeDrive()
     const t = await teacherClass()

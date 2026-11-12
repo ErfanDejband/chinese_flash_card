@@ -12,7 +12,12 @@ import { GOOGLE_CLIENT_ID } from './syncConfig'
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 /** Only the app's own hidden folder: the app cannot see the user's other Drive files. */
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata'
+/** Sharing a deck as a class: only the files the app itself creates in the user's Drive. Asked for only when a teacher shares. */
+export const CLASS_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 const SCOPES = `${DRIVE_SCOPE} email`
+
+/** What a sign-in is for: sync (turns sync on when it comes back) or sharing a class (doesn't). */
+export type SignInPurpose = 'sync' | 'share'
 
 const PENDING_KEY = 'mandarin-leitner.google-pending'
 const TOKEN_KEY = 'mandarin-leitner.google-token'
@@ -25,15 +30,17 @@ export interface PendingGoogleSignIn {
   returnTo: string
   /** `prompt=none`: renew without any Google screen; fails if Google needs the user. */
   silent: boolean
+  /** Missing on attempts started before classes: sync. */
+  purpose?: SignInPurpose
   createdAt: number
 }
 
-export function googleAuthUrl(opts: { clientId: string; redirectUri: string; state: string; loginHint?: string; prompt?: 'none' | 'select_account' }): string {
+export function googleAuthUrl(opts: { clientId: string; redirectUri: string; state: string; loginHint?: string; prompt?: 'none' | 'select_account'; scope?: string }): string {
   const params = new URLSearchParams({
     client_id: opts.clientId,
     redirect_uri: opts.redirectUri,
     response_type: 'token',
-    scope: SCOPES,
+    scope: opts.scope ?? SCOPES,
     include_granted_scopes: 'true',
     state: opts.state,
   })
@@ -43,8 +50,9 @@ export function googleAuthUrl(opts: { clientId: string; redirectUri: string; sta
 }
 
 /** Leaves the app for Google; it comes back through `handleGoogleCallback`. */
-export function startGoogleSignIn(opts: { returnTo: string; silent?: boolean; chooseAccount?: boolean; loginHint?: string }): void {
-  const pending: PendingGoogleSignIn = { state: randomToken(16), returnTo: opts.returnTo, silent: !!opts.silent, createdAt: Date.now() }
+export function startGoogleSignIn(opts: { returnTo: string; silent?: boolean; chooseAccount?: boolean; loginHint?: string; purpose?: SignInPurpose }): void {
+  const purpose = opts.purpose ?? 'sync'
+  const pending: PendingGoogleSignIn = { state: randomToken(16), returnTo: opts.returnTo, silent: !!opts.silent, purpose, createdAt: Date.now() }
   try {
     localStorage.setItem(PENDING_KEY, JSON.stringify(pending))
   } catch {
@@ -57,6 +65,8 @@ export function startGoogleSignIn(opts: { returnTo: string; silent?: boolean; ch
       state: pending.state,
       loginHint: opts.chooseAccount ? undefined : opts.loginHint,
       prompt: opts.silent ? 'none' : opts.chooseAccount ? 'select_account' : undefined,
+      // With include_granted_scopes, earlier grants (sync's folder) come along in the token.
+      scope: purpose === 'share' ? `${CLASS_SCOPE} email` : SCOPES,
     }),
   )
 }
@@ -64,7 +74,7 @@ export function startGoogleSignIn(opts: { returnTo: string; silent?: boolean; ch
 export type GoogleCallback =
   | { kind: 'none' }
   | { kind: 'mismatch' }
-  | { kind: 'token'; accessToken: string; expiresInMs: number; pending: PendingGoogleSignIn }
+  | { kind: 'token'; accessToken: string; expiresInMs: number; scope: string; pending: PendingGoogleSignIn }
   | { kind: 'error'; error: string; pending: PendingGoogleSignIn }
 
 /**
@@ -81,7 +91,7 @@ export function matchGoogleCallback(hash: string, pending: PendingGoogleSignIn |
   if (!pending || state !== pending.state || now - pending.createdAt > MAX_AGE_MS) return { kind: 'mismatch' }
   if (error) return { kind: 'error', error, pending }
   const seconds = Number(params.get('expires_in'))
-  return { kind: 'token', accessToken: token!, expiresInMs: (Number.isFinite(seconds) && seconds > 0 ? seconds : 3600) * 1000, pending }
+  return { kind: 'token', accessToken: token!, expiresInMs: (Number.isFinite(seconds) && seconds > 0 ? seconds : 3600) * 1000, scope: params.get('scope') ?? '', pending }
 }
 
 function readPending(): PendingGoogleSignIn | undefined {
@@ -94,8 +104,8 @@ function readPending(): PendingGoogleSignIn | undefined {
 }
 
 export type GoogleCallbackResult =
-  | { kind: 'token'; returnTo: string }
-  | { kind: 'error'; returnTo: string; error: string; silent: boolean }
+  | { kind: 'token'; returnTo: string; purpose: SignInPurpose }
+  | { kind: 'error'; returnTo: string; error: string; silent: boolean; purpose: SignInPurpose }
   | { kind: 'mismatch'; returnTo: string }
 
 /** Call once at startup, before the router renders. Returns what happened and the route to show. */
@@ -111,23 +121,30 @@ export function handleGoogleCallback(now = Date.now()): GoogleCallbackResult | u
   }
   if (match.kind === 'mismatch') return { kind: 'mismatch', returnTo: '/settings/sync' }
   const returnTo = match.pending.returnTo.startsWith('/') ? match.pending.returnTo : '/settings/sync'
-  if (match.kind === 'error') return { kind: 'error', returnTo, error: match.error, silent: match.pending.silent }
-  saveGoogleToken(match.accessToken, now + match.expiresInMs)
-  return { kind: 'token', returnTo }
+  const purpose = match.pending.purpose ?? 'sync'
+  if (match.kind === 'error') return { kind: 'error', returnTo, error: match.error, silent: match.pending.silent, purpose }
+  saveGoogleToken(match.accessToken, now + match.expiresInMs, match.scope)
+  return { kind: 'token', returnTo, purpose }
 }
 
-function saveGoogleToken(accessToken: string, expiresAt: number): void {
+function saveGoogleToken(accessToken: string, expiresAt: number, scope: string): void {
   try {
-    localStorage.setItem(TOKEN_KEY, JSON.stringify({ accessToken, expiresAt }))
+    localStorage.setItem(TOKEN_KEY, JSON.stringify({ accessToken, expiresAt, scope }))
   } catch {
     // Without storage the token is lost on reload; sync asks to sign in again.
   }
 }
 
-/** The current access token, if it is still valid. */
-export function getGoogleToken(now = Date.now()): string | undefined {
+/**
+ * The current access token, if it is still valid and was granted `scope` (default: sync's folder,
+ * so a token from a sign-in only for sharing is never used to sync). Tokens saved before scopes
+ * were recorded came from sync sign-ins.
+ */
+export function getGoogleToken(now = Date.now(), scope = DRIVE_SCOPE): string | undefined {
   try {
-    const t = JSON.parse(localStorage.getItem(TOKEN_KEY) ?? 'null') as { accessToken?: string; expiresAt?: number } | null
+    const t = JSON.parse(localStorage.getItem(TOKEN_KEY) ?? 'null') as { accessToken?: string; expiresAt?: number; scope?: string } | null
+    const granted = t?.scope === undefined ? [DRIVE_SCOPE] : t.scope.split(' ')
+    if (!granted.includes(scope)) return undefined
     return t?.accessToken && typeof t.expiresAt === 'number' && t.expiresAt - EXPIRY_MARGIN_MS > now ? t.accessToken : undefined
   } catch {
     return undefined

@@ -187,7 +187,9 @@ export function initSync(callback?: GoogleCallbackResult): void {
   if (!GOOGLE_CLIENT_ID || started) return
   started = true
 
-  if (callback?.kind === 'token') {
+  if (callback && callback.kind !== 'mismatch' && callback.purpose === 'share') {
+    // A sign-in to share a class: sync stays as it was (the deck page reports how it went).
+  } else if (callback?.kind === 'token') {
     // Back from Google with a token: this device is (now) connected.
     if (!getDeviceSync().enabled) updateDeviceSync({ enabled: true, email: undefined })
   } else if (callback?.kind === 'error') {

@@ -47,7 +47,8 @@ export function TargetSelect({
       className={cn(selectClass, className)}
     >
       <option value={MY_CARDS}>My cards (no deck)</option>
-      {decks.map((d) => (
+      {/* A joined class follows the teacher: cards aren't added to it here. */}
+      {decks.filter((d) => !d.remote).map((d) => (
         <optgroup key={d.id} label={d.title}>
           <option value={d.id}>{d.title}</option>
           {lessons

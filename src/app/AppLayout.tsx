@@ -2,6 +2,7 @@ import { NavLink, Outlet, ScrollRestoration, useLocation } from 'react-router'
 import { summarizeDeck } from '@/domain/deck'
 import { WhatsNewSheet } from '@/features/whatsNew/WhatsNewSheet'
 import { useDeck, useSettings } from '@/hooks/useDeck'
+import { useClassNews } from '@/hooks/useDecks'
 import { useToday } from '@/hooks/useToday'
 import { cn } from '@/ui/cn'
 import { Icon, type IconName } from '@/ui/icons'
@@ -20,7 +21,7 @@ const tourId = (to: string) => `nav-${to.slice(1) || 'home'}`
 
 /** Your cards are reached from Settings, and adding cards from Decks, so those tabs stay lit there. */
 const alsoActive = (to: string, path: string) =>
-  (to === '/settings' && path.startsWith('/cards')) || (to === '/decks' && path.startsWith('/import'))
+  (to === '/settings' && path.startsWith('/cards')) || (to === '/decks' && (path.startsWith('/import') || path.startsWith('/join')))
 
 function useTodayCount(): number {
   const deck = useDeck()
@@ -38,6 +39,13 @@ function Badge({ count }: { count: number }) {
       {count > 99 ? '99+' : count}
     </span>
   )
+}
+
+/** A dot on Decks when a joined class has a new lesson. */
+function NewsDot() {
+  const news = useClassNews()
+  if (!Object.values(news).some((n) => n.newLessons.length > 0)) return null
+  return <span className="absolute top-2 right-[calc(50%-1.1rem)] size-2.5 rounded-full bg-accent ring-2 ring-surface md:static md:ml-1.5 md:inline-block md:ring-0" aria-label="New lessons" />
 }
 
 export function AppLayout() {
@@ -70,6 +78,7 @@ export function AppLayout() {
                 {item.to === '/progress' && todayCount > 0 && (
                   <span className="ml-1.5 rounded-full bg-accent px-1.5 text-xs font-bold text-on-accent">{todayCount}</span>
                 )}
+                {item.to === '/decks' && <NewsDot />}
               </NavLink>
             ))}
           </nav>
@@ -119,6 +128,7 @@ export function AppLayout() {
                 <Icon name={item.icon} className="size-6" />
                 {item.label}
                 {item.to === '/progress' && <Badge count={todayCount} />}
+                {item.to === '/decks' && <NewsDot />}
               </NavLink>
             ),
           )}

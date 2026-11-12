@@ -32,7 +32,8 @@ const sameCard = (a: Card, b: Card) => canonicalJson(a) === canonicalJson(b)
  * The rows that bring this device's copy of a class up to date (pure; the data layer writes them).
  * - The deck keeps the teacher's deck id; its `remote` records the lessons taken with the version applied.
  * - Cards keep the teacher's ids and timestamps, so a student's devices write identical rows.
- * - A card the student removed stays removed; an id already used in another deck is left alone.
+ * - In lessons already taken, a card the student removed stays removed; a lesson picked now brings all
+ *   its cards. An id already used in another deck is left alone.
  * - In each fetched lesson, cards the teacher removed are removed; lessons gone from the class go with their cards.
  */
 export function planClass(opts: {
@@ -56,7 +57,7 @@ export function planClass(opts: {
   const taken = opts.taken.filter((id) => inClass.has(id))
   const fetched = new Map(opts.fetched.map((f) => [f.info.id, f]))
 
-  const before = local.deck?.remote?.lessons ?? {}
+  const before = (local.deck?.deletedAt === undefined && local.deck?.remote?.lessons) || {}
   const deck: Deck = {
     ...(local.deck ?? { id: deckId, order: opts.order, createdAt: now }),
     id: deckId,
@@ -86,6 +87,9 @@ export function planClass(opts: {
   }
   for (const l of local.lessons) if (l.deckId === deckId && l.deletedAt === undefined && !taken.includes(l.id)) lessons.push({ ...l, deletedAt: now, updatedAt: now })
 
+  // A lesson picked now (not taken before, or the class joined again after leaving) comes with all
+  // its cards; in lessons already taken, a card the student removed stays removed.
+  const picked = new Set(taken.filter((id) => !(id in before)))
   const byId = new Map(local.cards.map((c) => [c.id, c]))
   const cards: Card[] = []
   const added: Id[] = []
@@ -97,7 +101,7 @@ export function planClass(opts: {
       const old = byId.get(c.id)
       if (old && old.deckId !== deckId) continue
       kept.add(c.id)
-      if (old?.deletedAt !== undefined) continue
+      if (old?.deletedAt !== undefined && !picked.has(f.info.id)) continue
       const imageId = c.imageId && body.pictures[c.imageId] ? c.imageId : undefined
       const row: Card = {
         id: c.id,

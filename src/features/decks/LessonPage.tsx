@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { setLessonHidden } from '@/data/repositories/classStore'
 import { deleteLesson, renameLesson } from '@/data/repositories/decks'
 import { effectiveBox } from '@/domain/leitner/scheduler'
 import type { StudyScope } from '@/domain/scope'
@@ -35,6 +36,7 @@ export function LessonPage() {
   const scope: StudyScope = { kind: 'deck', deckId: deck.id, lessonIds: [lesson.id] }
   const back = `/decks/${deck.id}`
   const boxOf = (box: number) => (box === 0 ? 0 : effectiveBox(box, config))
+  const joined = !!deck.remote
 
   async function remove(keep: boolean) {
     await deleteLesson(lesson!.id, keep ? 'keep' : 'delete')
@@ -48,7 +50,7 @@ export function LessonPage() {
         title={lesson.title}
         subtitle={`${deck.title} · ${plural(cards.length, 'card')}`}
         actions={
-          <div className="-mr-2 flex">
+          <div className={joined ? 'hidden' : '-mr-2 flex'}>
             <button type="button" onClick={() => setMode('rename')} className="grid size-10 place-items-center rounded-full text-muted hover:bg-sunken" aria-label="Rename the lesson" title="Rename">
               <Icon name="pencil" className="size-5" />
             </button>
@@ -72,9 +74,22 @@ export function LessonPage() {
 
       <StudyPanel scope={scope} from={`${back}/${lesson.id}`} what="this lesson" />
 
-      <ButtonLink to={`/import?deck=${deck.id}&lesson=${lesson.id}`} variant="secondary" className="mt-4 w-full">
-        <Icon name="plus" /> Add cards to this lesson
-      </ButtonLink>
+      {!joined && (
+        <ButtonLink to={`/import?deck=${deck.id}&lesson=${lesson.id}`} variant="secondary" className="mt-4 w-full">
+          <Icon name="plus" /> Add cards to this lesson
+        </ButtonLink>
+      )}
+      {!joined && (
+        <label className="mt-3 flex items-start gap-3 text-sm">
+          <input type="checkbox" className="mt-0.5 size-4" checked={!!lesson.hidden} onChange={(e) => void setLessonHidden(lesson.id, e.target.checked)} />
+          <span>
+            <span className="font-medium">Hide from students</span>
+            <span className="block text-muted">
+              {deck.share ? 'When you publish, students don’t see this lesson (those who have it lose it).' : 'If you share this deck as a class, this lesson stays out until you show it.'}
+            </span>
+          </span>
+        </label>
+      )}
 
       {cards.length === 0 ? (
         <p className="py-10 text-center text-muted">No cards in this lesson yet.</p>

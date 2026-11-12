@@ -93,11 +93,48 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
       },
       'Then Decks → your deck → Add cards, and either Open a word list file (Excel .xlsx or CSV) or copy the rows and choose Paste from a spreadsheet. Check the columns and the preview, then add them all. Templates to start from are on that screen.',
       'Adding the same file again skips the words the deck already has, so you can add next week’s lesson to the same sheet.',
+      'To give the deck to your students, open it and use Share as a class (see “Sharing a class with students”).',
     ],
     links: [
       { label: 'Decks', to: '/decks' },
       { label: 'Paste from a spreadsheet', to: '/import/list?paste=1' },
     ],
+  },
+  {
+    id: 'share-class',
+    title: 'Sharing a class with students',
+    keywords: 'teacher share class students link qr code password publish stop drive google classroom line class file zip hidden lesson',
+    blocks: [
+      'Open the deck → Share as a class. Type your name as students should see it, add a password if you like, and tap Share. The first time, Google asks you to let the app keep files in your Drive: it can only see the files it makes there, in a folder named “Mandarin Leitner · ” and the deck’s name.',
+      'You get a link and a QR code. Send the link (LINE, e-mail, Google Classroom) or show the QR code: tap it for full screen on a projector. Students pick lessons and get the cards, with no account.',
+      {
+        list: [
+          'Changed a card or added a lesson? The deck says how many changes aren’t published yet: tap Publish changes and students get them.',
+          'Preparing a lesson early? Open it and tick Hide from students until it’s ready.',
+          'Only the cards are shared, never your progress or your other decks.',
+          'Stop sharing deletes the class files from your Drive; students keep the cards they have.',
+        ],
+      },
+      'No Google, or a school account that can’t share links? Save as a class file and send the file; students open it under Decks → Join a class.',
+    ],
+    links: [{ label: 'Decks', to: '/decks' }],
+  },
+  {
+    id: 'join-class',
+    title: 'Joining your teacher’s class',
+    keywords: 'student join class link qr code scan password lessons teacher update new lesson leave class file',
+    blocks: [
+      'Open the link your teacher sent, or scan their QR code with your phone’s camera: the class opens in the app. You can also paste the link, scan a QR photo or open a class file under Decks → Join a class.',
+      'Pick the lessons you want and tap Add. The cards come with their pictures and go into a deck of their own; review it alone with the chips above Start review, or with all your cards.',
+      {
+        list: [
+          'Your teacher’s fixes and changes arrive by themselves. When there is a new lesson, Home and the class say so: tap Add.',
+          'Class cards can’t be edited (your teacher keeps them up to date), but you can remove one for yourself.',
+          'Leave the class from its deck page: keep the cards in My cards, or remove them.',
+        ],
+      },
+    ],
+    links: [{ label: 'Join a class', to: '/join' }],
   },
   {
     id: 'zhuyin',
