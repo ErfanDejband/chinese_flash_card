@@ -1,19 +1,23 @@
 import type { ReactNode } from 'react'
 import { nextDueDate, summarizeDeck } from '@/domain/deck'
+import { inScope, scopedLink, scopeParams } from '@/domain/scope'
 import { SAMPLE_TAG } from '@/domain/sampleDeck'
 import { ZHUYIN_TAG } from '@/domain/zhuyinSymbols'
 import { BoxesView } from '@/features/boxes/BoxesView'
+import { ScopePicker } from '@/features/decks/parts'
 import { Checklist } from '@/features/onboarding/Checklist'
 import { SampleBanner } from '@/features/onboarding/SampleBanner'
 import { Tour } from '@/features/onboarding/Tour'
 import { Welcome } from '@/features/onboarding/Welcome'
 import { useOnboarding, useOnboardingReady } from '@/hooks/useBrowser'
 import { useDeck, useSettings } from '@/hooks/useDeck'
+import { useDecks, useLessons, useStudyScope } from '@/hooks/useDecks'
 import { useStatsData } from '@/hooks/useStats'
 import { useToday } from '@/hooks/useToday'
 import { ButtonLink } from '@/ui/Button'
 import { AddCardFab } from '@/ui/Fab'
 import { longDate, plural, relativeDay } from '@/ui/format'
+import { saveStudyScope } from '@/lib/studyScope'
 import { Icon } from '@/ui/icons'
 import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
@@ -52,12 +56,19 @@ export function DashboardPage() {
   const today = useToday()
   const onboarding = useOnboarding()
   const onboardingReady = useOnboardingReady()
-  if (!deck || !settings) return <Loading />
+  const scope = useStudyScope()
+  const decks = useDecks()
+  const lessons = useLessons()
+  if (!deck || !settings || !scope || !decks || !lessons) return <Loading />
   if (deck.length === 0) return <Welcome settings={settings} />
 
-  const s = summarizeDeck(deck, today, settings.leitner, settings.newPerDay)
+  const s = summarizeDeck(deck, today, settings.leitner, settings.newPerDay, scope)
   const toStudy = s.due + s.newToday
-  const nextDue = nextDueDate(deck, today)
+  const nextDue = nextDueDate(
+    deck.filter((e) => inScope(e.card, scope)),
+    today,
+  )
+  const boxQuery = new URLSearchParams(scopeParams(scope)).toString()
   const extra = Math.min(s.notStarted, EXTRA_NEW)
   const lastBox = s.boxes[s.boxes.length - 1]
   const samples = deck.filter((e) => e.card.tags.includes(SAMPLE_TAG)).length
@@ -97,6 +108,11 @@ export function DashboardPage() {
       <StreakStrip />
 
       <section data-tour="today" className="rounded-3xl border border-line bg-surface p-5 shadow-sm">
+        {decks.length > 0 && (
+          <div className="mb-4">
+            <ScopePicker scope={scope} decks={decks} lessons={lessons} onChange={saveStudyScope} />
+          </div>
+        )}
         {toStudy > 0 ? (
           <>
             <div className="text-6xl font-bold tracking-tight tabular-nums">{toStudy}</div>
@@ -105,7 +121,7 @@ export function DashboardPage() {
               <Pill>{s.due} due</Pill>
               <Pill>{s.newToday} new</Pill>
             </div>
-            <ButtonLink to="/review" size="lg" className="mt-5 w-full">
+            <ButtonLink to={scopedLink('/review', scope)} size="lg" className="mt-5 w-full">
               Start review
             </ButtonLink>
           </>
@@ -116,7 +132,7 @@ export function DashboardPage() {
               {nextDue ? `Next review ${relativeDay(nextDue, today)}.` : 'No reviews scheduled yet.'}
             </p>
             {extra > 0 && (
-              <ButtonLink to={`/review?new=${extra}`} variant="secondary" className="mt-5 w-full">
+              <ButtonLink to={scopedLink('/review', scope, [['new', String(extra)]])} variant="secondary" className="mt-5 w-full">
                 Learn {plural(extra, 'more new card')}
               </ButtonLink>
             )}
@@ -129,7 +145,7 @@ export function DashboardPage() {
           <h2 className="text-lg font-semibold">Your boxes</h2>
           <span className="text-sm text-muted">{plural(s.total, 'card')}</span>
         </div>
-        <BoxesView notStarted={s.notStarted} boxes={s.boxes} />
+        <BoxesView notStarted={s.notStarted} boxes={s.boxes} query={boxQuery} />
         {lastBox && lastBox.total > 0 && (
           <p className="mt-4 text-sm text-muted">
             {plural(lastBox.total, 'card')} in the top box — well learned.

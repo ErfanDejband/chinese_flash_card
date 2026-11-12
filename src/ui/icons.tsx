@@ -98,6 +98,15 @@ const paths = {
     </>
   ),
   upload: <path d="M12 20V9M7 14l5-5 5 5M5 4h14" />,
+  decks: (
+    <>
+      <rect x="3" y="8" width="18" height="13" rx="2" />
+      <path d="M6 5h12M9 2h6" />
+    </>
+  ),
+  arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
+  arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
+  pencil: <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof paths

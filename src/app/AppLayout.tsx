@@ -11,15 +11,16 @@ const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: '/', label: 'Home', icon: 'home', end: true },
   { to: '/progress', label: 'Progress', icon: 'chart' },
   { to: '/snap', label: 'Snap', icon: 'camera' },
-  { to: '/import', label: 'Import', icon: 'import' },
+  { to: '/decks', label: 'Decks', icon: 'decks' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
 
 /** `nav-progress`, `nav-snap`…: what the tour points at (see features/onboarding/Tour). */
 const tourId = (to: string) => `nav-${to.slice(1) || 'home'}`
 
-/** Your cards are reached from Settings, so that tab stays lit there. */
-const alsoActive = (to: string, path: string) => to === '/settings' && path.startsWith('/cards')
+/** Your cards are reached from Settings, and adding cards from Decks, so those tabs stay lit there. */
+const alsoActive = (to: string, path: string) =>
+  (to === '/settings' && path.startsWith('/cards')) || (to === '/decks' && path.startsWith('/import'))
 
 function useTodayCount(): number {
   const deck = useDeck()

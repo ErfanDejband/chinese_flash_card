@@ -2,6 +2,9 @@ import { createHashRouter, Navigate } from 'react-router'
 import { BoxDetailPage } from '@/features/boxes/BoxDetailPage'
 import { CardsPage } from '@/features/cards/CardsPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { DeckPage } from '@/features/decks/DeckPage'
+import { DecksPage } from '@/features/decks/DecksPage'
+import { LessonPage } from '@/features/decks/LessonPage'
 import { ReviewPage } from '@/features/review/ReviewPage'
 import { SettingsCategoryPage, SettingsIndex, SettingsLayout } from '@/features/settings/SettingsPage'
 import { StatsPage } from '@/features/stats/StatsPage'
@@ -36,6 +39,9 @@ export const router = createHashRouter([
       { path: 'cards/new', lazy: cardEditPage },
       { path: 'cards/:id', lazy: cardEditPage },
       { path: 'boxes/:box', element: <BoxDetailPage /> },
+      { path: 'decks', element: <DecksPage /> },
+      { path: 'decks/:deckId', element: <DeckPage /> },
+      { path: 'decks/:deckId/:lessonId', element: <LessonPage /> },
       { path: 'import', lazy: importPage },
       { path: 'import/list', lazy: wordListImport },
       { path: 'import/:importId', lazy: importSessionPage },

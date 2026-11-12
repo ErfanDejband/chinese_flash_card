@@ -1,11 +1,14 @@
 import { useEffect, useEffectEvent, useMemo, useReducer, useState, type ReactNode } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { loadDeck } from '@/data/repositories/cards'
+import { listDecks, listLessons } from '@/data/repositories/decks'
 import { recordAnswer, undoAnswer, type AnswerUndoToken } from '@/data/repositories/review'
 import { getSettings } from '@/data/repositories/settings'
 import { toLocalDate } from '@/domain/dates'
 import type { DeckEntry } from '@/domain/deck'
 import { newCardPool } from '@/domain/deck'
+import { lessonRanks } from '@/domain/library'
+import { inScope, parseScope, resolveScope, scopedLink, type StudyScope } from '@/domain/scope'
 import { planSession, type SessionPlan, type SessionRequest } from '@/domain/session/plan'
 import {
   againProgress,
@@ -41,10 +44,12 @@ function parseRequest(query: string): SessionRequest {
   return { kind: 'daily' }
 }
 
-/** Where ✕ and "Back" lead: the Progress tab when the session was started there, else Home. */
+/** Where ✕ and "Back" lead: the Progress tab or a deck when the session was started there, else Home. */
 function useReturnTo(): { to: string; label: string; state: unknown } {
   const state = useLocation().state as { from?: unknown } | null
-  return state?.from === '/progress' ? { to: '/progress', label: 'Back to progress', state } : { to: '/', label: 'Back to home', state }
+  if (state?.from === '/progress') return { to: '/progress', label: 'Back to progress', state }
+  if (typeof state?.from === 'string' && state.from.startsWith('/decks/')) return { to: state.from, label: 'Back to the deck', state }
+  return { to: '/', label: 'Back to home', state }
 }
 
 interface Loaded {
@@ -52,6 +57,7 @@ interface Loaded {
   settings: AppSettings
   plan: SessionPlan
   request: SessionRequest
+  scope: StudyScope
 }
 
 export function ReviewPage() {
@@ -67,15 +73,18 @@ function ReviewLoader({ query }: { query: string }) {
   useEffect(() => {
     let active = true
     void getSettings().then(async (settings) => {
-      const entries = await loadDeck(settings.reviewMode)
+      const [entries, decks, lessons] = await Promise.all([loadDeck(settings.reviewMode), listDecks(), listLessons()])
       if (!active) return
       const request = parseRequest(query)
+      const scope = resolveScope(parseScope(new URLSearchParams(query)), decks, lessons)
       const plan = planSession(entries, request, {
         today: toLocalDate(new Date()),
         config: settings.leitner,
         newPerDay: settings.newPerDay,
+        scope,
+        lessonRanks: lessonRanks(decks, lessons),
       })
-      setLoaded({ entries, settings, plan, request })
+      setLoaded({ entries, settings, plan, request, scope })
     })
     return () => {
       active = false
@@ -91,9 +100,9 @@ function Shell({ children }: { children: ReactNode }) {
   return <div className="pt-safe mx-auto flex min-h-dvh max-w-xl flex-col px-4">{children}</div>
 }
 
-function NothingToReview({ entries, request }: Loaded) {
+function NothingToReview({ entries, request, scope }: Loaded) {
   const back = useReturnTo()
-  const pool = newCardPool(entries).length
+  const pool = newCardPool(entries.filter((e) => inScope(e.card, scope))).length
   const extra = Math.min(pool, 5)
   return (
     <Shell>
@@ -103,7 +112,7 @@ function NothingToReview({ entries, request }: Loaded) {
         <p className="text-muted">{pool > 0 ? `${plural(pool, 'card')} waiting in the new-card pool.` : 'Come back when cards are due.'}</p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
           {extra > 0 && (
-            <ButtonLink to={`/review?new=${extra}`} replace state={back.state} size="lg">
+            <ButtonLink to={scopedLink('/review', scope, [['new', String(extra)]])} replace state={back.state} size="lg">
               Learn {plural(extra, 'new card')}
             </ButtonLink>
           )}

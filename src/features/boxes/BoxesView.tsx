@@ -17,6 +17,8 @@ export interface BoxesViewProps {
   highlight?: { box: number; face: string }
   /** Boxes may shrink below their usual width, to fit a phone inside a card. */
   compact?: boolean
+  /** Query string for the box pages (the deck being reviewed), without `?`. */
+  query?: string
 }
 
 // Per-card tilt (deg) and sideways shift (px) so a stack reads as loose index cards.
@@ -29,9 +31,10 @@ interface ColumnProps extends BoxSummary {
   linked: boolean
   compact: boolean
   face?: string
+  query?: string
 }
 
-function BoxColumn({ box, total, due, boxCount, linked, compact, face }: ColumnProps) {
+function BoxColumn({ box, total, due, boxCount, linked, compact, face, query }: ColumnProps) {
   const tone = boxTone(box, boxCount)
   const stack = Math.min(total, MAX_STACK)
   const content = (
@@ -77,21 +80,21 @@ function BoxColumn({ box, total, due, boxCount, linked, compact, face }: ColumnP
   )
   if (!linked) return <div className={className}>{content}</div>
   return (
-    <Link to={`/boxes/${box}`} className={className} aria-label={`${boxLabel(box)}: ${total} cards${box > 0 ? `, ${due} due` : ''}`}>
+    <Link to={query ? `/boxes/${box}?${query}` : `/boxes/${box}`} className={className} aria-label={`${boxLabel(box)}: ${total} cards${box > 0 ? `, ${due} due` : ''}`}>
       {content}
     </Link>
   )
 }
 
-export function BoxesView({ notStarted, boxes, linked = true, highlight, compact = false }: BoxesViewProps) {
+export function BoxesView({ notStarted, boxes, linked = true, highlight, compact = false, query }: BoxesViewProps) {
   const count = boxes.length
   const face = (box: number) => (highlight?.box === box ? highlight.face : undefined)
   return (
     <div className={cn('-mx-1 flex items-end overflow-x-auto px-1 pt-2', compact ? 'gap-1.5' : 'gap-2 sm:gap-4')}>
-      <BoxColumn box={0} total={notStarted} due={0} boxCount={count} linked={linked} compact={compact} face={face(0)} />
+      <BoxColumn box={0} total={notStarted} due={0} boxCount={count} linked={linked} compact={compact} face={face(0)} query={query} />
       <div className="mb-10 h-20 w-px shrink-0 bg-line" aria-hidden="true" />
       {boxes.map((b) => (
-        <BoxColumn key={b.box} {...b} boxCount={count} linked={linked} compact={compact} face={face(b.box)} />
+        <BoxColumn key={b.box} {...b} boxCount={count} linked={linked} compact={compact} face={face(b.box)} query={query} />
       ))}
     </div>
   )

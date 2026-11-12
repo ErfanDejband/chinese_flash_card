@@ -1,5 +1,6 @@
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { newCardPool, summarizeDeck } from '@/domain/deck'
+import { inScope, parseScope, scopedLink } from '@/domain/scope'
 import { effectiveBox, intervalDays } from '@/domain/leitner/scheduler'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { useToday } from '@/hooks/useToday'
@@ -13,17 +14,20 @@ import { PageHeader } from '@/ui/PageHeader'
 
 export function BoxDetailPage() {
   const box = Number(useParams().box)
-  const deck = useDeck()
+  const [params] = useSearchParams()
+  const scope = parseScope(params)
+  const all = useDeck()
   const settings = useSettings()
   const today = useToday()
-  if (!deck || !settings) return <Loading />
+  if (!all || !settings) return <Loading />
+  const deck = all.filter((e) => inScope(e.card, scope))
 
   const config = settings.leitner
   if (!Number.isInteger(box) || box < 0 || box > config.boxes.length) {
     return <PageHeader title="No such box" back="/" />
   }
 
-  const summary = summarizeDeck(deck, today, config, settings.newPerDay)
+  const summary = summarizeDeck(all, today, config, settings.newPerDay, scope)
   const entries =
     box === 0
       ? newCardPool(deck)
@@ -52,12 +56,12 @@ export function BoxDetailPage() {
       </div>
 
       {box === 0 && learnCount > 0 && (
-        <ButtonLink to={`/review?new=${learnCount}`} size="lg" className="mb-6 w-full">
+        <ButtonLink to={scopedLink('/review', scope, [['new', String(learnCount)]])} size="lg" className="mb-6 w-full">
           Learn {plural(learnCount, 'new card')}
         </ButtonLink>
       )}
       {box > 0 && due > 0 && (
-        <ButtonLink to={`/review?box=${box}`} size="lg" className="mb-6 w-full">
+        <ButtonLink to={scopedLink('/review', scope, [['box', String(box)]])} size="lg" className="mb-6 w-full">
           Review {due} due
         </ButtonLink>
       )}

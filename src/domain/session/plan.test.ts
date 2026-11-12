@@ -56,3 +56,35 @@ describe('planSession', () => {
     expect(a).not.toEqual(b)
   })
 })
+
+describe('planSession with a scope', () => {
+  it('reviews only the deck, but the new-card limit counts every card', () => {
+    const mine = makeCard({ createdAt: 1 })
+    const introduced = makeCard({ createdAt: 2 })
+    const deckCards = Array.from({ length: 4 }, (_, i) => makeCard({ createdAt: 10 + i, deckId: 'class' }))
+    const due = makeCard({ createdAt: 20, deckId: 'class' })
+    const states = [makeState(mine.id, 1, TODAY), makeState(introduced.id, 1, '2026-09-30', { introducedOn: TODAY }), makeState(due.id, 2, TODAY)]
+    const entries = joinDeck([mine, introduced, ...deckCards, due], states, 'image_to_word', 0)
+
+    const plan = planSession(entries, { kind: 'daily' }, { ...opts, scope: { kind: 'deck', deckId: 'class' } })
+    expect(plan.cardIds[0]).toBe(due.id)
+    // quota 3 - 1 introduced today (outside the deck) = 2
+    expect(plan.newIds).toEqual([deckCards[0]!.id, deckCards[1]!.id])
+    expect(plan.cardIds).not.toContain(mine.id)
+  })
+
+  it('introduces a deck lesson by lesson, keeping other cards in their places', () => {
+    const l3a = makeCard({ createdAt: 1, deckId: 'class', lessonId: 'l3' })
+    const mine = makeCard({ createdAt: 2 })
+    const l1a = makeCard({ createdAt: 3, deckId: 'class', lessonId: 'l1' })
+    const loose = makeCard({ createdAt: 4, deckId: 'class' })
+    const l1b = makeCard({ createdAt: 5, deckId: 'class', lessonId: 'l1' })
+    const entries = joinDeck([l3a, mine, l1a, loose, l1b], [], 'image_to_word', 0)
+    const ranks = new Map([
+      ['l1', 0],
+      ['l3', 1],
+    ])
+    const plan = planSession(entries, { kind: 'new', count: 10 }, { ...opts, lessonRanks: ranks })
+    expect(plan.newIds).toEqual([l1a.id, mine.id, l1b.id, l3a.id, loose.id])
+  })
+})

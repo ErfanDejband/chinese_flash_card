@@ -84,3 +84,14 @@ describe('newCardPool', () => {
     expect(newCardPool(entries).map((e) => e.card.id)).toEqual([early.id, late.id])
   })
 })
+
+describe('summarizeDeck with a scope', () => {
+  it('counts the deck’s cards, with the quota left over all cards', () => {
+    const a = makeCard()
+    const b = makeCard({ deckId: 'class' })
+    const c = makeCard({ deckId: 'class' })
+    const entries = joinDeck([a, b, c], [makeState(a.id, 1, '2026-09-25', { introducedOn: '2026-09-25' })], 'image_to_word', 0)
+    const s = summarizeDeck(entries, '2026-09-25', DEFAULT_LEITNER, 2, { kind: 'deck', deckId: 'class' })
+    expect(s).toMatchObject({ total: 2, due: 0, notStarted: 2, newToday: 1 })
+  })
+})

@@ -1,5 +1,6 @@
 import { newCardPool, newQuota, type DeckEntry } from '../deck'
 import { effectiveBox, isDue } from '../leitner/scheduler'
+import { inScope, type StudyScope } from '../scope'
 import type { Id, LeitnerConfig, LocalDate } from '../types'
 
 export type SessionRequest =
@@ -15,6 +16,10 @@ export interface SessionPlanOptions {
   config: LeitnerConfig
   newPerDay: number
   random?: () => number
+  /** Only these cards (default: all). The daily new-card quota still counts all cards. */
+  scope?: StudyScope
+  /** Lesson order for new cards (see newCardPool). */
+  lessonRanks?: ReadonlyMap<Id, number>
 }
 
 export interface SessionPlan {
@@ -36,11 +41,12 @@ function shuffle<T>(items: T[], random: () => number): T[] {
  * then new cards in introduction order.
  */
 export function planSession(entries: DeckEntry[], request: SessionRequest, opts: SessionPlanOptions): SessionPlan {
-  const { today, config, newPerDay, random = Math.random } = opts
+  const { today, config, newPerDay, random = Math.random, scope, lessonRanks } = opts
+  const scoped = scope ? entries.filter((e) => inScope(e.card, scope)) : entries
 
   let due: DeckEntry[] = []
   if (request.kind !== 'new') {
-    due = entries.filter((e) => isDue(e.state, today))
+    due = scoped.filter((e) => isDue(e.state, today))
     if (request.kind === 'box') due = due.filter((e) => effectiveBox(e.state.box, config) === request.box)
   }
   const byBox = new Map<number, DeckEntry[]>()
@@ -54,7 +60,7 @@ export function planSession(entries: DeckEntry[], request: SessionRequest, opts:
 
   const newCount =
     request.kind === 'daily' ? newQuota(entries, today, newPerDay) : request.kind === 'new' ? request.count : 0
-  const newIds = newCardPool(entries)
+  const newIds = newCardPool(scoped, lessonRanks)
     .slice(0, Math.max(0, newCount))
     .map((e) => e.card.id)
 
