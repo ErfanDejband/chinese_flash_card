@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { ClassError, openBody } from '@/classes/format'
 import { openClass, takeLessons } from '@/classes/join'
-import { createClassStore } from '@/data/repositories/classStore'
+import { createClassStore, ownDeck } from '@/data/repositories/classStore'
 import type { Deck } from '@/domain/types'
 import { useClassNews } from '@/hooks/useDecks'
 import { publicRead } from '@/lib/classConfig'
-import { checkClasses, dismissNews } from '@/lib/classRunner'
+import { checkClasses, dismissNews, forgetClass } from '@/lib/classRunner'
 import { requestSync } from '@/lib/syncRunner'
 import { Button } from '@/ui/Button'
 import { plural, timeAgo } from '@/ui/format'
@@ -17,6 +17,13 @@ export function ClassStatus({ deck }: { deck: Deck }) {
   const news = useClassNews()[deck.id]
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  const [confirmOwn, setConfirmOwn] = useState(false)
+
+  async function makeOwn() {
+    await ownDeck(deck.id)
+    forgetClass(deck.id)
+    requestSync('review')
+  }
 
   async function addLessons(ids: string[]) {
     setBusy(true)
@@ -48,7 +55,7 @@ export function ClassStatus({ deck }: { deck: Deck }) {
         {deck.teacher ? `From ${deck.teacher}. ` : ''}
         {remote.manifestId ? 'Your teacher keeps the cards up to date; changes arrive here by themselves.' : 'Opened from a class file: open a newer file of the class to update it.'}
       </p>
-      {remote.stopped && <p className="mt-2 rounded-xl bg-amber-100 p-3 text-amber-900 dark:bg-amber-950 dark:text-amber-200">Your teacher stopped sharing this class. You keep the cards you have. To edit them, leave the class and keep the cards in My cards.</p>}
+      {remote.stopped && <p className="mt-2 rounded-xl bg-amber-100 p-3 text-amber-900 dark:bg-amber-950 dark:text-amber-200">Your teacher stopped sharing this class. You keep the cards you have. To edit them, make it your own deck (below).</p>}
 
       {news && news.newLessons.length > 0 && (
         <div className="mt-3 rounded-2xl bg-accent/10 p-3">
@@ -83,6 +90,25 @@ export function ClassStatus({ deck }: { deck: Deck }) {
         </div>
       )}
       {error && <p className="mt-2 text-red-600 dark:text-red-400">{error}</p>}
+
+      {confirmOwn ? (
+        <div className="mt-4 rounded-2xl bg-sunken p-3">
+          <p className="font-semibold">Make “{deck.title}” your own deck?</p>
+          <p className="mt-1 text-muted">You’ll stop getting your teacher’s updates. The lessons and cards, with your progress, become yours to edit and to share as your own class.</p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={() => void makeOwn()}>
+              Make it my own
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmOwn(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="mt-4 text-sm font-medium text-muted hover:text-ink" onClick={() => setConfirmOwn(true)}>
+          Make it my own deck…
+        </button>
+      )}
     </section>
   )
 }

@@ -17,6 +17,7 @@ import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { ProgressBar } from '@/ui/ProgressBar'
 import { takeClassFile } from './classFileHandoff'
+import { READY_MADE_CLASSES } from './readyMade'
 
 const inputClass = 'h-12 w-full rounded-xl border border-line bg-surface px-3 outline-none focus:border-accent'
 
@@ -100,6 +101,27 @@ function JoinStart({ onFile }: { onFile(file: File): void }) {
           }}
         />
       </section>
+      {READY_MADE_CLASSES.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-lg font-semibold">Ready-made classes</h2>
+          <ul className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface">
+            {READY_MADE_CLASSES.map((c) => (
+              <li key={c.id}>
+                <Link to={`/join/${c.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-sunken">
+                  <span className="text-xl" aria-hidden="true">
+                    🏫
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{c.title}</span>
+                    <span className="block text-sm text-muted">{c.note}</span>
+                  </span>
+                  <Icon name="chevron" className="size-5 shrink-0 text-muted" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   )
 }

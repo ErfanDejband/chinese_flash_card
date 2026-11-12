@@ -131,6 +131,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
           'Your teacher’s fixes and changes arrive by themselves. When there is a new lesson, Home and the class say so: tap Add.',
           'Class cards can’t be edited (your teacher keeps them up to date), but you can remove one for yourself.',
           'Leave the class from its deck page: keep the cards in My cards, or remove them.',
+          'Make it my own deck (on the class page) stops the teacher’s updates and makes the lessons and cards yours to edit, and to share as your own class. Your progress stays.',
         ],
       },
     ],

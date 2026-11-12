@@ -87,6 +87,12 @@ export function dismissStop(deckId: Id): void {
   save({ ...getClassNews(), [deckId]: { at: getClassNews()[deckId]?.at ?? 0, newLessons: [], ...getClassNews()[deckId], stopSeen: true } })
 }
 
+/** A class that isn't followed any more (made the student's own deck): forget its news on this device. */
+export function forgetClass(deckId: Id): void {
+  const { [deckId]: _gone, ...rest } = getClassNews()
+  save(rest)
+}
+
 let started = false
 
 /** Call once at startup. */

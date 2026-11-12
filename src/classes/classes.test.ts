@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { ALL_TABLES, AppDB, db as teacherDb } from '@/data/db'
 import { createCards, deleteCard, updateCard } from '@/data/repositories/cards'
-import { createClassStore, publishSource, saveShare, setLessonHidden } from '@/data/repositories/classStore'
+import { createClassStore, ownDeck, publishSource, saveShare, setLessonHidden } from '@/data/repositories/classStore'
 import { createDeck, ensureLessons, updateDeck } from '@/data/repositories/decks'
 import type { FetchLike } from '@/import/ai/types'
 import { exportClassFile, isClassFile, readClassFile } from './classFile'
@@ -225,6 +225,32 @@ describe('joining a class', () => {
     }
     await expect(checkClass(busy, student, (await studentDb.decks.get(t.deckId))!)).rejects.toMatchObject({ status: 403 })
     expect((await studentDb.decks.get(t.deckId))!.remote!.stopped).toBeUndefined()
+  })
+
+  it('becomes the student’s own deck, which they can share as a new class', async () => {
+    const d = fakeDrive()
+    const t = await teacherClass()
+    const share = await publish(d.drive, t.deckId)
+    await takeLessons(d.read, student, await openClass(d.read, share.manifestId), [t.l1.id, t.l2.id])
+    await studentDb.reviewStates.where('cardId').equals(t.cards[0]!.id).modify({ box: 3, updatedAt: 9000 })
+
+    await ownDeck(t.deckId, studentDb, 10_000)
+    const deck = (await studentDb.decks.get(t.deckId))!
+    expect(deck.remote).toBeUndefined()
+    expect(await studentDb.cards.count()).toBe(3)
+    expect((await studentDb.reviewStates.where('cardId').equals(t.cards[0]!.id).first())?.box).toBe(3)
+    // Not followed any more: a check leaves it alone.
+    expect(await checkClass(d.read, student, deck)).toEqual({ newLessons: [], changed: 0, stopped: false })
+
+    // Shared again from another account: a new class with the same lessons and cards.
+    const other = fakeDrive()
+    const again = await publishClass(other.drive, (await publishSource(t.deckId, studentDb))!, { now: 11_000 })
+    const opened = await openClass(other.read, again.manifestId)
+    expect(opened.body!.lessons.map((l) => [l.title, l.cards])).toEqual([
+      ['Lesson 1', 2],
+      ['Lesson 2', 1],
+    ])
+    expect(Object.keys(opened.body!.pictures)).toHaveLength(1)
   })
 
   it('refuses the teacher’s own class', async () => {

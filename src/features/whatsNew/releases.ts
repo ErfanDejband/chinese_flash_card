@@ -19,6 +19,16 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-12.5',
+    title: 'Your own copy of a class',
+    items: [
+      {
+        text: 'A class you joined can become your own deck: open it and tap Make it my own deck. Your progress stays, and you can edit the cards or share them as your own class.',
+        to: '/decks',
+      },
+    ],
+  },
+  {
     id: '2026-11-12.4',
     title: 'Ending a class',
     items: [

@@ -90,3 +90,16 @@ export async function setLessonHidden(lessonId: Id, hidden: boolean, now = Date.
   const { hidden: _old, ...rest } = lesson
   await defaultDb.lessons.put({ ...rest, ...(hidden ? { hidden: true } : {}), updatedAt: now })
 }
+
+/**
+ * A joined class becomes an ordinary deck of this user: no more teacher updates, and its lessons and cards
+ * (with their progress and pictures) can be edited and shared like any deck.
+ */
+export async function ownDeck(deckId: Id, database: AppDB = defaultDb, now = Date.now()): Promise<void> {
+  await database.transaction('rw', database.decks, async () => {
+    const deck = await database.decks.get(deckId)
+    if (!deck?.remote) return
+    const { remote: _remote, ...rest } = deck
+    await database.decks.put({ ...rest, updatedAt: now })
+  })
+}
