@@ -44,6 +44,8 @@ function localFiles(local: LocalSnapshot): Map<string, Rows> {
     [TABLE_FILES.imports, local.imports],
     [TABLE_FILES.settings, local.settings],
     [TABLE_FILES.known, local.known],
+    [TABLE_FILES.decks, local.decks],
+    [TABLE_FILES.lessons, local.lessons],
   ])
   for (const e of local.log) {
     const name = logFileName(logMonth(e.at))
@@ -59,9 +61,9 @@ function tableKey(name: string): keyof typeof TABLE_FILES {
   return (Object.keys(TABLE_FILES) as (keyof typeof TABLE_FILES)[]).find((k) => TABLE_FILES[k] === name)!
 }
 
-const emptySnapshot = (): LocalSnapshot => ({ cards: [], states: [], imports: [], settings: [], tombstones: [], known: [], log: [] })
+const emptySnapshot = (): LocalSnapshot => ({ cards: [], states: [], imports: [], settings: [], tombstones: [], known: [], decks: [], lessons: [], log: [] })
 
-const emptyChanges = (): LocalChanges => ({ cards: [], states: [], imports: [], settings: [], tombstones: [], known: [], logAdds: [], logDeletes: [] })
+const emptyChanges = (): LocalChanges => ({ cards: [], states: [], imports: [], settings: [], tombstones: [], known: [], decks: [], lessons: [], logAdds: [], logDeletes: [] })
 
 const changeCount = (c: LocalChanges) =>
   c.cards.length +
@@ -70,6 +72,8 @@ const changeCount = (c: LocalChanges) =>
   c.settings.length +
   c.tombstones.length +
   c.known.length +
+  c.decks.length +
+  c.lessons.length +
   c.logAdds.length +
   c.logDeletes.length
 
@@ -227,6 +231,8 @@ export async function replaceRemoteFromLocal(drive: DriveLike, store: LocalStore
   const newer = (row: { updatedAt: number }) => Math.max(now, row.updatedAt + 1)
   const cards = preferLocal(local.cards, theirs.cards, (c) => (c.deletedAt === undefined ? { ...c, deletedAt: now, updatedAt: newer(c) } : c))
   const known = preferLocal(local.known, theirs.known, (w) => (w.deletedAt === undefined ? { ...w, deletedAt: now, updatedAt: newer(w) } : w))
+  const decks = preferLocal(local.decks, theirs.decks, (d) => (d.deletedAt === undefined ? { ...d, deletedAt: now, updatedAt: newer(d) } : d))
+  const lessons = preferLocal(local.lessons, theirs.lessons, (l) => (l.deletedAt === undefined ? { ...l, deletedAt: now, updatedAt: newer(l) } : l))
   const states = preferLocal(local.states, theirs.states, (s) =>
     s.box === 0 && s.reviewCount === 0 ? s : { ...s, box: 0, dueOn: null, introducedOn: null, lastReviewedAt: null, reviewCount: 0, lapseCount: 0, updatedAt: newer(s) },
   )
@@ -244,6 +250,8 @@ export async function replaceRemoteFromLocal(drive: DriveLike, store: LocalStore
     settings: settings.localUpdates,
     tombstones: tombstones.localUpdates,
     known: known.localUpdates,
+    decks: decks.localUpdates,
+    lessons: lessons.localUpdates,
     logAdds: [],
     logDeletes: local.log.filter((e) => deleted.has(e.id)).map((e) => e.id),
   }
@@ -258,6 +266,8 @@ export async function replaceRemoteFromLocal(drive: DriveLike, store: LocalStore
     settings: settings.merged,
     tombstones: tombstones.merged,
     known: known.merged,
+    decks: decks.merged,
+    lessons: lessons.merged,
     log: local.log.filter((e) => !deleted.has(e.id)),
   })
   const files: SyncFiles = {}

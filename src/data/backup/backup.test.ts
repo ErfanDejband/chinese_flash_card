@@ -4,6 +4,7 @@ import { ALL_TABLES, db } from '../db'
 import { createCard, updateCard } from '../repositories/cards'
 import { recordAnswer } from '../repositories/review'
 import { unzipSync, zipSync } from 'fflate'
+import { createDeck, ensureLessons, listDecks, listLessons } from '../repositories/decks'
 import { addKnownWords, listKnownWords } from '../repositories/knownWords'
 import { BackupFormatError, exportBackup, restoreBackup } from './backup'
 
@@ -71,6 +72,20 @@ describe('backup', () => {
     const { 'knownWords.json': _known, ...older } = unzipSync(zip)
     await restoreBackup(zipSync(older), 'replace')
     expect(await listKnownWords()).toEqual([])
+  })
+
+  it('keeps decks and lessons, and restores older backups without them', async () => {
+    const deck = await createDeck('Book 2', 1000)
+    await ensureLessons(deck.id, ['Lesson 1'], 1000)
+    const zip = await exportBackup()
+    await wipe()
+    await restoreBackup(zip, 'replace')
+    expect((await listDecks()).map((d) => d.title)).toEqual(['Book 2'])
+    expect((await listLessons(deck.id)).map((l) => l.title)).toEqual(['Lesson 1'])
+
+    const { 'decks.json': _decks, 'lessons.json': _lessons, ...older } = unzipSync(zip)
+    await restoreBackup(zipSync(older), 'replace')
+    expect(await listDecks()).toEqual([])
   })
 
   it('rejects files that are not backups', async () => {

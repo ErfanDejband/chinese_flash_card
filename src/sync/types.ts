@@ -1,6 +1,6 @@
 import type { ImportRecord, SettingsRecord } from '@/data/db'
 import type { Tombstone } from '@/domain/sync/merge'
-import type { Card, Id, KnownWord, ReviewLogEntry, ReviewState } from '@/domain/types'
+import type { Card, Deck, Id, KnownWord, Lesson, ReviewLogEntry, ReviewState } from '@/domain/types'
 
 /** Settings as synced: the speech voice stays on each device (voices differ per platform). */
 export type SyncedSettings = Omit<SettingsRecord, 'ttsVoiceURI'>
@@ -13,6 +13,8 @@ export interface LocalSnapshot {
   settings: SyncedSettings[]
   tombstones: Tombstone[]
   known: KnownWord[]
+  decks: Deck[]
+  lessons: Lesson[]
   log: ReviewLogEntry[]
 }
 
@@ -24,6 +26,8 @@ export interface LocalChanges {
   settings: SyncedSettings[]
   tombstones: Tombstone[]
   known: KnownWord[]
+  decks: Deck[]
+  lessons: Lesson[]
   logAdds: ReviewLogEntry[]
   logDeletes: Id[]
 }

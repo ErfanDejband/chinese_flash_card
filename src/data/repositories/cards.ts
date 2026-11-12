@@ -1,12 +1,14 @@
 import { joinDeck, type DeckEntry } from '@/domain/deck'
 import { newId } from '@/domain/ids'
+import { MY_CARDS } from '@/domain/library'
 import { newReviewState } from '@/domain/leitner/scheduler'
 import { normalizePinyin } from '@/domain/pinyin/tones'
 import type { Card, CardSource, Example, Id, ReviewMode } from '@/domain/types'
 import { db } from '../db'
 import { putMedia, type NewMedia } from './media'
 
-export const DEFAULT_DECK_ID = 'default'
+/** My cards: cards in no deck. */
+export const DEFAULT_DECK_ID = MY_CARDS
 export const DEFAULT_MODE: ReviewMode = 'image_to_word'
 
 /** Editable fields of a card. */
@@ -23,6 +25,9 @@ export interface CardDraft {
 export interface NewCard extends CardDraft {
   image?: NewMedia
   source?: CardSource
+  /** Default: My cards. */
+  deckId?: Id
+  lessonId?: Id
 }
 
 const clean = (s: string | undefined) => {
@@ -67,7 +72,8 @@ export async function createCards(inputs: NewCard[], now = Date.now()): Promise<
         id: newId(),
         ...normalizeDraft(input),
         imageId: input.image ? await putMedia(input.image, at) : undefined,
-        deckId: DEFAULT_DECK_ID,
+        deckId: input.deckId ?? DEFAULT_DECK_ID,
+        ...(input.lessonId ? { lessonId: input.lessonId } : {}),
         source: input.source ?? { type: 'manual' },
         createdAt: at,
         updatedAt: at,

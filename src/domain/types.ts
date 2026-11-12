@@ -51,11 +51,41 @@ export interface Card {
   imageId?: Id
   audioId?: Id
   tags: string[]
+  /** The deck it belongs to; `'default'` = My cards (no deck). */
   deckId: Id
+  /** The lesson within its deck, if any. */
+  lessonId?: Id
   source: CardSource
   createdAt: Timestamp
   updatedAt: Timestamp
   /** Soft delete, kept so a future sync can propagate deletions. */
+  deletedAt?: Timestamp
+}
+
+/**
+ * A named group of cards (a textbook, a class), optionally split into lessons. Cards point to it
+ * through `Card.deckId`. Soft delete, so sync carries it to other devices.
+ */
+export interface Deck {
+  id: Id
+  title: string
+  description?: string
+  /** Position in the deck list. */
+  order: number
+  createdAt: Timestamp
+  updatedAt: Timestamp
+  deletedAt?: Timestamp
+}
+
+/** A part of a deck (Lesson 3). Cards point to it through `Card.lessonId`. */
+export interface Lesson {
+  id: Id
+  deckId: Id
+  title: string
+  /** Position within the deck: new cards are introduced lesson by lesson in this order. */
+  order: number
+  createdAt: Timestamp
+  updatedAt: Timestamp
   deletedAt?: Timestamp
 }
 

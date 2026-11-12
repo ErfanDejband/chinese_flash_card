@@ -19,6 +19,8 @@ export const TABLE_FILES = {
   tombstones: 'tombstones.json.gz',
   /** Added after the first release; older versions ignore files they don't know. */
   known: 'known.json.gz',
+  decks: 'decks.json.gz',
+  lessons: 'lessons.json.gz',
 } as const
 
 export interface Manifest {

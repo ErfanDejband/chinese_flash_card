@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { ALL_TABLES, AppDB, db as deviceA } from '@/data/db'
 import { createCard, createCards, deleteCard, updateCard } from '@/data/repositories/cards'
 import { recordAnswer, undoAnswer } from '@/data/repositories/review'
+import { createDeck, deleteDeck, ensureLessons } from '@/data/repositories/decks'
 import { createSyncStore } from '@/data/repositories/syncStore'
 import { DEFAULT_LEITNER, defaultSettings } from '@/domain/leitner/config'
 import { inspectRemote, replaceLocalFromRemote, replaceRemoteFromLocal, runSync, type SyncProgress } from './runSync'
@@ -51,6 +52,8 @@ const tablesOf = (d: AppDB) => [
   d.importDrafts,
   d.syncTombstones,
   d.knownWords,
+  d.decks,
+  d.lessons,
 ]
 
 beforeEach(async () => {
@@ -166,6 +169,26 @@ describe('runSync between two devices', () => {
     await d.syncA()
     await d.syncB()
     expect((await deviceB.knownWords.get('是'))?.deletedAt).toBeUndefined()
+  })
+
+  it('syncs decks, lessons and where each card is, including a deleted deck', async () => {
+    const d = devices()
+    const deck = await createDeck('Book 2', 1000)
+    const lessons = await ensureLessons(deck.id, ['Lesson 1', 'Lesson 2'], 1000)
+    const card = await createCard({ hanzi: '餐廳', pinyin: 'cāntīng', deckId: deck.id, lessonId: lessons.get('lesson 2')!.id }, 1001)
+    await d.syncA()
+    await d.syncB()
+    expect((await deviceB.decks.get(deck.id))?.title).toBe('Book 2')
+    expect((await deviceB.lessons.where('deckId').equals(deck.id).toArray()).map((l) => l.title).sort()).toEqual(['Lesson 1', 'Lesson 2'])
+    expect(await deviceB.cards.get(card.id)).toMatchObject({ deckId: deck.id, lessonId: lessons.get('lesson 2')!.id })
+
+    await deleteDeck(deck.id, 'keep', 2000)
+    await d.syncA()
+    await d.syncB()
+    expect((await deviceB.decks.get(deck.id))?.deletedAt).toBe(2000)
+    const moved = await deviceB.cards.get(card.id)
+    expect(moved?.deckId).toBe('default')
+    expect(moved && 'lessonId' in moved).toBe(false)
   })
 
   it('does not sync imports that are still drafts', async () => {

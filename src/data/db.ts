@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { AppSettings, BBox, Card, Id, KnownWord, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
+import type { AppSettings, BBox, Card, Deck, Id, KnownWord, Lesson, ReviewLogEntry, ReviewState, Timestamp } from '@/domain/types'
 import type { Tombstone } from '@/domain/sync/merge'
 import type { DraftFields, ImportMode, NormBox, ReadingSentence } from '@/import/types'
 import type { SheetSize } from '@/pictures/sheet'
@@ -185,6 +185,8 @@ export class AppDB extends Dexie {
   pictureJobs!: EntityTable<PictureJobRecord, 'id'>
   pictureSheets!: EntityTable<PictureSheetRecord, 'id'>
   pictureDrafts!: EntityTable<PictureDraftRecord, 'id'>
+  decks!: EntityTable<Deck, 'id'>
+  lessons!: EntityTable<Lesson, 'id'>
 
   constructor(name = DB_NAME) {
     super(name)
@@ -207,6 +209,8 @@ export class AppDB extends Dexie {
     this.version(4).stores({ knownWords: 'id' })
     // v5: picture-making work tables (new tables only).
     this.version(5).stores({ pictureJobs: 'id', pictureSheets: 'id, jobId', pictureDrafts: 'id, jobId' })
+    // v6: decks and their lessons (new tables only; cards already had `deckId`).
+    this.version(6).stores({ decks: 'id', lessons: 'id, deckId' })
   }
 }
 
@@ -226,4 +230,6 @@ export const ALL_TABLES = () => [
   db.pictureJobs,
   db.pictureSheets,
   db.pictureDrafts,
+  db.decks,
+  db.lessons,
 ]

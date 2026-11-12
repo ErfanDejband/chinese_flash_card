@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate'
-import type { Card, KnownWord, ReviewLogEntry, ReviewState } from '@/domain/types'
+import type { Card, Deck, KnownWord, Lesson, ReviewLogEntry, ReviewState } from '@/domain/types'
 import { ALL_TABLES, db, type ImportRecord, type MediaRecord, type SettingsRecord } from '../db'
 
 /**
@@ -25,16 +25,18 @@ interface Tables {
   settings: SettingsRecord[]
   media: MediaMeta[]
   knownWords: KnownWord[]
+  decks: Deck[]
+  lessons: Lesson[]
 }
 
 const TABLE_FILES = ['cards', 'reviewStates', 'reviewLog', 'imports', 'settings', 'media'] as const
 /** Tables added later: missing from older backups, which still restore. */
-const OPTIONAL_TABLE_FILES = ['knownWords'] as const
+const OPTIONAL_TABLE_FILES = ['knownWords', 'decks', 'lessons'] as const
 
 const json = (value: unknown) => strToU8(JSON.stringify(value))
 
 export async function exportBackup(now = Date.now()): Promise<Uint8Array> {
-  const [cards, reviewStates, reviewLog, imports, settings, media, knownWords] = await Promise.all([
+  const [cards, reviewStates, reviewLog, imports, settings, media, knownWords, decks, lessons] = await Promise.all([
     db.cards.toArray(),
     db.reviewStates.toArray(),
     db.reviewLog.toArray(),
@@ -42,6 +44,8 @@ export async function exportBackup(now = Date.now()): Promise<Uint8Array> {
     db.settings.toArray(),
     db.media.toArray(),
     db.knownWords.toArray(),
+    db.decks.toArray(),
+    db.lessons.toArray(),
   ])
   const manifest: Manifest = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: now }
   const files: Zippable = {
@@ -53,6 +57,8 @@ export async function exportBackup(now = Date.now()): Promise<Uint8Array> {
     'settings.json': json(settings),
     'media.json': json(media.map(({ blob: _blob, ...meta }) => meta)),
     'knownWords.json': json(knownWords),
+    'decks.json': json(decks),
+    'lessons.json': json(lessons),
   }
   for (const m of media) {
     // Images are already compressed; store them as-is.
@@ -128,6 +134,8 @@ export async function restoreBackup(bytes: Uint8Array, mode: 'merge' | 'replace'
       await db.imports.bulkPut(tables.imports)
       await db.settings.bulkPut(tables.settings)
       await db.knownWords.bulkPut(tables.knownWords)
+      await db.decks.bulkPut(tables.decks)
+      await db.lessons.bulkPut(tables.lessons)
       await db.media.bulkPut(media)
       return { cards: tables.cards.length, media: media.length, reviews: tables.reviewLog.length }
     }
@@ -138,6 +146,8 @@ export async function restoreBackup(bytes: Uint8Array, mode: 'merge' | 'replace'
     await db.imports.bulkPut(await newerRows(tables.imports, (ids) => db.imports.bulkGet(ids)))
     await db.settings.bulkPut(await newerRows(tables.settings, (ids) => db.settings.bulkGet(ids as 'app'[])))
     await db.knownWords.bulkPut(await newerRows(tables.knownWords, (ids) => db.knownWords.bulkGet(ids)))
+    await db.decks.bulkPut(await newerRows(tables.decks, (ids) => db.decks.bulkGet(ids)))
+    await db.lessons.bulkPut(await newerRows(tables.lessons, (ids) => db.lessons.bulkGet(ids)))
 
     const haveLog = new Set(await db.reviewLog.toCollection().primaryKeys())
     const newLog = tables.reviewLog.filter((l) => !haveLog.has(l.id))
