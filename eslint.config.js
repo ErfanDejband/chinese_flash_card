@@ -11,6 +11,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 // sync/    Drive sync engine, no React, no UI
 // pictures/ picture-making pipeline, no React, no UI
 // vision/  object detection + naming (camera tab), no React, no UI
+// classes/ sharing a deck as a class (Drive files, class files), no React, no UI
 const noUiOrReact = [
   { group: ['react', 'react-dom', 'react-*', 'react/*'], message: 'This layer must stay framework-free.' },
   { group: ['@/features/*', '@/ui/*', '@/app/*', '@/hooks/*'], message: 'This layer must not depend on UI code.' },
@@ -53,7 +54,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/import/**/*.{ts,tsx}', 'src/sync/**/*.{ts,tsx}', 'src/pictures/**/*.{ts,tsx}', 'src/vision/**/*.{ts,tsx}'],
+    files: ['src/import/**/*.{ts,tsx}', 'src/sync/**/*.{ts,tsx}', 'src/pictures/**/*.{ts,tsx}', 'src/vision/**/*.{ts,tsx}', 'src/classes/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', { patterns: noUiOrReact }],
     },

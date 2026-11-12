@@ -72,9 +72,53 @@ export interface Deck {
   description?: string
   /** Position in the deck list. */
   order: number
+  /** The teacher's name shown to students (a shared or joined class). */
+  teacher?: string
+  /** Teacher side: this deck is shared as a class from the teacher's Drive. */
+  share?: DeckShare
+  /** Student side: this deck is a class joined from a teacher; its cards follow the teacher's. */
+  remote?: DeckRemote
   createdAt: Timestamp
   updatedAt: Timestamp
   deletedAt?: Timestamp
+}
+
+/** A class lock: the class files are encrypted with a key made from the teacher's password. */
+export interface ClassLock {
+  /** Base64 salt and PBKDF2 iterations, published so students can make the same key. */
+  salt: string
+  iterations: number
+  /** The key itself (base64), kept on the teacher's own rows so each of their devices can publish. */
+  key: string
+}
+
+/** Where a shared class lives in the teacher's Drive, and what was last published. */
+export interface DeckShare {
+  folderId: string
+  /** The class file students open; its id is in the link and never changes. */
+  manifestId: string
+  /** Per lesson: its Drive file and the hash of what was published. */
+  lessons: Record<Id, { file: string; hash: string }>
+  /** Per picture (media id): its Drive file. */
+  pictures: Record<Id, string>
+  /** Hash of the class details (title, teacher, lesson titles and order). */
+  manifestHash: string
+  lock?: ClassLock
+  publishedAt: Timestamp
+}
+
+/** A class a student joined: where it comes from and which lessons they took. */
+export interface DeckRemote {
+  /** The class file's Drive id; empty for a class opened from a file (no updates). */
+  manifestId: string
+  /** The key for a locked class (base64), once the student typed the password. */
+  key?: string
+  /** Lessons the student took, with the hash of the version applied. */
+  lessons: Record<Id, string>
+  /** Every lesson the class had at the last look, so new ones can be pointed out. */
+  seen: Id[]
+  /** The teacher stopped sharing (the class file is gone). */
+  stopped?: boolean
 }
 
 /** A part of a deck (Lesson 3). Cards point to it through `Card.lessonId`. */
@@ -84,6 +128,8 @@ export interface Lesson {
   title: string
   /** Position within the deck: new cards are introduced lesson by lesson in this order. */
   order: number
+  /** A shared class leaves this lesson out until the teacher shows it. */
+  hidden?: boolean
   createdAt: Timestamp
   updatedAt: Timestamp
   deletedAt?: Timestamp
