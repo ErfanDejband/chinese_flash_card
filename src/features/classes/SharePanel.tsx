@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { exportClassFile } from '@/classes/classFile'
 import { deriveKey, PBKDF2_ITERATIONS, randomSalt } from '@/classes/crypto'
 import { ClassError } from '@/classes/format'
@@ -86,6 +86,7 @@ function QrScreen({ link, title, onClose }: { link: string; title: string; onClo
  */
 export function SharePanel({ deck, lessons, cards }: { deck: Deck; lessons: Lesson[]; cards: Card[] }) {
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const share = deck.share
   const [teacher, setTeacher] = useState(deck.teacher ?? '')
   const [usePassword, setUsePassword] = useState(false)
@@ -125,7 +126,12 @@ export function SharePanel({ deck, lessons, cards }: { deck: Deck; lessons: Less
     setParams({}, { replace: true })
     const pending = takePendingShare(deck.id)
     if (asked === 'share') void publish(pending?.lock)
-    else void run('Stopping…', () => unshareDeck(deck.id))
+    else
+      void run('Stopping…', async () => {
+        // Asked from the delete panel: the deck goes too once the class is stopped.
+        await unshareDeck(deck.id, pending?.remove)
+        if (pending?.remove) navigate('/decks', { replace: true })
+      })
   })
   useEffect(() => {
     // Deferred so the effect body doesn't set state synchronously (and StrictMode's second run doesn't repeat it).

@@ -18,6 +18,8 @@ export interface ClassNews {
   /** When this device last looked at the class. */
   at: number
   newLessons: Pick<ClassLessonInfo, 'id' | 'title' | 'cards'>[]
+  /** The student saw the note that the teacher stopped sharing (the stop itself is on the synced deck row). */
+  stopSeen?: boolean
 }
 
 let cache: Record<Id, ClassNews> | undefined
@@ -61,7 +63,7 @@ export function checkClasses(force = false): Promise<void> {
         if (!force && last && Date.now() - last.at < EVERY_MS) continue
         try {
           const result = await checkClass(publicRead, store, deck)
-          save({ ...getClassNews(), [deck.id]: { at: Date.now(), newLessons: result.newLessons.map(({ id, title, cards }) => ({ id, title, cards })) } })
+          save({ ...getClassNews(), [deck.id]: { ...getClassNews()[deck.id], at: Date.now(), newLessons: result.newLessons.map(({ id, title, cards }) => ({ id, title, cards })) } })
         } catch {
           // Offline or a passing Drive problem: try again next time.
         }
@@ -78,6 +80,11 @@ export async function dismissNews(deckId: Id, lessonIds: Id[]): Promise<void> {
   await markSeen(createClassStore(), deckId, lessonIds)
   const news = getClassNews()[deckId]
   if (news) save({ ...getClassNews(), [deckId]: { ...news, newLessons: news.newLessons.filter((l) => !lessonIds.includes(l.id)) } })
+}
+
+/** The student read the note that the teacher stopped sharing this class (this device only). */
+export function dismissStop(deckId: Id): void {
+  save({ ...getClassNews(), [deckId]: { at: getClassNews()[deckId]?.at ?? 0, newLessons: [], ...getClassNews()[deckId], stopSeen: true } })
 }
 
 let started = false

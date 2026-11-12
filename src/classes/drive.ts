@@ -123,8 +123,9 @@ export function createPublicRead(apiKey: string, fetchImpl: FetchLike = defaultF
       const res = await send(fetchImpl, `${API}/files/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(apiKey)}`, {}, timeoutMs)
       return new Uint8Array(await body(res.arrayBuffer()))
     } catch (e) {
-      // A file that isn't shared (any more) answers 403 or 404: the class is gone for the student.
-      if (e instanceof ClassError && (e.kind === 'not-found' || e.status === 403)) throw new ClassError('not-found', 'This class isn’t shared any more, or the link is wrong.', e.status)
+      // Only a missing file means the class is gone (the teacher stopped sharing, or a wrong link). A 403 is a passing
+      // quota or key problem: treating it as gone would mark a class stopped for good.
+      if (e instanceof ClassError && e.kind === 'not-found') throw new ClassError('not-found', 'This class isn’t shared any more, or the link is wrong.', e.status)
       throw e
     }
   }

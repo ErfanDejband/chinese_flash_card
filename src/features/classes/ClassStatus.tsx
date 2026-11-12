@@ -48,7 +48,7 @@ export function ClassStatus({ deck }: { deck: Deck }) {
         {deck.teacher ? `From ${deck.teacher}. ` : ''}
         {remote.manifestId ? 'Your teacher keeps the cards up to date; changes arrive here by themselves.' : 'Opened from a class file: open a newer file of the class to update it.'}
       </p>
-      {remote.stopped && <p className="mt-2 rounded-xl bg-amber-100 p-3 text-amber-900 dark:bg-amber-950 dark:text-amber-200">Your teacher stopped sharing this class. You keep the cards you have.</p>}
+      {remote.stopped && <p className="mt-2 rounded-xl bg-amber-100 p-3 text-amber-900 dark:bg-amber-950 dark:text-amber-200">Your teacher stopped sharing this class. You keep the cards you have. To edit them, leave the class and keep the cards in My cards.</p>}
 
       {news && news.newLessons.length > 0 && (
         <div className="mt-3 rounded-2xl bg-accent/10 p-3">

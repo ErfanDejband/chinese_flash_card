@@ -215,6 +215,18 @@ describe('joining a class', () => {
     expect((await studentDb.cards.toArray()).filter((c) => c.deletedAt === undefined)).toHaveLength(3)
   })
 
+  it('keeps a class going when Google only answers 403 for a while', async () => {
+    const d = fakeDrive()
+    const t = await teacherClass()
+    const share = await publish(d.drive, t.deckId)
+    await takeLessons(d.read, student, await openClass(d.read, share.manifestId), [t.l1.id])
+    const busy: typeof d.read = async () => {
+      throw new ClassError('other', 'Quota exceeded', 403)
+    }
+    await expect(checkClass(busy, student, (await studentDb.decks.get(t.deckId))!)).rejects.toMatchObject({ status: 403 })
+    expect((await studentDb.decks.get(t.deckId))!.remote!.stopped).toBeUndefined()
+  })
+
   it('refuses the teacher’s own class', async () => {
     const d = fakeDrive()
     const t = await teacherClass()
@@ -287,5 +299,10 @@ describe('the Drive client', () => {
     expect([...(await read('abc'))]).toEqual([7])
     expect(seen[0]).toBe('https://www.googleapis.com/drive/v3/files/abc?alt=media&key=KEY')
     await expect(read('missing')).rejects.toMatchObject({ kind: 'not-found' })
+  })
+
+  it('doesn’t take a 403 (quota, key) for a class that is gone', async () => {
+    const read = createPublicRead('KEY', async () => reply(403, { error: { message: 'Quota exceeded', errors: [{ reason: 'dailyLimitExceeded' }] } }))
+    await expect(read('abc')).rejects.toMatchObject({ kind: 'other', status: 403 })
   })
 })

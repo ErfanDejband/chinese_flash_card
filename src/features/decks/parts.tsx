@@ -98,20 +98,38 @@ export function TitleForm({ initial = '', placeholder, submit, onSubmit, onCance
 }
 
 /** Delete a deck or lesson: with its cards, or keeping them (`keepLabel` says where they go). */
-export function RemovePanel({ what, cards, keepLabel, onRemove, onCancel }: { what: string; cards: number; keepLabel: string; onRemove(keep: boolean): void; onCancel(): void }) {
+export function RemovePanel({
+  what,
+  cards,
+  keepLabel,
+  onRemove,
+  onCancel,
+  busy = false,
+  children,
+}: {
+  what: string
+  cards: number
+  keepLabel: string
+  onRemove(keep: boolean): void
+  onCancel(): void
+  busy?: boolean
+  /** Extra choices or messages above the buttons. */
+  children?: ReactNode
+}) {
   return (
     <div className="rounded-2xl border border-red-200 bg-surface p-4 dark:border-red-900">
       <p className="font-semibold">Delete {what}?</p>
       <p className="mt-1 text-sm text-muted">
         {cards === 0 ? 'It has no cards.' : `It has ${cards === 1 ? '1 card' : `${cards} cards`}. Keep them, or delete them with their progress.`}
       </p>
+      {children}
       <div className="mt-3 flex flex-wrap gap-2">
         {cards > 0 && (
-          <Button variant="secondary" size="sm" onClick={() => onRemove(true)}>
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => onRemove(true)}>
             {keepLabel}
           </Button>
         )}
-        <Button variant="danger" size="sm" onClick={() => onRemove(false)}>
+        <Button variant="danger" size="sm" disabled={busy} onClick={() => onRemove(false)}>
           {cards > 0 ? 'Delete with the cards' : 'Delete'}
         </Button>
         <Button variant="ghost" size="sm" onClick={onCancel}>

@@ -7,6 +7,7 @@ import type { Lesson } from '@/domain/types'
 import { useDeck, useSettings } from '@/hooks/useDeck'
 import { useDecks, useLessons, useStudyScope } from '@/hooks/useDecks'
 import { useToday } from '@/hooks/useToday'
+import { unshareDeck } from '@/lib/classShare'
 import { saveStudyScope } from '@/lib/studyScope'
 import { Button, ButtonLink } from '@/ui/Button'
 import { plural } from '@/ui/format'
@@ -96,6 +97,8 @@ export function DeckPage() {
   const homeScope = useStudyScope()
   const navigate = useNavigate()
   const [mode, setMode] = useState<'view' | 'rename' | 'remove' | 'lesson'>('view')
+  const [stopToo, setStopToo] = useState(true)
+  const [removing, setRemoving] = useState<{ busy: boolean; error?: string }>({ busy: false })
   if (!decks || !lessons || !entries || !settings || !homeScope) return <Loading />
 
   const deck = decks.find((d) => d.id === deckId)
@@ -111,7 +114,19 @@ export function DeckPage() {
   const joined = !!deck.remote
 
   async function remove(keep: boolean) {
-    await deleteDeck(deck!.id, keep ? 'keep' : 'delete')
+    const how = keep ? 'keep' : 'delete'
+    if (deck!.share && stopToo) {
+      // Stop sharing first; nothing is deleted if that fails (offline, a Google problem).
+      setRemoving({ busy: true })
+      try {
+        if ((await unshareDeck(deck!.id, how)) === 'signing-in') return
+      } catch (e) {
+        setRemoving({ busy: false, error: e instanceof Error ? e.message : 'Couldn’t stop sharing the class.' })
+        return
+      }
+    } else {
+      await deleteDeck(deck!.id, how)
+    }
     navigate('/decks')
   }
 
@@ -154,8 +169,20 @@ export function DeckPage() {
             keepLabel="Keep them in My cards"
             onRemove={(keep) => void remove(keep)}
             onCancel={() => setMode('view')}
-          />
-          {deck.share && <p className="mt-2 text-sm text-muted">It stays shared in your Google Drive: stop sharing below first if students shouldn’t get it any more.</p>}
+            busy={removing.busy}
+          >
+            {deck.share && (
+              <label className="mt-3 flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-0.5 size-4" checked={stopToo} onChange={(e) => setStopToo(e.target.checked)} />
+                <span>
+                  <span className="font-medium">Also stop sharing the class</span>
+                  <span className="block text-muted">The class files leave your Google Drive. Students keep their cards and see a note.</span>
+                </span>
+              </label>
+            )}
+            {removing.busy && <p className="mt-2 text-sm text-muted">Stopping the class…</p>}
+            {removing.error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{removing.error} Nothing was deleted.</p>}
+          </RemovePanel>
         </div>
       )}
 

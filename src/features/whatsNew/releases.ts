@@ -19,6 +19,15 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-12.4',
+    title: 'Ending a class',
+    items: [
+      {
+        text: 'Deleting a shared class now stops sharing it in the same step. Students keep their cards and see a short note that it ended.',
+      },
+    ],
+  },
+  {
     id: '2026-11-12.3',
     title: 'Classes',
     items: [

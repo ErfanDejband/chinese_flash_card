@@ -1,6 +1,7 @@
 import { createClassDrive } from '@/classes/drive'
 import { publishClass, stopSharing, type PublishOptions } from '@/classes/publish'
 import { publishSource, saveShare } from '@/data/repositories/classStore'
+import { deleteDeck, type RemoveCards } from '@/data/repositories/decks'
 import { db } from '@/data/db'
 import type { ClassLock, DeckShare, Id } from '@/domain/types'
 import { CLASS_SCOPE, getGoogleToken, startGoogleSignIn } from './googleSignIn'
@@ -15,7 +16,8 @@ import { requestSync } from './syncRunner'
  */
 const PENDING_KEY = 'mandarin-leitner.class-share'
 
-export type ShareAction = { deckId: Id; action: 'share' | 'unshare'; lock?: ClassLock | null }
+/** `remove`: after stopping, delete the deck too (keeping or deleting its cards). */
+export type ShareAction = { deckId: Id; action: 'share' | 'unshare'; lock?: ClassLock | null; remove?: RemoveCards }
 
 const classToken = () => getGoogleToken(Date.now(), CLASS_SCOPE)
 
@@ -61,13 +63,18 @@ export async function shareDeck(deckId: Id, opts: { lock?: ClassLock | null; onP
   return share
 }
 
-/** Stop sharing: the class files leave the teacher's Drive. Students keep the cards they have. */
-export async function unshareDeck(deckId: Id): Promise<'done' | 'signing-in'> {
+/**
+ * Stop sharing: the class files leave the teacher's Drive. Students keep the cards they have and
+ * see a note. With `remove`, the deck is deleted afterwards (only once the files are gone).
+ */
+export async function unshareDeck(deckId: Id, remove?: RemoveCards): Promise<'done' | 'signing-in'> {
   const deck = await db.decks.get(deckId)
-  if (!deck?.share) return 'done'
-  if (!classToken()) return signIn({ deckId, action: 'unshare' })
-  await stopSharing(createClassDrive(classToken), deck.share)
-  await saveShare(deckId, undefined)
+  if (deck?.share) {
+    if (!classToken()) return signIn({ deckId, action: 'unshare', remove })
+    await stopSharing(createClassDrive(classToken), deck.share)
+    await saveShare(deckId, undefined)
+  }
+  if (remove) await deleteDeck(deckId, remove)
   requestSync('review')
   return 'done'
 }
