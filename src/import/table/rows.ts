@@ -30,6 +30,8 @@ export interface WordListContext {
   isSimplified?: (text: string) => boolean
   /** Simplified → Traditional, once loaded. */
   toTraditional?: (text: string) => string
+  /** Whether a picture cell (workbook marker or file name) can be found; without it pictures aren't checked. */
+  hasPicture?: (ref: string) => boolean
 }
 
 /** What a row needs a look at; the first four can keep it out of the import. */
@@ -44,10 +46,14 @@ export type RowIssue =
   | 'no-pinyin'
   | 'pinyin-mismatch'
   | 'tone-differs'
+  /** The row names a picture file that wasn't chosen (the card is added without it). */
+  | 'picture-missing'
 
 /** A card draft from a word list, with the lesson its row names (when the list has a Lesson column). */
 export interface ListDraft extends CardDraft {
   lesson?: string
+  /** The picture cell: a workbook picture marker or an image file name (see pictures.ts). */
+  picture?: string
 }
 
 export interface RowResult {
@@ -121,7 +127,7 @@ export function lessonTitles(drafts: readonly ListDraft[]): string[] {
  */
 export function buildDrafts(table: ParsedTable, roles: readonly ColumnRole[], options: WordListOptions, ctx: WordListContext): WordListResult {
   const counts = Object.fromEntries(
-    (['no-han', 'duplicate-existing', 'duplicate-file', 'known', 'simplified', 'converted', 'pinyin-filled', 'no-pinyin', 'pinyin-mismatch', 'tone-differs'] as const).map((k) => [k, 0]),
+    (['no-han', 'duplicate-existing', 'duplicate-file', 'known', 'simplified', 'converted', 'pinyin-filled', 'no-pinyin', 'pinyin-mismatch', 'tone-differs', 'picture-missing'] as const).map((k) => [k, 0]),
   ) as Record<RowIssue, number>
   const seen = new Set<string>()
   const results: RowResult[] = []
@@ -208,6 +214,11 @@ export function buildDrafts(table: ParsedTable, roles: readonly ColumnRole[], op
     const tags = [...new Set([...table.fileTags, ...(table.rowTags[index] ?? []), ...tagCells.split(/[\s,;]+/), ...(grammar ? [GRAMMAR_TAG] : [])].filter(Boolean))]
     const draft: ListDraft = { hanzi, pinyin, tags }
     if (lesson) draft.lesson = lesson
+    const picture = lines(pick(row, roles, 'image'))[0]
+    if (picture) {
+      draft.picture = picture
+      if (ctx.hasPicture && !ctx.hasPicture(picture)) issues.push('picture-missing')
+    }
     if (meaning) draft.meaning = meaning
     const note = notes.filter(Boolean).join('\n')
     if (note) draft.notes = note

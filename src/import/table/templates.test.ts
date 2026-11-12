@@ -26,7 +26,7 @@ describe('class templates', () => {
   it('the Excel template reads back with every column and lesson', () => {
     const bytes = file('class-template.xlsx')
     expect(isXlsx(bytes)).toBe(true)
-    const [sheet] = readXlsx(bytes)
+    const [sheet] = readXlsx(bytes).sheets
     check(tableFromRows(sheet!.rows))
   })
 

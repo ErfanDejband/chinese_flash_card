@@ -8,6 +8,7 @@ import { createDemoProvider, DEMO_MODEL } from '@/import/demo/demoProvider'
 import { createSamplePage } from '@/import/demo/samplePage'
 import { openSource, SourceError } from '@/import/source/openSource'
 import type { ImportSource } from '@/import/source/types'
+import { isImageFile } from '@/import/table/pictures'
 import type { ImportMode } from '@/import/types'
 import { TargetSelect } from '@/features/decks/TargetSelect'
 import { liveTarget, targetFromParams, targetQuery, type Target } from '@/features/decks/target'
@@ -86,15 +87,18 @@ export function ImportPage() {
     }
   }
 
-  /** A word list (CSV, TSV, an Anki/Pleco/Quizlet export) goes to its own screen; PDFs and images to the AI. */
+  /**
+   * A word list (Excel, CSV, TSV, an Anki/Pleco/Quizlet export) goes to its own screen, with any
+   * pictures chosen along with it; PDFs and images on their own go to the AI.
+   */
   function onChosen(files: File[]) {
-    const list = files.find(isWordListFile)
-    if (!list) {
+    const lists = files.filter(isWordListFile)
+    if (!lists.length) {
       void onFiles(files)
-    } else if (files.length > 1) {
-      setError('Choose a word list on its own.')
+    } else if (lists.length > 1 || files.some((f) => !isWordListFile(f) && !isImageFile(f))) {
+      setError('Choose one word list at a time (with its pictures, if any).')
     } else {
-      setWordListFile(list)
+      setWordListFile(files)
       navigate(withTarget('/import/list'))
     }
   }

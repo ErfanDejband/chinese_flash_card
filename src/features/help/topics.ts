@@ -79,7 +79,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   {
     id: 'teachers',
     title: 'For teachers: making lessons for your class',
-    keywords: 'teacher class students lesson lessons excel spreadsheet google sheets template paste csv bulk many cards grammar course',
+    keywords: 'teacher class students lesson lessons excel spreadsheet google sheets template paste csv bulk many cards grammar course picture pictures image images',
     blocks: [
       'Make a deck for the class (Decks → + New deck). Your word lists become its lessons in one go:',
       {
@@ -88,6 +88,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
           'Lesson groups the rows (3 means “Lesson 3”; an empty cell stays in the lesson above). Type is “grammar” for a grammar point, else empty.',
           'Only Characters is needed. Empty pinyin is filled in from the dictionary; type it where Taiwan reads a word differently.',
           'A workbook with one sheet per lesson works too: the sheet names become the lessons.',
+          'Pictures: add a Picture column and insert each picture in its row’s cell (Excel: Insert → Pictures; in the cell or over it). Or write image file names there (apple.jpg) and choose the image files together with the sheet.',
         ],
       },
       'Then Decks → your deck → Add cards, and either Open a word list file (Excel .xlsx or CSV) or copy the rows and choose Paste from a spreadsheet. Check the columns and the preview, then add them all. Templates to start from are on that screen.',
@@ -159,7 +160,8 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
           'CSV or tab-separated text in UTF-8, UTF-16 or Big5.',
         ],
       },
-      'The app guesses what each column holds (characters, pinyin, meaning, example, notes, tags, lesson, word or grammar); change any column with its menu. A preview shows the first cards and what needs a look.',
+      'The app guesses what each column holds (characters, pinyin, meaning, example, notes, tags, lesson, word or grammar, picture); change any column with its menu. A preview shows the first cards and what needs a look.',
+      'Pictures come along from an Excel Picture column (pictures in or over the cells), or from image files named in a column and chosen together with the list. They are shrunk like any card picture; Excel drawings in EMF/WMF and HEIC photos can’t be read.',
       'Where they go: My cards, a deck or a lesson. Into a deck, a Lesson column makes the lessons.',
       'Options: skip words already in your deck or in your known words, convert Simplified characters to Traditional (only when you tick it), fill in missing pinyin from the dictionary, and a tag for the new cards. Pleco categories and Anki tags are kept as tags too.',
       'Settings → Sync & backup → Export word list (TSV) saves your cards as a tab-separated file that Anki and Pleco can import.',

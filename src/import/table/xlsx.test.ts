@@ -34,7 +34,7 @@ describe('readXlsx', () => {
       `<row r="2">${s(2, 'A2')}${s(3, 'B2')}<c r="C2"><v>3</v></c></row>` +
       `<row r="4"><c r="A4" t="inlineStr"><is><t>學生</t></is></c><c r="C4" t="b"><v>1</v></c><c r="D4" t="str"><f>A1</f><v>x_x000D_y</v></c></row>` +
       `<row r="5">${s(4, 'B5')}</row><row r="6"/>`
-    const [sheet] = readXlsx(workbook([{ name: 'Lesson 1', xml }], shared))
+    const [sheet] = readXlsx(workbook([{ name: 'Lesson 1', xml }], shared)).sheets
     expect(sheet!.name).toBe('Lesson 1')
     expect(sheet!.rows).toEqual([['Characters', 'Meaning'], ['老師', 'teacher & tutor', '3'], [], ['學生', '', 'TRUE', 'x\ny'], ['', '你好']])
   })
@@ -49,7 +49,7 @@ describe('readXlsx', () => {
       [],
       'x',
     )
-    expect(readXlsx(book)).toEqual([
+    expect(readXlsx(book).sheets).toEqual([
       { name: 'L1', rows: [['一']] },
       { name: 'Empty', rows: [] },
       { name: 'L2', rows: [['', '二']] },

@@ -19,6 +19,16 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-12.2',
+    title: 'Pictures from your spreadsheet',
+    items: [
+      {
+        text: 'Word lists can bring their pictures: pictures inserted in an Excel column (in the cell or over it) become the card pictures. Or name the image files in a column (apple.jpg) and choose them together with the sheet.',
+        to: '/import/list',
+      },
+    ],
+  },
+  {
     id: '2026-11-12',
     title: 'Decks and lessons',
     items: [

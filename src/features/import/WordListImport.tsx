@@ -3,19 +3,23 @@ import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState } from '
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { createCards, listActiveCards } from '@/data/repositories/cards'
 import { createDeck, ensureLessons } from '@/data/repositories/decks'
+import type { NewMedia } from '@/data/repositories/media'
 import { knownHanziSet } from '@/data/repositories/knownWords'
 import { GRAMMAR_TAG } from '@/domain/grammar'
 import { MY_CARDS, titleKey } from '@/domain/library'
 import { TargetSelect } from '@/features/decks/TargetSelect'
 import { liveTarget, selectClass, targetFromParams, targetLabel, targetQuery, type Target } from '@/features/decks/target'
+import { useBlobUrl } from '@/hooks/useBrowser'
 import { useDecks, useLessons } from '@/hooks/useDecks'
 import { loadSimplifiedDetector, loadToTraditional } from '@/import/extract/traditional'
 import { assignRole, COLUMN_ROLES, guessRoles, type ColumnRole } from '@/import/table/columns'
 import { decodeText, ENCODING_LABEL, type TextEncodingName } from '@/import/table/decode'
 import { parseTable, tagFromFileName, type ParsedTable } from '@/import/table/formats'
 import { buildDrafts, DEFAULT_WORD_LIST_OPTIONS, lessonTitles, withTag, type RowIssue, type WordListOptions, type WordListResult } from '@/import/table/rows'
+import { findPictureFile, isImageFile, markerIndex } from '@/import/table/pictures'
 import { tableFromRows, tableFromSheets } from '@/import/table/sheets'
-import { isXlsx, readXlsx, XlsxError, type Worksheet } from '@/import/table/xlsx'
+import { isXlsx, readXlsx, XlsxError, type WorkbookPicture, type Worksheet } from '@/import/table/xlsx'
+import { prepareImage } from '@/lib/image'
 import { Button } from '@/ui/Button'
 import { cn } from '@/ui/cn'
 import { plural } from '@/ui/format'
@@ -24,9 +28,11 @@ import { Loading } from '@/ui/Loading'
 import { PageHeader } from '@/ui/PageHeader'
 import { Reading } from '@/ui/Reading'
 import { TONE_CLASS } from './flags'
-import { clearWordListFile, pendingWordListFile, WORD_LIST_ACCEPT } from './wordListFile'
+import { clearWordListFile, isWordListFile, pendingWordListFiles, WORD_LIST_ACCEPT } from './wordListFile'
 
 const MAX_BYTES = 20 * 1024 * 1024
+/** Workbooks can carry their pictures. */
+const MAX_XLSX_BYTES = 150 * 1024 * 1024
 const PREVIEW_ROWS = 10
 
 const ROLE_LABEL: Record<ColumnRole, string> = {
@@ -40,6 +46,7 @@ const ROLE_LABEL: Record<ColumnRole, string> = {
   tags: 'Tags',
   lesson: 'Lesson',
   type: 'Word or grammar',
+  image: 'Picture',
   ignore: 'Don’t import',
 }
 
@@ -54,6 +61,7 @@ const ISSUE_INFO: Record<RowIssue, { label: string; tone: keyof typeof TONE_CLAS
   'no-pinyin': { label: 'no pinyin', tone: 'check' },
   'pinyin-mismatch': { label: 'pinyin doesn’t match characters', tone: 'problem' },
   'tone-differs': { label: 'tone differs from dictionary', tone: 'info' },
+  'picture-missing': { label: 'picture file not chosen', tone: 'check' },
 }
 
 /** Where the rows come from: a file, or text pasted from a spreadsheet. */
@@ -65,6 +73,8 @@ interface Sheet {
   encoding?: TextEncodingName
   workbook?: Worksheet[]
   choice?: number | 'lessons'
+  /** The workbook's pictures, which picture cells point to. */
+  pictures?: WorkbookPicture[]
   table: ParsedTable
   roles: ColumnRole[]
 }
@@ -87,15 +97,17 @@ function sheetTable(workbook: Worksheet[], choice: number | 'lessons'): ParsedTa
 /** `lessons`: an Excel file with several sheets becomes one lesson per sheet (else its first sheet is read). */
 async function readWordList(source: Source, lessons: boolean): Promise<Opened> {
   if (!(source instanceof File)) return withTable({ source }, parseTable(source.pasted))
-  if (source.size > MAX_BYTES) return { source, error: 'This file is too big for a word list (over 20 MB).' }
+  if (source.size > MAX_XLSX_BYTES) return { source, error: 'This file is too big for a word list (over 150 MB).' }
   try {
     const bytes = new Uint8Array(await source.arrayBuffer())
     if (isXlsx(bytes)) {
-      const workbook = readXlsx(bytes).filter((s) => s.rows.length > 0)
+      const { sheets, pictures } = readXlsx(bytes)
+      const workbook = sheets.filter((s) => s.rows.length > 0)
       if (!workbook.length) return { source, error: 'No words found in this workbook.' }
       const choice = lessons && workbook.length > 1 ? 'lessons' : 0
-      return withTable({ source, workbook, choice }, sheetTable(workbook, choice))
+      return withTable({ source, workbook, choice, pictures }, sheetTable(workbook, choice))
     }
+    if (source.size > MAX_BYTES) return { source, error: 'This file is too big for a word list (over 20 MB).' }
     const { text, encoding } = decodeText(bytes)
     return withTable({ source, encoding }, parseTable(text))
   } catch (e) {
@@ -119,9 +131,13 @@ function summary(result: WordListResult, options: WordListOptions, rows: number)
   return parts.join(' · ')
 }
 
-/** First non-empty cell of a column, on one line. */
+/** First non-empty cell of a column, on one line (a workbook picture reads "picture"). */
 function sampleOf(table: ParsedTable, col: number): string {
-  return table.rows.find((r) => r[col])?.[col]?.replace(/\n/g, ' / ') ?? ''
+  const cell = table.rows.find((r) => r[col])?.[col] ?? ''
+  return cell
+    .split('\n')
+    .map((line) => (markerIndex(line) === undefined ? line : 'picture'))
+    .join(' / ')
 }
 
 const TEMPLATE = `${import.meta.env.BASE_URL}templates/class-template`
@@ -132,6 +148,7 @@ const HELP_COLUMNS: [string, string][] = [
   ['Pinyin', 'Optional: left empty, it is filled in from the dictionary. Type it where Taiwan reads a word differently.'],
   ['Lesson', 'Optional: rows with the same lesson go together. Leave a cell empty to stay in the lesson above; 3 means “Lesson 3”.'],
   ['Type', 'Optional: “grammar” for a grammar point; empty means a word.'],
+  ['Picture', 'Optional: a picture inserted in the cell (Excel: Insert → Pictures, in or over the cell), or an image file name like apple.jpg. Choose the image files together with the sheet.'],
   ['Example, Example pinyin, Example meaning', 'Optional: a sentence that uses it.'],
   ['Notes', 'Optional: measure word, part of speech, a hint.'],
 ]
@@ -166,8 +183,23 @@ function FileHelp({ open = false }: { open?: boolean }) {
   )
 }
 
+/** A small picture for the preview; `id` is the picture cell it came from. */
+function PictureThumb({ blob, id }: { blob: Blob; id: string }) {
+  const url = useBlobUrl(blob, id)
+  return url ? <img src={url} alt="" className="mr-2 inline-block size-7 rounded bg-white object-contain align-middle" /> : null
+}
+
+/** The list file and the picture files among chosen files. */
+function split(files: readonly File[]): { list?: File; pictures: File[] } {
+  const list = files.find(isWordListFile)
+  return { list, pictures: files.filter((f) => f !== list && isImageFile(f)) }
+}
+
 interface Added {
   count: number
+  /** Cards that got a picture, and pictures that couldn't be read. */
+  withPictures: number
+  badPictures: number
   target: Target
   label: string
   lessons: number
@@ -193,7 +225,12 @@ export function WordListImport() {
   // Back to Settings when the file came from "Restore from file" there.
   const back = fromSettings ? '/settings/sync' : query ? `/import?${query}` : '/import'
   const fileInput = useRef<HTMLInputElement>(null)
-  const [source, setSource] = useState<Source | undefined>(pendingWordListFile)
+  const pictureInput = useRef<HTMLInputElement>(null)
+  const [handed] = useState(() => split(pendingWordListFiles()))
+  const [source, setSource] = useState<Source | undefined>(handed.list)
+  const [pictureFiles, setPictureFiles] = useState<File[]>(handed.pictures)
+  const [chooseError, setChooseError] = useState<string>()
+  const [progress, setProgress] = useState<string>()
   const [pasted, setPasted] = useState('')
   const [opened, setOpened] = useState<Opened>()
   const [options, setOptions] = useState(DEFAULT_WORD_LIST_OPTIONS)
@@ -235,12 +272,28 @@ export function WordListImport() {
   }, [source])
 
   const sheet = opened && opened.source === source && 'table' in opened ? opened : undefined
+  const workbookPictures = useMemo(() => sheet?.pictures?.map((p) => new Blob([p.data as Uint8Array<ArrayBuffer>], { type: p.mime })), [sheet?.pictures])
+  /** The picture a picture cell points to: one from the workbook, or a chosen file. */
+  const pictureFor = useMemo(
+    () =>
+      (ref: string): Blob | undefined => {
+        const index = markerIndex(ref)
+        return index !== undefined ? workbookPictures?.[index] : findPictureFile(ref, pictureFiles)
+      },
+    [workbookPictures, pictureFiles],
+  )
   const result = useMemo(
     () =>
       sheet && existing && known
-        ? buildDrafts(sheet.table, sheet.roles, options, { existingHanzi: existing, knownHanzi: known, isSimplified, toTraditional: converter.convert })
+        ? buildDrafts(sheet.table, sheet.roles, options, {
+            existingHanzi: existing,
+            knownHanzi: known,
+            isSimplified,
+            toTraditional: converter.convert,
+            hasPicture: (ref) => !!pictureFor(ref),
+          })
         : undefined,
-    [sheet, existing, known, isSimplified, converter.convert, options],
+    [sheet, existing, known, isSimplified, converter.convert, options, pictureFor],
   )
 
   const simplifiedFound = Boolean(result && result.counts.simplified + result.counts.converted > 0)
@@ -266,6 +319,20 @@ export function WordListImport() {
     setAddError(undefined)
   }
 
+  /** Chosen files: a list (with or without its pictures), or more pictures for the list on screen. */
+  function chooseFiles(files: File[]) {
+    setChooseError(undefined)
+    const { list, pictures } = split(files)
+    if (list) {
+      setPictureFiles(pictures)
+      choose(list)
+    } else if (pictures.length && source) {
+      setPictureFiles((had) => [...had.filter((f) => !pictures.some((p) => p.name === f.name)), ...pictures])
+    } else if (files.length) {
+      setChooseError(pictures.length ? 'Choose the spreadsheet too: the pictures go with its rows.' : 'This isn’t a word list or a picture.')
+    }
+  }
+
   function setTarget(t: Target) {
     setNewDeck(undefined)
     const next = new URLSearchParams(targetQuery(t))
@@ -280,11 +347,25 @@ export function WordListImport() {
     try {
       const deckId = newDeck !== undefined ? (await createDeck(newDeck)).id : target.deckId
       const lessonId = newDeck !== undefined ? undefined : target.lessonId
+      // Pictures are shrunk like any card picture (800 px) before the cards are made; one that can't be read is left out.
+      const withPicture = result.drafts.filter((d) => d.picture && pictureFor(d.picture))
+      const images = new Map<string, NewMedia>()
+      let badPictures = 0
+      for (const [i, d] of withPicture.entries()) {
+        setProgress(`Preparing pictures… ${i + 1} of ${withPicture.length}`)
+        try {
+          images.set(d.picture!, images.get(d.picture!) ?? (await prepareImage(pictureFor(d.picture!)!)))
+        } catch {
+          badPictures++
+        }
+      }
+      setProgress(undefined)
       const titles = deckId !== MY_CARDS ? lessonTitles(result.drafts) : []
       const made = titles.length ? await ensureLessons(deckId, titles) : new Map()
       const cards = await createCards(
-        withTag(result.drafts, tag).map(({ lesson, ...d }) => ({
+        withTag(result.drafts, tag).map(({ lesson, picture, ...d }) => ({
           ...d,
+          image: picture ? images.get(picture) : undefined,
           source: { type: 'manual' } as const,
           deckId,
           lessonId: (lesson && made.get(titleKey(lesson))?.id) || lessonId,
@@ -292,25 +373,48 @@ export function WordListImport() {
         Date.now(),
       )
       const where: Target = titles.length > 1 || !lessonId ? { deckId } : { deckId, lessonId }
-      setAdded({ count: cards.length, target: where, label: newDeck?.trim() || targetLabel(where, decks, lessons), lessons: titles.length, tag: tag.trim().replace(/\s+/g, '-') })
+      setAdded({
+        count: cards.length,
+        withPictures: cards.filter((c) => c.imageId).length,
+        badPictures,
+        target: where,
+        label: newDeck?.trim() || targetLabel(where, decks, lessons),
+        lessons: titles.length,
+        tag: tag.trim().replace(/\s+/g, '-'),
+      })
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'Could not add the cards.')
     } finally {
       setAdding(false)
+      setProgress(undefined)
     }
   }
 
   const picker = (
-    <input
-      ref={fileInput}
-      type="file"
-      accept={WORD_LIST_ACCEPT}
-      hidden
-      onChange={(e) => {
-        choose(e.target.files?.[0])
-        e.target.value = ''
-      }}
-    />
+    <>
+      <input
+        ref={fileInput}
+        type="file"
+        accept={`${WORD_LIST_ACCEPT},image/*`}
+        multiple
+        hidden
+        onChange={(e) => {
+          chooseFiles([...(e.target.files ?? [])])
+          e.target.value = ''
+        }}
+      />
+      <input
+        ref={pictureInput}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          chooseFiles([...(e.target.files ?? [])])
+          e.target.value = ''
+        }}
+      />
+    </>
   )
   const title = pasting && !(source instanceof File) ? 'Paste from a spreadsheet' : 'Import a word list'
 
@@ -324,8 +428,14 @@ export function WordListImport() {
           <p className="text-lg font-semibold">
             Added {plural(added.count, 'card')}
             {inDeck && ` to ${added.label}`}
-            {added.lessons > 1 && ` in ${plural(added.lessons, 'lesson')}`}.
+            {added.lessons > 1 && ` in ${plural(added.lessons, 'lesson')}`}
+            {added.withPictures > 0 && `, ${added.withPictures === added.count ? 'all' : added.withPictures} with pictures`}.
           </p>
+          {added.badPictures > 0 && (
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+              {plural(added.badPictures, 'picture')} couldn’t be read (Excel drawings in EMF/WMF, or HEIC photos), so those cards have none: add one later on the card.
+            </p>
+          )}
           <p className="mt-1 text-muted">New cards wait in the new-card pool; a few are introduced each day.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {inDeck ? (
@@ -383,6 +493,8 @@ export function WordListImport() {
             <Button size="lg" className="w-full" onClick={() => fileInput.current?.click()}>
               <Icon name="upload" /> Choose a file
             </Button>
+            <p className="mt-2 text-xs text-muted">Pictures in the sheet come along. If it names picture files (apple.jpg), choose them together with it.</p>
+            {chooseError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{chooseError}</p>}
             <p className="mt-3 text-sm">
               <Link to={query ? `/import/list?paste=1&${query}` : '/import/list?paste=1'} replace className="font-semibold text-accent">
                 Or paste rows from a spreadsheet →
@@ -433,7 +545,7 @@ export function WordListImport() {
   function chooseSheet(value: string) {
     if (!sheet?.workbook) return
     const choice = value === 'lessons' ? 'lessons' : Number(value)
-    setOpened(withTable({ source: sheet.source, workbook: sheet.workbook, choice }, sheetTable(sheet.workbook, choice)))
+    setOpened(withTable({ source: sheet.source, workbook: sheet.workbook, choice, pictures: sheet.pictures }, sheetTable(sheet.workbook, choice)))
   }
 
   return (
@@ -453,6 +565,10 @@ export function WordListImport() {
         </Button>
         {picker}
       </section>
+
+      {roles.includes('image') && (
+        <PicturePanel result={result} pictureFor={pictureFor} pictureFiles={pictureFiles} chooseError={chooseError} onChoose={() => pictureInput.current?.click()} />
+      )}
 
       {sheet.workbook && sheet.workbook.length > 1 && (
         <label className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-3xl border border-line bg-surface p-4">
@@ -521,6 +637,7 @@ export function WordListImport() {
                   <Fragment key={row.index}>
                     <tr className={cn('border-t border-line', row.skipped && 'opacity-50')}>
                       <td className={cn('truncate px-3 pt-2 text-base', !chips && 'pb-2')} lang="zh-Hant">
+                        {row.draft.picture && pictureFor(row.draft.picture) && <PictureThumb blob={pictureFor(row.draft.picture)!} id={row.draft.picture} />}
                         {row.draft.hanzi || '—'}
                       </td>
                       <td className={cn('truncate px-3 pt-2', !chips && 'pb-2')}>
@@ -641,13 +758,42 @@ export function WordListImport() {
         {summary(result, options, table.rows.length)}
       </p>
       <Button size="lg" className="w-full" onClick={() => void add()} disabled={!count || adding || converterLoading || (newDeck !== undefined && !newDeck.trim())}>
-        {adding ? 'Adding…' : count ? `Add ${plural(count, 'card')}` : 'Nothing to add'}
+        {adding ? (progress ?? 'Adding…') : count ? `Add ${plural(count, 'card')}` : 'Nothing to add'}
       </Button>
       {addError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{addError}</p>}
       <div className="mt-6">
         <FileHelp />
       </div>
     </>
+  )
+}
+
+/** How many cards have their picture, and the picture files still to choose. */
+function PicturePanel({ result, pictureFor, pictureFiles, chooseError, onChoose }: { result: WordListResult; pictureFor: (ref: string) => Blob | undefined; pictureFiles: File[]; chooseError?: string; onChoose(): void }) {
+  const rows = result.rows.filter((r) => !r.skipped)
+  const found = rows.filter((r) => r.draft.picture && pictureFor(r.draft.picture)).length
+  const named = rows.filter((r) => r.draft.picture && markerIndex(r.draft.picture) === undefined)
+  const missing = rows.filter((r) => r.issues.includes('picture-missing')).map((r) => r.draft.picture!)
+  return (
+    <section className="mb-4 rounded-3xl border border-line bg-surface p-4">
+      <h2 className="mb-1 text-lg font-semibold">Pictures</h2>
+      <p className="text-sm text-muted">
+        {found} of {plural(rows.length, 'card')} {found === 1 ? 'has' : 'have'} a picture.
+        {pictureFiles.length > 0 && ` ${plural(pictureFiles.length, 'picture file')} chosen.`}
+      </p>
+      {missing.length > 0 && (
+        <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+          Not found yet: {missing.slice(0, 5).join(', ')}
+          {missing.length > 5 && ` and ${missing.length - 5} more`}. Those cards are added without a picture.
+        </p>
+      )}
+      {named.length > 0 && (
+        <Button variant="secondary" size="sm" className="mt-3" onClick={onChoose}>
+          <Icon name="image" className="size-4" /> {pictureFiles.length ? 'Choose more picture files' : 'Choose the picture files'}
+        </Button>
+      )}
+      {chooseError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{chooseError}</p>}
+    </section>
   )
 }
 

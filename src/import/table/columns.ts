@@ -2,6 +2,7 @@ import { containsHan } from '@/domain/cjk'
 import { checkPinyin } from '@/domain/pinyin/suggest'
 import { looksLikePinyin } from '@/domain/pinyin/tones'
 import type { ParsedTable } from './formats'
+import { isPictureRef } from './pictures'
 
 /** What a column of a word list holds. */
 export type ColumnRole =
@@ -17,9 +18,11 @@ export type ColumnRole =
   | 'lesson'
   /** Word or grammar. */
   | 'type'
+  /** The card's picture: one placed in the Excel cell, or an image file name chosen with the list. */
+  | 'image'
   | 'ignore'
 
-export const COLUMN_ROLES: readonly ColumnRole[] = ['hanzi', 'pinyin', 'meaning', 'example', 'examplePinyin', 'exampleMeaning', 'notes', 'tags', 'lesson', 'type', 'ignore']
+export const COLUMN_ROLES: readonly ColumnRole[] = ['hanzi', 'pinyin', 'meaning', 'example', 'examplePinyin', 'exampleMeaning', 'notes', 'tags', 'lesson', 'type', 'image', 'ignore']
 
 /** Roles only one column can have; notes and tags columns are joined. */
 export const SINGLE_ROLES: ReadonlySet<ColumnRole> = new Set(['hanzi', 'pinyin', 'meaning', 'example', 'examplePinyin', 'exampleMeaning', 'lesson', 'type'])
@@ -56,8 +59,9 @@ const EXACT: [ColumnRole, number, string[]][] = [
   // Exact names only: a row like "Lesson 1" is a heading inside a list, not a column name.
   ['lesson', 2, ['lesson', 'lessons', 'lesson name', 'lesson title', 'lesson no', 'lesson number', 'unit', 'chapter', '課', '课', '課次', '课次', '課名', '第幾課', '第几课', '課別', '單元', '单元', '單元名稱', '章', '章節', '章节']],
   ['type', 2, ['type', 'kind', 'card type', '類型', '类型', '種類', '种类', '類別', '类别']],
+  ['image', 2, ['image', 'images', 'picture', 'pictures', 'photo', 'photos', 'pic', 'img', 'image file', 'picture file', '圖片', '图片', '圖', '图', '照片', '圖像', '图像', '插圖', '插图']],
   ['notes', 2, ['notes', 'note', 'remarks', 'comment', 'comments', 'part of speech', 'pos', 'measure word', '備註', '备注', '筆記', '笔记', '詞性', '词性', '量詞', '量词']],
-  ['ignore', 2, ['guid', 'id', 'notetype', 'note type', 'deck', 'audio', 'sound', 'image', 'picture', 'zhuyin', 'bopomofo', '注音', '序號', '编号']],
+  ['ignore', 2, ['guid', 'id', 'notetype', 'note type', 'deck', 'audio', 'sound', 'zhuyin', 'bopomofo', '注音', '序號', '编号']],
 ]
 
 const BY_NAME = new Map(EXACT.flatMap(([role, rank, names]) => names.map((name) => [name, { role, rank }] as const)))
@@ -69,6 +73,7 @@ const CONTAINS: [ColumnRole, RegExp][] = [
   ['example', /example|sentence|例句/],
   ['pinyin', /pinyin|拼音/],
   ['tags', /\btags?\b|標籤|标签/],
+  ['image', /\b(image|picture|photo)s?\b|圖片|图片|照片/],
   ['notes', /\bnotes?\b|備註|备注/],
   ['meaning', /english|meaning|translation|definition|意思|英文|翻譯|翻译/],
   ['hanzi', /chinese|hanzi|character|traditional|漢字|汉字|中文|繁/],
@@ -105,6 +110,8 @@ interface ColumnStats {
   numeric: number
   /** Han characters per non-empty cell. */
   avgHan: number
+  /** Share of the non-empty cells that name a picture (a workbook picture or an image file name). */
+  pictures: number
 }
 
 const SAMPLE_ROWS = 300
@@ -118,10 +125,12 @@ function columnStats(rows: string[][], col: number): ColumnStats {
   let words = 0
   let numeric = 0
   let hanChars = 0
+  let pictures = 0
   for (const row of rows) {
     const cell = row[col] ?? ''
     if (!cell) continue
     filled++
+    if (isPictureRef(cell.split('\n')[0]!)) pictures++
     const hanCount = cell.match(HAN_G)?.length ?? 0
     if (hanCount) {
       han++
@@ -138,6 +147,7 @@ function columnStats(rows: string[][], col: number): ColumnStats {
     words: share(words),
     numeric: share(numeric),
     avgHan: share(hanChars),
+    pictures: share(pictures),
   }
 }
 
@@ -192,6 +202,9 @@ export function guessRoles(table: ParsedTable): ColumnRole[] {
     const hanHeavy = stats[i]!.han >= 0.5
     if ((m.role === 'hanzi') === hanHeavy) roles[i] = m.role
   })
+
+  // Content: pictures (before the words: `apple.jpg` would read as a meaning).
+  for (const i of free()) if (stats[i]!.pictures >= 0.5) roles[i] = 'image'
 
   // Content: characters and example.
   if (!taken('hanzi')) {
