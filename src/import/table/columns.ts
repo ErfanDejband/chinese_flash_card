@@ -4,12 +4,25 @@ import { looksLikePinyin } from '@/domain/pinyin/tones'
 import type { ParsedTable } from './formats'
 
 /** What a column of a word list holds. */
-export type ColumnRole = 'hanzi' | 'pinyin' | 'meaning' | 'example' | 'examplePinyin' | 'exampleMeaning' | 'notes' | 'tags' | 'ignore'
+export type ColumnRole =
+  | 'hanzi'
+  | 'pinyin'
+  | 'meaning'
+  | 'example'
+  | 'examplePinyin'
+  | 'exampleMeaning'
+  | 'notes'
+  | 'tags'
+  /** The lesson the row belongs to (a teacher's file): one file makes many lessons. */
+  | 'lesson'
+  /** Word or grammar. */
+  | 'type'
+  | 'ignore'
 
-export const COLUMN_ROLES: readonly ColumnRole[] = ['hanzi', 'pinyin', 'meaning', 'example', 'examplePinyin', 'exampleMeaning', 'notes', 'tags', 'ignore']
+export const COLUMN_ROLES: readonly ColumnRole[] = ['hanzi', 'pinyin', 'meaning', 'example', 'examplePinyin', 'exampleMeaning', 'notes', 'tags', 'lesson', 'type', 'ignore']
 
 /** Roles only one column can have; notes and tags columns are joined. */
-export const SINGLE_ROLES: ReadonlySet<ColumnRole> = new Set(['hanzi', 'pinyin', 'meaning', 'example', 'examplePinyin', 'exampleMeaning'])
+export const SINGLE_ROLES: ReadonlySet<ColumnRole> = new Set(['hanzi', 'pinyin', 'meaning', 'example', 'examplePinyin', 'exampleMeaning', 'lesson', 'type'])
 
 export interface NamedRole {
   role: ColumnRole
@@ -40,6 +53,9 @@ const EXACT: [ColumnRole, number, string[]][] = [
   ['examplePinyin', 2, ['example pinyin', 'sentence pinyin', 'example reading', '例句拼音']],
   ['exampleMeaning', 2, ['example meaning', 'example translation', 'example english', 'sentence meaning', 'sentence translation', '例句意思', '例句翻譯', '例句翻译', '例句英文']],
   ['tags', 2, ['tags', 'tag', 'labels', '標籤', '标签']],
+  // Exact names only: a row like "Lesson 1" is a heading inside a list, not a column name.
+  ['lesson', 2, ['lesson', 'lessons', 'lesson name', 'lesson title', 'lesson no', 'lesson number', 'unit', 'chapter', '課', '课', '課次', '课次', '課名', '第幾課', '第几课', '課別', '單元', '单元', '單元名稱', '章', '章節', '章节']],
+  ['type', 2, ['type', 'kind', 'card type', '類型', '类型', '種類', '种类', '類別', '类别']],
   ['notes', 2, ['notes', 'note', 'remarks', 'comment', 'comments', 'part of speech', 'pos', 'measure word', '備註', '备注', '筆記', '笔记', '詞性', '词性', '量詞', '量词']],
   ['ignore', 2, ['guid', 'id', 'notetype', 'note type', 'deck', 'audio', 'sound', 'image', 'picture', 'zhuyin', 'bopomofo', '注音', '序號', '编号']],
 ]

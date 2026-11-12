@@ -19,6 +19,26 @@ export interface Release {
  */
 export const RELEASES: readonly Release[] = [
   {
+    id: '2026-11-12',
+    title: 'Decks and lessons',
+    items: [
+      {
+        text: 'Import is now Decks: group your cards into decks (a textbook, a class) and lessons. Cards you already have can be moved in from Your cards.',
+        to: '/decks',
+      },
+      {
+        text: 'Review just one deck or a few lessons: pick them with the chips above Start review. New cards still count against one daily limit.',
+      },
+      {
+        text: 'Add a whole lesson at once from an Excel file, or paste rows from any spreadsheet. A Lesson column makes the lessons for you; templates are on that screen.',
+        to: '/import/list?paste=1',
+      },
+      {
+        text: 'Grammar points: tick Grammar point on a card (or write grammar in a Type column) and it is asked by its meaning, never by a picture.',
+      },
+    ],
+  },
+  {
     id: '2026-11-04.2',
     title: 'Zhuyin in ㄅㄆㄇㄈ order',
     items: [

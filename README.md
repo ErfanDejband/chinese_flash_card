@@ -24,9 +24,14 @@ send what they need to the AI services you configure, and sync stores a copy in 
   in your own Google Drive — no server, nothing stored anywhere else. Pictures follow in a later update. See
   [ADR 0007](docs/adr/0007-sync-google-drive-appdata.md)
 - **Backup**: zip export / import (merge or replace)
-- **Word lists from other apps**: Import → *Import a word list* reads Anki (*Notes in Plain Text*), Pleco and Quizlet exports
-  and CSV/TSV files from a spreadsheet (UTF-8, UTF-16 or Big5), no AI needed: it guesses the columns, shows a preview and skips
-  words you already have. Settings → Sync & backup → *Export word list (TSV)* writes a file Anki and Pleco can import
+- **Decks and lessons** (the Decks tab): group cards into decks (a textbook, a class) and lessons, review all cards, My cards,
+  one deck or some of its lessons (chips on Home and Progress; one daily new-card limit for all), new cards lesson by lesson.
+  Grammar cards (a pattern like 雖然…但是…) are never asked by picture
+- **Word lists and spreadsheets**: Decks → Add cards → *Open a word list file* reads Excel (.xlsx; one sheet, or every sheet
+  as a lesson), Anki (*Notes in Plain Text*), Pleco and Quizlet exports and CSV/TSV files (UTF-8, UTF-16 or Big5), or rows
+  pasted from a spreadsheet, no AI needed: it guesses the columns (a Lesson column makes the lessons), shows a preview and
+  skips words you already have. Templates for teachers are on that screen. Settings → Sync & backup → *Export word list (TSV)*
+  writes a file Anki and Pleco can import
 - **PWA**: installable on Android, works offline
 - **AI import from PDFs, photos or screenshots** (several images at once; rotate sideways pages; long screenshots
   are split automatically): pick pages → a vision model finds the vocabulary (and infers characters shown only as
@@ -68,7 +73,7 @@ there; everything else works. Use the deployed HTTPS site to test installation.
 ## PDF import setup
 
 **Easiest: free, no key.** In **Settings → AI for PDF import**, keep **Free — no key** and tap **Connect OpenRouter**
-(or **Connect free AI** on the Import screen). Sign in at OpenRouter with Google or e-mail (no card); the app gets
+(or **Connect free AI** under Decks → Add cards). Sign in at OpenRouter with Google or e-mail (no card); the app gets
 your own OpenRouter key automatically and uses its free models (`openrouter/free`). The free tier covers about 50 pages
 a day; the app shows how many are left. See [ADR 0006](docs/adr/0006-free-ai-via-openrouter-oauth.md).
 
@@ -79,7 +84,7 @@ a day; the app shows how many are left. See [ADR 0006](docs/adr/0006-free-ai-via
    or use a local LM Studio / Ollama server.
 2. In the app: **Settings → AI for PDF import**, paste the key. The app recognises the service from the key's format,
    loads the models that can read images and preselects a recommended one (Gemini: newest Flash; Claude: Opus 5).
-3. **Import → Choose a PDF or images**, select (and rotate) the pages, **Extract**, review, **Add cards**.
+3. **Decks → Add cards → Choose a PDF or images**, select (and rotate) the pages, **Extract**, review, **Add cards**.
 
 The key is stored only in this browser (never in backups). Free tiers have per-minute/day limits: the importer
 waits and retries on rate limits, and an interrupted import can be continued later.

@@ -57,11 +57,46 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
     title: 'Adding cards yourself',
     keywords: 'new card add type characters pinyin meaning example notes edit delete',
     blocks: [
-      'Tap + Add card on Home or in Settings → Your cards. Only the characters are needed; the app suggests the pinyin from its dictionary.',
-      'Add a meaning, notes, an example sentence or a picture if you like. In the default direction the picture is the question, so cards with pictures work best.',
+      'Tap + Add card on Home or in Settings → Your cards, or Decks → Add cards → Type a card. Only the characters are needed; the app suggests the pinyin from its dictionary.',
+      'Add a meaning, notes, an example sentence or a picture if you like. In the default direction the picture is the question, so cards with pictures work best. The Deck field puts the card in a deck or lesson.',
+      'For a grammar point, type the pattern (雖然…但是…) and tick Grammar point: it is asked by its meaning, never by a picture.',
       'Tap any card in Settings → Your cards to edit or delete it. The app is made for Traditional characters, with pinyin or zhuyin.',
     ],
     links: [{ label: 'Add a card', to: '/cards/new' }],
+  },
+  {
+    id: 'decks',
+    title: 'Decks and lessons',
+    keywords: 'deck decks lesson lessons group class textbook chapter unit review only move organise organize my cards',
+    blocks: [
+      'A deck groups cards: a textbook, a class, a topic. Split it into lessons (Lesson 1, Lesson 2…) to review one at a time. Cards in no deck are in My cards.',
+      'Decks → + New deck, then + New lesson. Add cards from inside a lesson and they go straight into it; a word list with a Lesson column makes the lessons for you.',
+      'To review only some cards, pick them with the chips above Start review on Home or Progress: All cards, My cards, a deck, or some of its lessons. Your phone remembers the choice. A deck’s new cards come lesson by lesson, and the daily limit of new cards counts all decks together.',
+      'To sort cards you already have, search or filter them in Settings → Your cards and tap Move these cards to a deck. Deleting a deck or lesson asks whether to keep its cards.',
+    ],
+    links: [{ label: 'Decks', to: '/decks' }],
+  },
+  {
+    id: 'teachers',
+    title: 'For teachers: making lessons for your class',
+    keywords: 'teacher class students lesson lessons excel spreadsheet google sheets template paste csv bulk many cards grammar course',
+    blocks: [
+      'Make a deck for the class (Decks → + New deck). Your word lists become its lessons in one go:',
+      {
+        list: [
+          'In a spreadsheet, put one card per row with the column names on top: Lesson, Type, Characters, Pinyin, Meaning, and if you like Example, Example pinyin, Example meaning and Notes.',
+          'Lesson groups the rows (3 means “Lesson 3”; an empty cell stays in the lesson above). Type is “grammar” for a grammar point, else empty.',
+          'Only Characters is needed. Empty pinyin is filled in from the dictionary; type it where Taiwan reads a word differently.',
+          'A workbook with one sheet per lesson works too: the sheet names become the lessons.',
+        ],
+      },
+      'Then Decks → your deck → Add cards, and either Open a word list file (Excel .xlsx or CSV) or copy the rows and choose Paste from a spreadsheet. Check the columns and the preview, then add them all. Templates to start from are on that screen.',
+      'Adding the same file again skips the words the deck already has, so you can add next week’s lesson to the same sheet.',
+    ],
+    links: [
+      { label: 'Decks', to: '/decks' },
+      { label: 'Paste from a spreadsheet', to: '/import/list?paste=1' },
+    ],
   },
   {
     id: 'zhuyin',
@@ -93,9 +128,9 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   {
     id: 'import',
     title: 'Importing a PDF, photos or screenshots',
-    keywords: 'ai pdf photo image screenshot textbook course book page vocabulary reading story crop flags duplicate simplified',
+    keywords: 'ai pdf photo image screenshot textbook course book page vocabulary reading story crop flags duplicate simplified import',
     blocks: [
-      'Import → Choose a PDF or images, then pick the pages you want and what they hold:',
+      'Decks → Add cards → Choose a PDF or images, then pick the pages you want and what they hold:',
       {
         list: [
           'Vocabulary: word lists, vocabulary slides, pictures with labels.',
@@ -104,29 +139,33 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
       },
       'The AI reads one page at a time and makes draft cards. Nothing is added until you check them: fix a field, adjust a picture’s crop, untick what you don’t want, then add them.',
       'Flags point at things worth a look: characters, pinyin or meanings the AI filled in, a reading that differs from the dictionary, Simplified characters, duplicates and unsure answers. Words already in your deck or in your known words start unticked.',
+      'Add to, above the Add button, chooses the deck or lesson the cards go into.',
     ],
-    links: [{ label: 'Import', to: '/import' }],
+    links: [{ label: 'Add cards', to: '/import' }],
   },
   {
     id: 'word-lists',
-    title: 'Importing a word list (Anki, Pleco, Quizlet, CSV)',
-    keywords: 'anki pleco quizlet csv tsv txt excel spreadsheet google sheets export text file columns big5 move switch',
+    title: 'Importing a word list (Excel, Anki, Pleco, Quizlet, CSV)',
+    keywords: 'anki pleco quizlet csv tsv txt excel xlsx spreadsheet google sheets paste export text file columns big5 move switch',
     blocks: [
-      'Import → Import a word list reads the text files other apps export. No AI is needed, and nothing leaves your device. Choosing such a file under Import or Settings → Sync & backup → Restore from file opens it too.',
+      'Decks → Add cards → Open a word list file reads spreadsheets and the text files other apps export. No AI is needed, and nothing leaves your device. Choosing such a file under Settings → Sync & backup → Restore from file opens it too.',
       {
         list: [
+          'Excel (.xlsx): read directly. With several sheets, pick one, or take them all as one lesson each.',
+          'Google Sheets or Numbers: download as .xlsx or CSV, or copy the rows and use Paste from a spreadsheet.',
           'Anki: File → Export → Notes in Plain Text (.txt).',
           'Pleco: export your flashcards as a text file.',
           'Quizlet: open a set → Export, copy the text and save it as a .txt file.',
-          'Excel, Numbers or Google Sheets: save as CSV or tab-separated text. UTF-8, UTF-16 and Big5 files all work.',
+          'CSV or tab-separated text in UTF-8, UTF-16 or Big5.',
         ],
       },
-      'The app guesses what each column holds (characters, pinyin, meaning, example, notes, tags); change any column with its menu. A preview shows the first cards and what needs a look.',
+      'The app guesses what each column holds (characters, pinyin, meaning, example, notes, tags, lesson, word or grammar); change any column with its menu. A preview shows the first cards and what needs a look.',
+      'Where they go: My cards, a deck or a lesson. Into a deck, a Lesson column makes the lessons.',
       'Options: skip words already in your deck or in your known words, convert Simplified characters to Traditional (only when you tick it), fill in missing pinyin from the dictionary, and a tag for the new cards. Pleco categories and Anki tags are kept as tags too.',
       'Settings → Sync & backup → Export word list (TSV) saves your cards as a tab-separated file that Anki and Pleco can import.',
     ],
     links: [
-      { label: 'Import a word list', to: '/import/list' },
+      { label: 'Open a word list', to: '/import/list' },
       { label: 'Export', to: '/settings/sync' },
     ],
   },

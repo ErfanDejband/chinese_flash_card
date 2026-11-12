@@ -190,7 +190,7 @@ export function CardsPage() {
               <Icon name="plus" /> Add a card
             </ButtonLink>
             <ButtonLink to="/import" variant="secondary">
-              <Icon name="import" /> Import a PDF or photos
+              <Icon name="import" /> More ways: a list, a PDF, photos
             </ButtonLink>
           </div>
           <Link to="/" className="mt-5 inline-block text-sm font-semibold text-accent">

@@ -15,10 +15,12 @@ export function clearWordListFile(): void {
   pending = undefined
 }
 
-/** File-input `accept` for word lists. */
-export const WORD_LIST_ACCEPT = '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain'
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-/** Text files exported by Anki, Pleco, Quizlet or a spreadsheet (Windows often reports .csv as an Excel type). */
+/** File-input `accept` for word lists. */
+export const WORD_LIST_ACCEPT = `.csv,.tsv,.txt,.xlsx,text/csv,text/tab-separated-values,text/plain,${XLSX_TYPE}`
+
+/** Excel workbooks and the text files exported by Anki, Pleco, Quizlet or a spreadsheet (Windows often reports .csv as an Excel type). */
 export function isWordListFile(file: File): boolean {
-  return /\.(csv|tsv|txt)$/i.test(file.name) || ['text/csv', 'text/tab-separated-values', 'text/plain'].includes(file.type)
+  return /\.(csv|tsv|txt|xlsx)$/i.test(file.name) || ['text/csv', 'text/tab-separated-values', 'text/plain', XLSX_TYPE].includes(file.type)
 }

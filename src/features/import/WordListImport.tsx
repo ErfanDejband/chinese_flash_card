@@ -1,13 +1,21 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { createCards, listActiveCards } from '@/data/repositories/cards'
+import { createDeck, ensureLessons } from '@/data/repositories/decks'
 import { knownHanziSet } from '@/data/repositories/knownWords'
+import { GRAMMAR_TAG } from '@/domain/grammar'
+import { MY_CARDS, titleKey } from '@/domain/library'
+import { TargetSelect } from '@/features/decks/TargetSelect'
+import { liveTarget, selectClass, targetFromParams, targetLabel, targetQuery, type Target } from '@/features/decks/target'
+import { useDecks, useLessons } from '@/hooks/useDecks'
 import { loadSimplifiedDetector, loadToTraditional } from '@/import/extract/traditional'
 import { assignRole, COLUMN_ROLES, guessRoles, type ColumnRole } from '@/import/table/columns'
 import { decodeText, ENCODING_LABEL, type TextEncodingName } from '@/import/table/decode'
 import { parseTable, tagFromFileName, type ParsedTable } from '@/import/table/formats'
-import { buildDrafts, DEFAULT_WORD_LIST_OPTIONS, withTag, type RowIssue, type WordListOptions, type WordListResult } from '@/import/table/rows'
+import { buildDrafts, DEFAULT_WORD_LIST_OPTIONS, lessonTitles, withTag, type RowIssue, type WordListOptions, type WordListResult } from '@/import/table/rows'
+import { tableFromRows, tableFromSheets } from '@/import/table/sheets'
+import { isXlsx, readXlsx, XlsxError, type Worksheet } from '@/import/table/xlsx'
 import { Button } from '@/ui/Button'
 import { cn } from '@/ui/cn'
 import { plural } from '@/ui/format'
@@ -30,6 +38,8 @@ const ROLE_LABEL: Record<ColumnRole, string> = {
   exampleMeaning: 'Example meaning',
   notes: 'Notes',
   tags: 'Tags',
+  lesson: 'Lesson',
+  type: 'Word or grammar',
   ignore: 'Don’t import',
 }
 
@@ -46,24 +56,46 @@ const ISSUE_INFO: Record<RowIssue, { label: string; tone: keyof typeof TONE_CLAS
   'tone-differs': { label: 'tone differs from dictionary', tone: 'info' },
 }
 
+/** Where the rows come from: a file, or text pasted from a spreadsheet. */
+type Source = File | { pasted: string }
+
+/** The rows being imported. An Excel file keeps its sheets: one is read, or all of them as lessons. */
 interface Sheet {
-  file: File
-  encoding: TextEncodingName
+  source: Source
+  encoding?: TextEncodingName
+  workbook?: Worksheet[]
+  choice?: number | 'lessons'
   table: ParsedTable
   roles: ColumnRole[]
 }
 
-type Opened = Sheet | { file: File; error: string }
+type Opened = Sheet | { source: Source; error: string }
 
-async function readWordList(file: File): Promise<Opened> {
-  if (file.size > MAX_BYTES) return { file, error: 'This file is too big for a word list (over 20 MB).' }
+const nameOf = (source: Source) => (source instanceof File ? source.name : 'Pasted rows')
+
+function withTable(sheet: Omit<Sheet, 'table' | 'roles'>, table: ParsedTable): Opened {
+  if (!table.rows.length) return { source: sheet.source, error: 'No words found.' }
+  return { ...sheet, table, roles: guessRoles(table) }
+}
+
+const sheetTable = (workbook: Worksheet[], choice: number | 'lessons') => (choice === 'lessons' ? tableFromSheets(workbook) : tableFromRows(workbook[choice]!.rows))
+
+/** `lessons`: an Excel file with several sheets becomes one lesson per sheet (else its first sheet is read). */
+async function readWordList(source: Source, lessons: boolean): Promise<Opened> {
+  if (!(source instanceof File)) return withTable({ source }, parseTable(source.pasted))
+  if (source.size > MAX_BYTES) return { source, error: 'This file is too big for a word list (over 20 MB).' }
   try {
-    const { text, encoding } = decodeText(new Uint8Array(await file.arrayBuffer()))
-    const table = parseTable(text)
-    if (!table.rows.length) return { file, error: 'No words found in this file.' }
-    return { file, encoding, table, roles: guessRoles(table) }
-  } catch {
-    return { file, error: 'Could not read this file.' }
+    const bytes = new Uint8Array(await source.arrayBuffer())
+    if (isXlsx(bytes)) {
+      const workbook = readXlsx(bytes).filter((s) => s.rows.length > 0)
+      if (!workbook.length) return { source, error: 'No words found in this workbook.' }
+      const choice = lessons && workbook.length > 1 ? 'lessons' : 0
+      return withTable({ source, workbook, choice }, sheetTable(workbook, choice))
+    }
+    const { text, encoding } = decodeText(bytes)
+    return withTable({ source, encoding }, parseTable(text))
+  } catch (e) {
+    return { source, error: e instanceof XlsxError ? e.message : 'Could not read this file.' }
   }
 }
 
@@ -88,26 +120,90 @@ function sampleOf(table: ParsedTable, col: number): string {
   return table.rows.find((r) => r[col])?.[col]?.replace(/\n/g, ' / ') ?? ''
 }
 
+const TEMPLATE = `${import.meta.env.BASE_URL}templates/class-template`
+
+const HELP_COLUMNS: [string, string][] = [
+  ['Characters', 'Required. The word, or a grammar pattern like 雖然…但是….'],
+  ['Meaning', 'Recommended. What it means in your language.'],
+  ['Pinyin', 'Optional: left empty, it is filled in from the dictionary. Type it where Taiwan reads a word differently.'],
+  ['Lesson', 'Optional: rows with the same lesson go together. Leave a cell empty to stay in the lesson above; 3 means “Lesson 3”.'],
+  ['Type', 'Optional: “grammar” for a grammar point; empty means a word.'],
+  ['Example, Example pinyin, Example meaning', 'Optional: a sentence that uses it.'],
+  ['Notes', 'Optional: measure word, part of speech, a hint.'],
+]
+
+/** How to lay out a file for import, with the templates. */
+function FileHelp({ open = false }: { open?: boolean }) {
+  return (
+    <details open={open} className="group rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
+      <summary className="cursor-pointer font-semibold">How to set up your file</summary>
+      <p className="mt-2 text-muted">
+        One row per card and the column names in the first row, in any order. Excel (.xlsx), Google Sheets (File → Download → .xlsx or .csv),
+        Numbers and CSV files all work, or copy the rows and paste them.
+      </p>
+      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-[11rem_1fr]">
+        {HELP_COLUMNS.map(([name, text]) => (
+          <Fragment key={name}>
+            <dt className="font-medium">{name}</dt>
+            <dd className="text-muted">{text}</dd>
+          </Fragment>
+        ))}
+      </dl>
+      <p className="mt-3 text-muted">A workbook with one sheet per lesson works too: the sheet names become the lessons.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <a href={`${TEMPLATE}.xlsx`} download="class-template.xlsx" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 font-semibold hover:bg-sunken">
+          <Icon name="download" className="size-4" /> Excel template
+        </a>
+        <a href={`${TEMPLATE}.csv`} download="class-template.csv" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 font-semibold hover:bg-sunken">
+          <Icon name="download" className="size-4" /> CSV template
+        </a>
+      </div>
+    </details>
+  )
+}
+
+interface Added {
+  count: number
+  target: Target
+  label: string
+  lessons: number
+  tag: string
+}
+
 /**
- * `/import/list`: a word list exported by Anki, Pleco, Quizlet or a spreadsheet. Shows the guessed
- * column roles (changeable), a preview of the first cards and the counts; adds the cards in one go.
+ * `/import/list`: a word list exported by Anki, Pleco, Quizlet or a spreadsheet, an Excel workbook,
+ * or rows pasted from a spreadsheet (`?paste=1`). Shows the guessed column roles (changeable), a
+ * preview of the first cards and the counts; adds the cards in one go to My cards or a deck, where
+ * a Lesson column (or one sheet per lesson) makes the lessons.
  */
 export function WordListImport() {
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const pasting = params.get('paste') === '1'
+  const fromSettings = (useLocation().state as { from?: unknown } | null)?.from === '/settings/sync'
+  const decks = useDecks()
+  const lessons = useLessons()
+  const chosen = targetFromParams(params)
+  const target = decks && lessons ? liveTarget(chosen, decks, lessons) : chosen
+  const query = targetQuery(target)
   // Back to Settings when the file came from "Restore from file" there.
-  const back = (useLocation().state as { from?: unknown } | null)?.from === '/settings/sync' ? '/settings/sync' : '/import'
+  const back = fromSettings ? '/settings/sync' : query ? `/import?${query}` : '/import'
   const fileInput = useRef<HTMLInputElement>(null)
-  const [file, setFile] = useState(pendingWordListFile)
+  const [source, setSource] = useState<Source | undefined>(pendingWordListFile)
+  const [pasted, setPasted] = useState('')
   const [opened, setOpened] = useState<Opened>()
   const [options, setOptions] = useState(DEFAULT_WORD_LIST_OPTIONS)
-  const [tag, setTag] = useState(() => (file ? tagFromFileName(file.name) : ''))
+  const [tag, setTag] = useState(() => (source instanceof File && chosen.deckId === MY_CARDS ? tagFromFileName(source.name) : ''))
+  /** The name of a deck to make for these cards. */
+  const [newDeck, setNewDeck] = useState<string>()
   const [isSimplified, setIsSimplified] = useState<(text: string) => boolean>()
   const [converter, setConverter] = useState<{ convert?: (text: string) => string; failed?: boolean }>({})
   const [adding, setAdding] = useState(false)
-  const [added, setAdded] = useState<number>()
+  const [added, setAdded] = useState<Added>()
   const [addError, setAddError] = useState<string>()
   const existing = useLiveQuery(async () => new Set((await listActiveCards()).map((c) => c.hanzi)), [])
   const known = useLiveQuery(() => knownHanziSet(), [])
+  const toDeck = newDeck !== undefined || target.deckId !== MY_CARDS
 
   // The file handed over by the import page or Settings is ours now.
   useEffect(() => clearWordListFile, [])
@@ -123,16 +219,18 @@ export function WordListImport() {
     }
   }, [])
 
+  // Read once per source: a workbook's sheets become lessons when the cards go into a deck.
+  const read = useEffectEvent((s: Source) => readWordList(s, toDeck))
   useEffect(() => {
-    if (!file) return
+    if (!source) return
     let active = true
-    void readWordList(file).then((o) => active && setOpened(o))
+    void read(source).then((o) => active && setOpened(o))
     return () => {
       active = false
     }
-  }, [file])
+  }, [source])
 
-  const sheet = opened && opened.file === file && 'table' in opened ? opened : undefined
+  const sheet = opened && opened.source === source && 'table' in opened ? opened : undefined
   const result = useMemo(
     () =>
       sheet && existing && known
@@ -155,25 +253,42 @@ export function WordListImport() {
     }
   }, [needsConverter])
 
-  function choose(next: File | undefined) {
+  function choose(next: Source | undefined) {
     if (!next) return
-    setFile(next)
-    setTag(tagFromFileName(next.name))
+    setSource(next)
+    setTag(next instanceof File && !toDeck ? tagFromFileName(next.name) : '')
     setOptions(DEFAULT_WORD_LIST_OPTIONS)
     setAdded(undefined)
     setAddError(undefined)
   }
 
+  function setTarget(t: Target) {
+    setNewDeck(undefined)
+    const next = new URLSearchParams(targetQuery(t))
+    if (pasting) next.set('paste', '1')
+    setParams(next, { replace: true })
+  }
+
   async function add() {
-    if (!result || !result.drafts.length) return
+    if (!result || !result.drafts.length || !decks || !lessons) return
     setAdding(true)
     setAddError(undefined)
     try {
+      const deckId = newDeck !== undefined ? (await createDeck(newDeck)).id : target.deckId
+      const lessonId = newDeck !== undefined ? undefined : target.lessonId
+      const titles = deckId !== MY_CARDS ? lessonTitles(result.drafts) : []
+      const made = titles.length ? await ensureLessons(deckId, titles) : new Map()
       const cards = await createCards(
-        withTag(result.drafts, tag).map((d) => ({ ...d, source: { type: 'manual' } as const })),
+        withTag(result.drafts, tag).map(({ lesson, ...d }) => ({
+          ...d,
+          source: { type: 'manual' } as const,
+          deckId,
+          lessonId: (lesson && made.get(titleKey(lesson))?.id) || lessonId,
+        })),
         Date.now(),
       )
-      setAdded(cards.length)
+      const where: Target = titles.length > 1 || !lessonId ? { deckId } : { deckId, lessonId }
+      setAdded({ count: cards.length, target: where, label: newDeck?.trim() || targetLabel(where, decks, lessons), lessons: titles.length, tag: tag.trim().replace(/\s+/g, '-') })
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'Could not add the cards.')
     } finally {
@@ -193,17 +308,27 @@ export function WordListImport() {
       }}
     />
   )
+  const title = pasting && !(source instanceof File) ? 'Paste from a spreadsheet' : 'Import a word list'
 
-  if (added !== undefined) {
-    const query = tag.trim().replace(/\s+/g, '-')
+  if (added) {
+    const inDeck = added.target.deckId !== MY_CARDS
+    const deckPage = added.target.lessonId ? `/decks/${added.target.deckId}/${added.target.lessonId}` : `/decks/${added.target.deckId}`
     return (
       <>
-        <PageHeader title="Word list imported" back={back} />
+        <PageHeader title="Cards added" back={back} />
         <section className="rounded-3xl border border-line bg-surface p-5">
-          <p className="text-lg font-semibold">Added {plural(added, 'card')}.</p>
+          <p className="text-lg font-semibold">
+            Added {plural(added.count, 'card')}
+            {inDeck && ` to ${added.label}`}
+            {added.lessons > 1 && ` in ${plural(added.lessons, 'lesson')}`}.
+          </p>
           <p className="mt-1 text-muted">New cards wait in the new-card pool; a few are introduced each day.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => navigate(query ? `/cards?q=${encodeURIComponent(query)}` : '/cards', { replace: true })}>See them in Your cards</Button>
+            {inDeck ? (
+              <Button onClick={() => navigate(deckPage, { replace: true })}>Open {added.target.lessonId ? 'the lesson' : 'the deck'}</Button>
+            ) : (
+              <Button onClick={() => navigate(added.tag ? `/cards?q=${encodeURIComponent(added.tag)}` : '/cards', { replace: true })}>See them in Your cards</Button>
+            )}
             <Button variant="secondary" onClick={() => navigate('/', { replace: true })}>
               Home
             </Button>
@@ -213,48 +338,82 @@ export function WordListImport() {
     )
   }
 
-  if (!file) {
+  if (!source) {
     return (
       <>
-        <PageHeader title="Import a word list" back={back} />
-        <section className="rounded-3xl border border-line bg-surface p-5">
-          <p className="mb-3 text-sm text-muted">Bring your words over from another app or a spreadsheet. No AI needed: the file is read on this device.</p>
-          <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
-            <li>Anki: “Notes in Plain Text” (.txt)</li>
-            <li>Pleco: exported flashcards (.txt)</li>
-            <li>Quizlet: the exported text, saved as a .txt file</li>
-            <li>Excel, Numbers or Google Sheets: saved as CSV or tab-separated text</li>
-          </ul>
-          <Button size="lg" className="w-full" onClick={() => fileInput.current?.click()}>
-            <Icon name="upload" /> Choose a file
-          </Button>
-          {picker}
-        </section>
+        <PageHeader title={title} back={back} />
+        {pasting ? (
+          <section className="mb-4 rounded-3xl border border-line bg-surface p-5">
+            <p className="mb-3 text-sm text-muted">
+              In Excel, Google Sheets or Numbers, select the rows (with the column names on top) and copy them, then paste here. No AI needed: everything stays on
+              this device.
+            </p>
+            <textarea
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              rows={8}
+              lang="zh-Hant"
+              aria-label="Pasted rows"
+              placeholder={'Lesson\tCharacters\tPinyin\tMeaning\n1\t餐廳\tcāntīng\trestaurant\n1\t菜單\tcàidān\tmenu'}
+              className="w-full rounded-xl border border-line bg-paper px-3 py-2 font-mono text-sm outline-none focus:border-accent"
+            />
+            <Button size="lg" className="mt-3 w-full" disabled={!pasted.trim()} onClick={() => choose({ pasted })}>
+              Read the rows
+            </Button>
+            <p className="mt-3 text-sm">
+              <button type="button" className="font-semibold text-accent" onClick={() => fileInput.current?.click()}>
+                Or choose a file →
+              </button>
+            </p>
+            {picker}
+          </section>
+        ) : (
+          <section className="mb-4 rounded-3xl border border-line bg-surface p-5">
+            <p className="mb-3 text-sm text-muted">Bring your words over from a spreadsheet or another app. No AI needed: the file is read on this device.</p>
+            <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
+              <li>Excel (.xlsx), or a CSV or tab-separated file from any spreadsheet</li>
+              <li>Anki: “Notes in Plain Text” (.txt)</li>
+              <li>Pleco: exported flashcards (.txt)</li>
+              <li>Quizlet: the exported text, saved as a .txt file</li>
+            </ul>
+            <Button size="lg" className="w-full" onClick={() => fileInput.current?.click()}>
+              <Icon name="upload" /> Choose a file
+            </Button>
+            <p className="mt-3 text-sm">
+              <Link to={query ? `/import/list?paste=1&${query}` : '/import/list?paste=1'} replace className="font-semibold text-accent">
+                Or paste rows from a spreadsheet →
+              </Link>
+            </p>
+            {picker}
+          </section>
+        )}
+        <FileHelp open={pasting} />
       </>
     )
   }
 
-  if (opened?.file === file && 'error' in opened) {
+  if (opened?.source === source && 'error' in opened) {
     return (
       <>
-        <PageHeader title="Import a word list" back={back} />
-        <section className="rounded-3xl border border-line bg-surface p-5">
-          <p className="font-semibold break-all">{file.name}</p>
-          <p className="mt-1 text-sm text-red-600">{opened.error}</p>
-          <Button variant="secondary" className="mt-4" onClick={() => fileInput.current?.click()}>
-            Choose another file
+        <PageHeader title={title} back={back} />
+        <section className="mb-4 rounded-3xl border border-line bg-surface p-5">
+          <p className="font-semibold break-all">{nameOf(source)}</p>
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{opened.error}</p>
+          <Button variant="secondary" className="mt-4" onClick={() => (source instanceof File ? fileInput.current?.click() : setSource(undefined))}>
+            {source instanceof File ? 'Choose another file' : 'Paste again'}
           </Button>
           {picker}
         </section>
+        <FileHelp open />
       </>
     )
   }
 
-  if (!sheet || !result) {
+  if (!sheet || !result || !decks || !lessons) {
     return (
       <>
-        <PageHeader title="Import a word list" back={back} />
-        <Loading label="Reading the file…" />
+        <PageHeader title={title} back={back} />
+        <Loading label="Reading the rows…" />
       </>
     )
   }
@@ -264,24 +423,46 @@ export function WordListImport() {
   const converterLoading = needsConverter
   const setRole = (col: number, role: ColumnRole) => setOpened({ ...sheet, roles: assignRole(roles, col, role) })
   const option = (key: keyof WordListOptions, value: boolean) => setOptions((o) => ({ ...o, [key]: value }))
+  const lessonNames = lessonTitles(result.drafts)
+  const fileLessons = roles.includes('lesson') && lessonNames.length > 0
+
+  function chooseSheet(value: string) {
+    if (!sheet?.workbook) return
+    const choice = value === 'lessons' ? 'lessons' : Number(value)
+    setOpened(withTable({ source: sheet.source, workbook: sheet.workbook, choice }, sheetTable(sheet.workbook, choice)))
+  }
 
   return (
     <>
-      <PageHeader title="Import a word list" back={back} />
+      <PageHeader title={title} back={back} />
 
       <section className="mb-4 flex items-start gap-3 rounded-3xl border border-line bg-surface p-4">
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{file.name}</p>
+          <p className="truncate font-semibold">{nameOf(source)}</p>
           <p className="text-sm text-muted">
             {table.label} · {plural(table.rows.length, 'row')}
-            {sheet.encoding !== 'utf-8' && ` · read as ${ENCODING_LABEL[sheet.encoding]}`}
+            {sheet.encoding && sheet.encoding !== 'utf-8' && ` · read as ${ENCODING_LABEL[sheet.encoding]}`}
           </p>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => fileInput.current?.click()}>
+        <Button size="sm" variant="ghost" onClick={() => (source instanceof File ? fileInput.current?.click() : setSource(undefined))}>
           Change
         </Button>
         {picker}
       </section>
+
+      {sheet.workbook && sheet.workbook.length > 1 && (
+        <label className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-3xl border border-line bg-surface p-4">
+          <span className="font-medium">Sheets</span>
+          <select value={String(sheet.choice)} onChange={(e) => chooseSheet(e.target.value)} className={cn(selectClass, 'flex-1 basis-56')}>
+            <option value="lessons">All {sheet.workbook.length} sheets, one lesson each</option>
+            {sheet.workbook.map((s, i) => (
+              <option key={i} value={i}>
+                Only “{s.name}”
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <section className="mb-4 rounded-3xl border border-line bg-surface p-4">
         <h2 className="mb-1 text-lg font-semibold">Columns</h2>
@@ -329,37 +510,84 @@ export function WordListImport() {
               </tr>
             </thead>
             <tbody>
-              {result.rows.slice(0, PREVIEW_ROWS).map((row) => (
-                <Fragment key={row.index}>
-                  <tr className={cn('border-t border-line', row.skipped && 'opacity-50')}>
-                    <td className={cn('truncate px-3 pt-2 text-base', !row.issues.length && 'pb-2')} lang="zh-Hant">
-                      {row.draft.hanzi || '—'}
-                    </td>
-                    <td className={cn('truncate px-3 pt-2', !row.issues.length && 'pb-2')}>
-                      <Reading pinyin={row.draft.pinyin} hanzi={row.draft.hanzi} />
-                    </td>
-                    <td className={cn('truncate px-3 pt-2', !row.issues.length && 'pb-2')}>{row.draft.meaning}</td>
-                  </tr>
-                  {row.issues.length > 0 && (
-                    <tr className={cn(row.skipped && 'opacity-50')}>
-                      <td colSpan={3} className="px-3 pt-1 pb-2">
-                        <div className="flex flex-wrap gap-1">
-                          {row.skipped && <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', TONE_CLASS.info)}>skipped</span>}
-                          {row.issues.map((issue) => (
-                            <span key={issue} className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', TONE_CLASS[ISSUE_INFO[issue].tone])}>
-                              {ISSUE_INFO[issue].label}
-                            </span>
-                          ))}
-                        </div>
+              {result.rows.slice(0, PREVIEW_ROWS).map((row) => {
+                const grammar = row.draft.tags?.includes(GRAMMAR_TAG)
+                const chips = row.issues.length > 0 || !!row.draft.lesson || grammar
+                return (
+                  <Fragment key={row.index}>
+                    <tr className={cn('border-t border-line', row.skipped && 'opacity-50')}>
+                      <td className={cn('truncate px-3 pt-2 text-base', !chips && 'pb-2')} lang="zh-Hant">
+                        {row.draft.hanzi || '—'}
                       </td>
+                      <td className={cn('truncate px-3 pt-2', !chips && 'pb-2')}>
+                        <Reading pinyin={row.draft.pinyin} hanzi={row.draft.hanzi} />
+                      </td>
+                      <td className={cn('truncate px-3 pt-2', !chips && 'pb-2')}>{row.draft.meaning}</td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
+                    {chips && (
+                      <tr className={cn(row.skipped && 'opacity-50')}>
+                        <td colSpan={3} className="px-3 pt-1 pb-2">
+                          <div className="flex flex-wrap gap-1">
+                            {row.draft.lesson && <span className="rounded-full bg-sunken px-2 py-0.5 text-[11px] font-medium text-muted">{row.draft.lesson}</span>}
+                            {grammar && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">grammar</span>}
+                            {row.skipped && <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', TONE_CLASS.info)}>skipped</span>}
+                            {row.issues.map((issue) => (
+                              <span key={issue} className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', TONE_CLASS[ISSUE_INFO[issue].tone])}>
+                                {ISSUE_INFO[issue].label}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
         {table.rows.length > PREVIEW_ROWS && <p className="mt-2 text-xs text-muted">The first {PREVIEW_ROWS} of {plural(table.rows.length, 'row')}.</p>}
+      </section>
+
+      <section className="mb-4 flex flex-col gap-3 rounded-3xl border border-line bg-surface p-4">
+        <h2 className="text-lg font-semibold">Where they go</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {newDeck !== undefined ? (
+            <>
+              <input
+                value={newDeck}
+                onChange={(e) => setNewDeck(e.target.value)}
+                placeholder="New deck name"
+                aria-label="New deck name"
+                autoFocus
+                className={cn(selectClass, 'flex-1 basis-56')}
+              />
+              <Button size="sm" variant="ghost" onClick={() => setNewDeck(undefined)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <TargetSelect
+              value={target}
+              onChange={setTarget}
+              decks={decks}
+              lessons={lessons}
+              onNewDeck={() => setNewDeck(source instanceof File ? source.name.replace(/\.[^.]*$/, '') : '')}
+              className="flex-1 basis-56"
+            />
+          )}
+        </div>
+        {fileLessons &&
+          (toDeck ? (
+            <p className="text-sm text-muted">
+              The Lesson {sheet.choice === 'lessons' ? 'sheets make' : 'column makes'} {plural(lessonNames.length, 'lesson')}: {lessonNames.slice(0, 6).join(', ')}
+              {lessonNames.length > 6 && ', …'}. Lessons the deck already has are reused.
+            </p>
+          ) : (
+            <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              The file has {plural(lessonNames.length, 'lesson')}. Choose a deck (or a new one) to keep them; in My cards there are no lessons.
+            </p>
+          ))}
       </section>
 
       <section className="mb-4 flex flex-col gap-3 rounded-3xl border border-line bg-surface p-4">
@@ -398,7 +626,7 @@ export function WordListImport() {
             spellCheck={false}
           />
           <span className="text-muted">
-            Find the cards later by searching for it in Your cards (Settings).
+            Optional. Find the cards later by searching for it in Your cards (Settings).
             {table.format === 'pleco' && ' Pleco categories are added as tags too.'}
             {table.format === 'anki' && ' Anki tags are kept too.'}
           </span>
@@ -408,10 +636,13 @@ export function WordListImport() {
       <p className="mb-3 text-sm text-muted" aria-live="polite">
         {summary(result, options, table.rows.length)}
       </p>
-      <Button size="lg" className="w-full" onClick={() => void add()} disabled={!count || adding || converterLoading}>
+      <Button size="lg" className="w-full" onClick={() => void add()} disabled={!count || adding || converterLoading || (newDeck !== undefined && !newDeck.trim())}>
         {adding ? 'Adding…' : count ? `Add ${plural(count, 'card')}` : 'Nothing to add'}
       </Button>
-      {addError && <p className="mt-3 text-sm text-red-600">{addError}</p>}
+      {addError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{addError}</p>}
+      <div className="mt-6">
+        <FileHelp />
+      </div>
     </>
   )
 }

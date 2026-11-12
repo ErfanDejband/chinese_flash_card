@@ -93,3 +93,12 @@ describe('assignRole', () => {
     expect(assignRole(['hanzi', 'notes', 'meaning'], 2, 'notes')).toEqual(['hanzi', 'notes', 'notes'])
   })
 })
+
+describe('lesson and type columns', () => {
+  it('are found by their exact names only', () => {
+    for (const name of ['Lesson', 'Unit', '課', '第幾課', '單元']) expect(roleFromName(name)?.role).toBe('lesson')
+    for (const name of ['Type', 'Kind', '類型']) expect(roleFromName(name)?.role).toBe('type')
+    // A heading row inside a list is data, not a column name.
+    expect(roleFromName('Lesson 1')).toBeUndefined()
+  })
+})

@@ -1,5 +1,6 @@
 import type { CardDraft } from '@/data/repositories/cards'
 import { containsHan } from '@/domain/cjk'
+import { GRAMMAR_TAG } from '@/domain/grammar'
 import { checkPinyin, suggestPinyin } from '@/domain/pinyin/suggest'
 import { looksLikePinyin, normalizePinyin } from '@/domain/pinyin/tones'
 import type { ColumnRole } from './columns'
@@ -44,10 +45,15 @@ export type RowIssue =
   | 'pinyin-mismatch'
   | 'tone-differs'
 
+/** A card draft from a word list, with the lesson its row names (when the list has a Lesson column). */
+export interface ListDraft extends CardDraft {
+  lesson?: string
+}
+
 export interface RowResult {
   /** Index into `table.rows`. */
   index: number
-  draft: CardDraft
+  draft: ListDraft
   issues: RowIssue[]
   /** Not imported (no characters, a repeat, or skipped by an option). */
   skipped: boolean
@@ -56,7 +62,7 @@ export interface RowResult {
 export interface WordListResult {
   rows: RowResult[]
   /** The cards to add, in file order. */
-  drafts: CardDraft[]
+  drafts: ListDraft[]
   /** Rows per issue (skipped or not). */
   counts: Record<RowIssue, number>
 }
@@ -93,6 +99,20 @@ function pick(row: string[], roles: readonly ColumnRole[], role: ColumnRole, joi
 
 const compactPinyin = (pinyin: string) => pinyin.toLowerCase().replace(/[^\p{L}\p{M}]/gu, '')
 
+/** A Lesson cell as a lesson title: a bare number `3` reads "Lesson 3". */
+export function lessonTitle(cell: string): string {
+  const t = cell.replace(/\s+/g, ' ').trim()
+  return /^\d+$/.test(t) ? `Lesson ${Number(t)}` : t
+}
+
+/** A Type cell that says grammar (語法, 文法, 句型, pattern). Anything else is a word. */
+export const isGrammarType = (cell: string) => /^(grammar|grammar point|g|pattern|sentence pattern|語法|语法|文法|句型)$/i.test(cell.trim())
+
+/** The lessons the drafts name, in the order they first appear. */
+export function lessonTitles(drafts: readonly ListDraft[]): string[] {
+  return [...new Set(drafts.flatMap((d) => (d.lesson ? [d.lesson] : [])))]
+}
+
 /**
  * Turn rows into card drafts in one pass. Rows without Han characters and repeats within the file
  * are skipped; words already in the deck and known words too when the options say so. Simplified
@@ -105,10 +125,15 @@ export function buildDrafts(table: ParsedTable, roles: readonly ColumnRole[], op
   ) as Record<RowIssue, number>
   const seen = new Set<string>()
   const results: RowResult[] = []
-  const drafts: CardDraft[] = []
+  const drafts: ListDraft[] = []
+  const hasLessons = roles.includes('lesson')
+  // An empty Lesson cell continues the lesson above (merged cells keep only the first value).
+  let lesson = ''
 
   table.rows.forEach((row, index) => {
     const issues: RowIssue[] = []
+    if (hasLessons) lesson = lessonTitle(pick(row, roles, 'lesson', ' ')) || lesson
+    const grammar = isGrammarType(pick(row, roles, 'type'))
     let hanzi = pick(row, roles, 'hanzi')
     let pinyin = pick(row, roles, 'pinyin')
     let meaning = pick(row, roles, 'meaning')
@@ -167,11 +192,12 @@ export function buildDrafts(table: ParsedTable, roles: readonly ColumnRole[], op
         skipped = true
       }
       seen.add(key)
-      if (ctx.knownHanzi.has(hanzi)) {
+      if (ctx.knownHanzi.has(hanzi) && !grammar) {
         issues.push('known')
         skipped ||= options.skipKnown
       }
-      if (!skipped && !issues.includes('pinyin-filled') && pinyin) {
+      // A grammar pattern (雖然…但是…) isn't a dictionary word: no reading check.
+      if (!skipped && !grammar && !issues.includes('pinyin-filled') && pinyin) {
         const result = check(`${hanzi}\t${pinyin}`)
         if (result === 'mismatch') issues.push('pinyin-mismatch')
         else if (result === 'tone-differs') issues.push('tone-differs')
@@ -179,8 +205,9 @@ export function buildDrafts(table: ParsedTable, roles: readonly ColumnRole[], op
     }
 
     const tagCells = pick(row, roles, 'tags', ' ')
-    const tags = [...new Set([...table.fileTags, ...(table.rowTags[index] ?? []), ...tagCells.split(/[\s,;]+/)].filter(Boolean))]
-    const draft: CardDraft = { hanzi, pinyin, tags }
+    const tags = [...new Set([...table.fileTags, ...(table.rowTags[index] ?? []), ...tagCells.split(/[\s,;]+/), ...(grammar ? [GRAMMAR_TAG] : [])].filter(Boolean))]
+    const draft: ListDraft = { hanzi, pinyin, tags }
+    if (lesson) draft.lesson = lesson
     if (meaning) draft.meaning = meaning
     const note = notes.filter(Boolean).join('\n')
     if (note) draft.notes = note
@@ -201,7 +228,7 @@ export function buildDrafts(table: ParsedTable, roles: readonly ColumnRole[], op
 }
 
 /** The tag the user chose (spaces become `-`) in front of each draft's own tags. Kept out of {@link buildDrafts} so typing it re-runs nothing. */
-export function withTag(drafts: readonly CardDraft[], tag: string): CardDraft[] {
+export function withTag<T extends CardDraft>(drafts: readonly T[], tag: string): T[] {
   const t = tag.trim().replace(/\s+/g, '-')
   return t ? drafts.map((d) => ({ ...d, tags: [t, ...(d.tags ?? []).filter((x) => x !== t)] })) : [...drafts]
 }
